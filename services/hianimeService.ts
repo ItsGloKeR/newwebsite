@@ -1,21 +1,21 @@
 
-import { HiAnime } from "../types";
+import { HiAnime } from '../types';
 
-// This is a placeholder/mock service. In a real application, this would
-// make network requests to the HiAnime API or a backend that scrapes it.
-const MOCK_API_URL = 'https://hianime-api.example.com';
+// This is a mock service as the actual HiAnime API is not provided.
+// It returns some placeholder data.
 
-export const searchHiAnime = async (searchTerm: string): Promise<HiAnime[]> => {
-    console.log(`Searching HiAnime for: ${searchTerm}`);
-    // Mock response
-    return [
-        { id: '1', title: `${searchTerm} - HiAnime Result 1`, coverImage: 'https://via.placeholder.com/150/0000FF/808080?text=HiAnime', url: '#' },
-        { id: '2', title: `${searchTerm} - HiAnime Result 2`, coverImage: 'https://via.placeholder.com/150/FF0000/FFFFFF?text=HiAnime', url: '#' },
-    ];
+const mockHiAnime: HiAnime[] = [
+  { id: '1', title: 'Mock Anime 1 from HiAnime', coverImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx153518-7FNR7zLsdAQF.jpg' },
+  { id: '2', title: 'Mock Anime 2 from HiAnime', coverImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-m5ZlO3YsoT42.jpg' },
+  { id: '3', title: 'Mock Anime 3 from HiAnime', coverImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx142838-L1mI8aD9D21h.jpg' },
+  { id: '4', title: 'Mock Anime 4 from HiAnime', coverImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-f2MYoE5m2g2F.jpg' },
+  { id: '5', title: 'Mock Anime 5 from HiAnime', coverImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx124381-4a1WrcmMApG6.png' },
+];
+
+export const getFeaturedAnime = async (): Promise<HiAnime[]> => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve(mockHiAnime);
+    }, 500);
+  });
 };
-
-export const getHiAnimeStreamUrl = async (id: string, episode: number): Promise<string> => {
-    console.log(`Getting HiAnime stream for id: ${id}, episode: ${episode}`);
-    // Mock response
-    return `${MOCK_API_URL}/watch/${id}/ep/${episode}`;
-}

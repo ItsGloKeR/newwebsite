@@ -28,8 +28,8 @@ export interface Anime {
 }
 
 export enum StreamSource {
-  Vidnest = 'Vidnest',
-  AnimePahe = 'AnimePahe',
+  Vidnest = 'vidnest',
+  AnimePahe = 'anime-pahe',
 }
 
 export enum StreamLanguage {
@@ -38,14 +38,23 @@ export enum StreamLanguage {
 }
 
 export interface HiAnime {
-    id: string;
-    title: string;
-    coverImage: string;
-    url: string;
+  id: string;
+  title: string;
+  coverImage: string;
 }
 
-export interface HomePageData {
-    trending: Anime[];
-    popular: Anime[];
-    topAiring: Anime[];
+export interface AiringSchedule {
+  id: number;
+  episode: number;
+  airingAt: number; // unix timestamp
+  media: {
+    id: number;
+    title: {
+      romaji: string;
+      english: string | null;
+    };
+    coverImage: {
+      extraLarge: string;
+    };
+  };
 }

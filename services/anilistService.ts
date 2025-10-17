@@ -1,4 +1,5 @@
-import { Anime, RelatedAnime, StaffMember } from '../types';
+
+import { Anime, RelatedAnime, StaffMember, AiringSchedule } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -16,6 +17,9 @@ const ANIME_FIELDS_FRAGMENT = `
   bannerImage
   genres
   episodes
+  nextAiringEpisode {
+    episode
+  }
   seasonYear
   averageScore
   studios(isMain: true) {
@@ -100,6 +104,12 @@ const mapToAnime = (data: any): Anime => {
       relationType: edge.relationType,
     }));
 
+  let episodeCount = data.episodes;
+  if (data.nextAiringEpisode) {
+    // If there's a next airing episode, the number of released episodes is one less.
+    episodeCount = data.nextAiringEpisode.episode - 1;
+  }
+
   return {
     anilistId: data.id,
     title: data.title.english || data.title.romaji,
@@ -107,7 +117,7 @@ const mapToAnime = (data: any): Anime => {
     coverImage: data.coverImage.extraLarge,
     bannerImage: data.bannerImage || data.coverImage.extraLarge,
     genres: data.genres || [],
-    episodes: data.episodes || 0,
+    episodes: episodeCount || 0,
     year: data.seasonYear,
     rating: data.averageScore,
     studios: data.studios?.nodes.map((n: any) => n.name) || [],
@@ -182,4 +192,36 @@ export const getAnimeDetails = async (id: number): Promise<Anime> => {
     const variables = { id };
     const data = await fetchAniListData(query, variables);
     return mapToAnime(data.Media);
+};
+
+export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
+    const query = `
+      query ($airingAt_greater: Int, $airingAt_lesser: Int) {
+        Page(page: 1, perPage: 50) {
+          airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME) {
+            id
+            episode
+            airingAt
+            media {
+              id
+              title {
+                romaji
+                english
+              }
+              coverImage {
+                extraLarge
+              }
+            }
+          }
+        }
+      }
+    `;
+    
+    const now = Math.floor(Date.now() / 1000);
+    // Get schedule for the next 7 days
+    const sevenDaysLater = now + 7 * 24 * 60 * 60;
+
+    const variables = { airingAt_greater: now, airingAt_lesser: sevenDaysLater };
+    const data = await fetchAniListData(query, variables);
+    return data.Page.airingSchedules;
 };
