@@ -6,6 +6,7 @@ export enum StreamSource {
 export enum StreamLanguage {
   Sub = 'sub',
   Dub = 'dub',
+  Hindi = 'hindi',
 }
 
 export interface StaffMember {

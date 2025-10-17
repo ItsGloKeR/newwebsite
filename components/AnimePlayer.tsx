@@ -33,7 +33,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   const handleSourceChange = (source: StreamSource) => {
     onSourceChange(source);
     // If user selects Source 1 (AnimePahe), force the language to SUB
-    // as it doesn't support DUB streams.
+    // as it doesn't support DUB or HINDI streams.
     if (source === StreamSource.AnimePahe) {
       onLanguageChange(StreamLanguage.Sub);
     }
@@ -87,6 +87,8 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                 {renderControlButton(StreamLanguage.Sub, currentLanguage, onLanguageChange, 'SUB')}
                 {currentSource !== StreamSource.AnimePahe &&
                   renderControlButton(StreamLanguage.Dub, currentLanguage, onLanguageChange, 'DUB')}
+                {currentSource !== StreamSource.AnimePahe &&
+                  renderControlButton(StreamLanguage.Hindi, currentLanguage, onLanguageChange, 'HINDI')}
               </div>
             </div>
             
