@@ -1,16 +1,16 @@
-
 import React from 'react';
 import { Anime } from '../types';
 
 interface CarouselCardProps {
   anime: Anime;
   onSelect: (anime: Anime) => void;
+  rank: number;
 }
 
-const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect }) => {
+const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) => {
   return (
     <div
-      className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg w-64 flex-shrink-0 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+      className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg w-56 flex-shrink-0 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
       onClick={() => onSelect(anime)}
     >
       <img
@@ -20,8 +20,20 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect }) => {
         loading="lazy"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-      <div className="absolute bottom-0 left-0 p-4">
-        <h3 className="text-white text-md font-bold truncate">{anime.title}</h3>
+      
+      {/* Combined overlay for Rank and Title */}
+      <div className="absolute bottom-0 left-0 w-full flex items-end p-2">
+        {/* Rank number is positioned absolutely but within the card's bounds */}
+        <div className="absolute bottom-0 left-0 pointer-events-none z-10">
+          <span className="text-8xl font-black text-gray-950/50 -translate-y-2" style={{ WebkitTextStroke: '2px #22d3ee' }}>
+            {rank}
+          </span>
+        </div>
+        
+        {/* Title is positioned with a higher z-index and padding to avoid the number */}
+        <h3 className="relative z-20 text-white text-md font-bold truncate w-full pl-14">
+          {anime.title}
+        </h3>
       </div>
     </div>
   );

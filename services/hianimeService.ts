@@ -1,7 +1,8 @@
+import { HiAnime, NextEpisodeSchedule } from '../types';
 
-import { HiAnime } from '../types';
+const HIANIME_API_BASE_URL = 'https://hianime-api-blond.vercel.app/api/v2/hianime';
 
-// This is a mock service as the actual HiAnime API is not provided.
+// This is a mock service as the actual HiAnime API is not provided for all features.
 // It returns some placeholder data.
 
 const mockHiAnime: HiAnime[] = [
@@ -18,4 +19,23 @@ export const getFeaturedAnime = async (): Promise<HiAnime[]> => {
       resolve(mockHiAnime);
     }, 500);
   });
+};
+
+export const fetchNextEpisodeSchedule = async (animeId: string): Promise<NextEpisodeSchedule | null> => {
+  try {
+    const response = await fetch(`${HIANIME_API_BASE_URL}/anime/${animeId}/next-episode-schedule`);
+    if (!response.ok) {
+      // Don't throw an error for 404s, just return null as it means no schedule is available.
+      console.warn(`Could not fetch schedule for ${animeId}: ${response.statusText}`);
+      return null;
+    }
+    const data = await response.json();
+    if (data.success && data.data) {
+      return data.data;
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error fetching schedule for ${animeId}:`, error);
+    return null;
+  }
 };

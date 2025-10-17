@@ -198,10 +198,16 @@ const App: React.FC = () => {
             }
             <main className="container mx-auto p-4 md:p-8">
               {isLoading && trending.length === 0 && <div className="flex justify-center items-center h-64"><LoadingSpinner /></div>}
-              {trending.length > 0 && <AnimeCarousel title="Trending Now" animeList={trending} onSelectAnime={handleSelectAnime} />}
-              <GenreFilter selectedGenres={selectedGenres} onGenreToggle={handleGenreToggle} />
-              {filteredPopular.length > 0 && <AnimeGrid title="Popular This Season" animeList={filteredPopular} onSelectAnime={handleSelectAnime} />}
-              {topAiring.length > 0 && <VerticalAnimeList title="Top Airing" animeList={topAiring} onSelectAnime={handleSelectAnime} />}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div className="lg:col-span-3">
+                  {trending.length > 0 && <AnimeCarousel title="Trending Now" animeList={trending} onSelectAnime={handleSelectAnime} />}
+                  <GenreFilter selectedGenres={selectedGenres} onGenreToggle={handleGenreToggle} />
+                  {filteredPopular.length > 0 && <AnimeGrid title="Popular This Season" animeList={filteredPopular} onSelectAnime={handleSelectAnime} />}
+                </div>
+                <div className="lg:col-span-1">
+                  {topAiring.length > 0 && <VerticalAnimeList title="Top Airing" animeList={topAiring} onSelectAnime={handleSelectAnime} />}
+                </div>
+              </div>
             </main>
           </>
         );

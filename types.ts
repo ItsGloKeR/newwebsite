@@ -1,3 +1,12 @@
+export enum StreamSource {
+  Vidnest = 'vidnest',
+  AnimePahe = 'animepahe',
+}
+
+export enum StreamLanguage {
+  Sub = 'sub',
+  Dub = 'dub',
+}
 
 export interface StaffMember {
   id: number;
@@ -27,34 +36,28 @@ export interface Anime {
   relations: RelatedAnime[];
 }
 
-export enum StreamSource {
-  Vidnest = 'vidnest',
-  AnimePahe = 'anime-pahe',
+export interface AiringSchedule {
+  id: number;
+  episode: number;
+  airingAt: number; // timestamp
+  media: {
+    id: number;
+    title: {
+      romaji: string;
+      english?: string;
+    };
+    coverImage: {
+      extraLarge: string;
+    };
+  };
 }
 
-export enum StreamLanguage {
-  Sub = 'sub',
-  Dub = 'dub',
+export interface NextEpisodeSchedule {
+  secondsUntilAiring: number;
 }
 
 export interface HiAnime {
   id: string;
   title: string;
   coverImage: string;
-}
-
-export interface AiringSchedule {
-  id: number;
-  episode: number;
-  airingAt: number; // unix timestamp
-  media: {
-    id: number;
-    title: {
-      romaji: string;
-      english: string | null;
-    };
-    coverImage: {
-      extraLarge: string;
-    };
-  };
 }

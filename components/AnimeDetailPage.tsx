@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Anime, RelatedAnime } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Anime, RelatedAnime, NextEpisodeSchedule } from '../types';
 import GenrePill from './GenrePill';
+import { fetchNextEpisodeSchedule } from '../services/hianimeService';
 
 const RELATED_ANIME_LIMIT = 10;
 
@@ -25,6 +26,30 @@ const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) 
   </div>
 );
 
+const CountdownTimer: React.FC<{ seconds: number }> = ({ seconds }) => {
+    const [remaining, setRemaining] = useState(seconds);
+
+    useEffect(() => {
+        if (remaining <= 0) return;
+        const interval = setInterval(() => {
+            setRemaining(prev => prev - 1);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [remaining]);
+
+    const d = Math.floor(remaining / (3600*24));
+    const h = Math.floor(remaining % (3600*24) / 3600);
+    const m = Math.floor(remaining % 3600 / 60);
+    const s = Math.floor(remaining % 60);
+
+    return (
+        <p className="text-lg">
+            Next episode airs in: <span className="font-bold text-cyan-400">{d}d {h}h {m}m {s}s</span>
+        </p>
+    );
+};
+
+
 interface AnimeDetailPageProps {
   anime: Anime;
   onWatchNow: (anime: Anime) => void;
@@ -34,6 +59,28 @@ interface AnimeDetailPageProps {
 
 const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [schedule, setSchedule] = useState<NextEpisodeSchedule | null>(null);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
+
+  useEffect(() => {
+    const getSchedule = async () => {
+      if (!anime.title) return;
+      setIsLoadingSchedule(true);
+      // Construct a plausible ID from the title for the hianime-api.
+      // This is a best-effort approach as we don't have the exact ID.
+      const hianimeId = anime.title
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces/hyphens
+        .replace(/[\s]+/g, '-')       // Replace spaces with hyphens
+        .replace(/--+/g, '-');        // Replace multiple hyphens
+      
+      const scheduleData = await fetchNextEpisodeSchedule(hianimeId);
+      setSchedule(scheduleData);
+      setIsLoadingSchedule(false);
+    };
+
+    getSchedule();
+  }, [anime.anilistId, anime.title]); // Refetch when the anime changes
 
   const mainStaff = anime.staff.filter(s => ['Director', 'Original Creator', 'Series Composition'].includes(s.role));
 
@@ -68,7 +115,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
           </div>
           <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-end md:pb-8">
             <button onClick={onBack} className="absolute top-4 left-4 text-white bg-black/50 p-2 rounded-full hover:bg-cyan-500 transition-colors z-20">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -106,7 +153,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
               )}
             </div>
           </div>
-          <div className="lg:col-span-1 flex flex-col gap-4">
+          <div className="lg:col-span-1 flex flex-col gap-6">
              <div>
                 <h3 className="font-bold text-lg mb-2">Studios</h3>
                 <p className="text-gray-400">{anime.studios.join(', ')}</p>
@@ -120,6 +167,13 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
                   </div>
                 ))}
              </div>
+             {/* Schedule Countdown Section */}
+             {!isLoadingSchedule && schedule?.secondsUntilAiring && schedule.secondsUntilAiring > 0 && (
+                <div>
+                    <h3 className="font-bold text-lg mb-2">Next Episode</h3>
+                    <CountdownTimer seconds={schedule.secondsUntilAiring} />
+                </div>
+             )}
           </div>
         </div>
 
