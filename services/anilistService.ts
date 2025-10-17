@@ -1,8 +1,8 @@
-import { Anime } from '../types';
+import { Anime, RelatedAnime, StaffMember } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
-const ANIME_QUERY_FRAGMENT = `
+const ANIME_FIELDS_FRAGMENT = `
   id
   title {
     romaji
@@ -11,13 +11,11 @@ const ANIME_QUERY_FRAGMENT = `
   description(asHtml: false)
   coverImage {
     extraLarge
+    color
   }
   bannerImage
   genres
   episodes
-  nextAiringEpisode {
-    episode
-  }
   seasonYear
   averageScore
   studios(isMain: true) {
@@ -25,7 +23,7 @@ const ANIME_QUERY_FRAGMENT = `
       name
     }
   }
-  staff(perPage: 15, sort: RELEVANCE) {
+  staff(sort: [RELEVANCE, ID]) {
     edges {
       role
       node {
@@ -41,19 +39,21 @@ const ANIME_QUERY_FRAGMENT = `
       relationType(version: 2)
       node {
         id
+        type
         title {
           romaji
+          english
         }
         coverImage {
-          large
+          extraLarge
         }
       }
     }
   }
 `;
 
-// Helper function to fetch from AniList API
-const fetchAniList = async (query: string, variables: object) => {
+// Helper function to fetch data from AniList
+const fetchAniListData = async (query: string, variables: object) => {
   const response = await fetch(ANILIST_API_URL, {
     method: 'POST',
     headers: {
@@ -62,90 +62,124 @@ const fetchAniList = async (query: string, variables: object) => {
     },
     body: JSON.stringify({ query, variables }),
   });
+
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    throw new Error(`AniList API error: ${response.statusText}`);
   }
+
   const json = await response.json();
+  if (json.errors) {
+    console.error("AniList API Errors:", json.errors);
+    throw new Error(`GraphQL Error: ${json.errors.map((e: any) => e.message).join(', ')}`);
+  }
+
   return json.data;
 };
 
-// Helper function to map API data to our Anime type
-const mapAniListDataToAnime = (data: any): Anime => {
-  if (!data) return {} as Anime; // Should not happen in normal flow
+// Helper to map API response to our Anime type
+const mapToAnime = (data: any): Anime => {
+  // Basic sanitation for description
+  const description = data.description
+    ? data.description.replace(/<br\s*\/?>/gi, '\n').replace(/<i>|<\/i>/g, '')
+    : 'No description available.';
 
-  let currentEpisodeCount = 1;
-  if (data.nextAiringEpisode && data.nextAiringEpisode.episode) {
-    // This anime is currently airing. The last available episode is the one before the next one.
-    currentEpisodeCount = data.nextAiringEpisode.episode - 1;
-  } else if (data.episodes) {
-    // This anime has finished airing or has a known total.
-    currentEpisodeCount = data.episodes;
-  }
-
-  return {
-    anilistId: data.id,
-    title: data.title.romaji || data.title.english || '',
-    description: data.description?.replace(/<br><br>/g, '\n').replace(/<br>/g, '\n').replace(/<[^>]+>/g, '') || '',
-    coverImage: data.coverImage.extraLarge,
-    bannerImage: data.bannerImage || data.coverImage.extraLarge,
-    genres: data.genres,
-    episodes: currentEpisodeCount,
-    year: data.seasonYear,
-    rating: data.averageScore,
-    studios: data.studios.nodes.map((studio: any) => studio.name),
-    staff: data.staff.edges.map((edge: any) => ({
+  const staff: StaffMember[] = (data.staff?.edges || [])
+    .slice(0, 15) // Limit staff to avoid clutter
+    .map((edge: any) => ({
       id: edge.node.id,
       name: edge.node.name.full,
       role: edge.role,
-    })),
-    relations: data.relations.edges.map((edge: any) => ({
+    }));
+  
+  const relations: RelatedAnime[] = (data.relations?.edges || [])
+    .filter((edge: any) => edge.node.type === 'ANIME') // Only include anime relations
+    .map((edge: any) => ({
       id: edge.node.id,
-      title: edge.node.title.romaji,
-      coverImage: edge.node.coverImage.large,
-      relationType: edge.relationType.replace(/_/g, ' '),
-    })),
+      title: edge.node.title.english || edge.node.title.romaji,
+      coverImage: edge.node.coverImage.extraLarge,
+      relationType: edge.relationType,
+    }));
+
+  return {
+    anilistId: data.id,
+    title: data.title.english || data.title.romaji,
+    description,
+    coverImage: data.coverImage.extraLarge,
+    bannerImage: data.bannerImage || data.coverImage.extraLarge,
+    genres: data.genres || [],
+    episodes: data.episodes || 0,
+    year: data.seasonYear,
+    rating: data.averageScore,
+    studios: data.studios?.nodes.map((n: any) => n.name) || [],
+    staff,
+    relations,
   };
 };
 
-export const searchAnime = async (search: string): Promise<Anime[]> => {
+export const getHomePageData = async () => {
+  const query = `
+    query {
+      trending: Page(page: 1, perPage: 10) {
+        media(sort: TRENDING_DESC, type: ANIME, isAdult: false) {
+          ...animeFields
+        }
+      }
+      popular: Page(page: 1, perPage: 24) {
+        media(sort: POPULARITY_DESC, type: ANIME, isAdult: false) {
+          ...animeFields
+        }
+      }
+      topAiring: Page(page: 1, perPage: 10) {
+        media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, isAdult: false) {
+          ...animeFields
+        }
+      }
+    }
+
+    fragment animeFields on Media {
+      ${ANIME_FIELDS_FRAGMENT}
+    }
+  `;
+
+  const data = await fetchAniListData(query, {});
+  
+  return {
+    trending: data.trending.media.map(mapToAnime),
+    popular: data.popular.media.map(mapToAnime),
+    topAiring: data.topAiring.media.map(mapToAnime),
+  };
+};
+
+export const searchAnime = async (searchTerm: string, page = 1, perPage = 20) => {
   const query = `
     query ($search: String, $page: Int, $perPage: Int) {
       Page(page: $page, perPage: $perPage) {
-        media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
-          ${ANIME_QUERY_FRAGMENT}
+        media(search: $search, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+          ...animeFields
         }
       }
     }
+    fragment animeFields on Media {
+      ${ANIME_FIELDS_FRAGMENT}
+    }
   `;
-  const variables = { search, page: 1, perPage: 20 };
-  const data = await fetchAniList(query, variables);
-  return data.Page.media.map(mapAniListDataToAnime);
+  const variables = { search: searchTerm, page, perPage };
+  const data = await fetchAniListData(query, variables);
+  return data.Page.media.map(mapToAnime);
 };
 
-export const fetchAnimeById = async (id: number): Promise<Anime> => {
+export const getAnimeDetails = async (id: number): Promise<Anime> => {
     const query = `
-    query ($id: Int) {
-      Media(id: $id, type: ANIME) {
-        ${ANIME_QUERY_FRAGMENT}
-      }
-    }
-  `;
-  const variables = { id };
-  const data = await fetchAniList(query, variables);
-  return mapAniListDataToAnime(data.Media);
-}
-
-export const fetchPopularAnime = async (): Promise<Anime[]> => {
-  const query = `
-    query ($page: Int, $perPage: Int) {
-      Page(page: $page, perPage: $perPage) {
-        media(sort: POPULARITY_DESC, type: ANIME, isAdult: false) {
-          ${ANIME_QUERY_FRAGMENT}
+      query ($id: Int) {
+        Media(id: $id, type: ANIME) {
+          ...animeFields
         }
       }
-    }
-  `;
-  const variables = { page: 1, perPage: 30 };
-  const data = await fetchAniList(query, variables);
-  return data.Page.media.map(mapAniListDataToAnime);
+      fragment animeFields on Media {
+        ${ANIME_FIELDS_FRAGMENT}
+      }
+    `;
+    const variables = { id };
+    const data = await fetchAniListData(query, variables);
+    return mapToAnime(data.Media);
 };

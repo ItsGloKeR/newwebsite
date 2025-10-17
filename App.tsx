@@ -1,153 +1,191 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Anime, StreamSource, StreamLanguage } from './types';
-import { fetchPopularAnime, searchAnime, fetchAnimeById } from './services/anilistService';
+
+
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
-import Hero from './components/Hero';
 import AnimeGrid from './components/AnimeGrid';
 import AnimeDetailPage from './components/AnimeDetailPage';
 import AnimePlayer from './components/AnimePlayer';
 import LoadingSpinner from './components/LoadingSpinner';
+import { getHomePageData, searchAnime, getAnimeDetails } from './services/anilistService';
+import { Anime, StreamSource, StreamLanguage } from './types';
 import { useDebounce } from './hooks/useDebounce';
+import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
+import VerticalAnimeList from './components/VerticalAnimeList';
+
+
+type View = 'home' | 'detail' | 'player' | 'search';
 
 const App: React.FC = () => {
-  const [trendingAnime, setTrendingAnime] = useState<Anime[]>([]);
-  const [popularAnime, setPopularAnime] = useState<Anime[]>([]);
-  const [featuredAnime, setFeaturedAnime] = useState<Anime | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<Anime[] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [view, setView] = useState<View>('home');
   const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
-  const [detailedAnime, setDetailedAnime] = useState<Anime | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [homePageData, setHomePageData] = useState<{
+    trending: Anime[];
+    popular: Anime[];
+    topAiring: Anime[];
+  } | null>(null);
+  const [searchResults, setSearchResults] = useState<Anime[]>([]);
+
   const [currentEpisode, setCurrentEpisode] = useState(1);
-  const [currentSource, setCurrentSource] = useState<StreamSource>(StreamSource.AnimePahe);
-  const [currentLanguage, setCurrentLanguage] = useState<StreamLanguage>(StreamLanguage.Sub);
-  const [isDetailLoading, setIsDetailLoading] = useState<boolean>(false);
+  const [currentSource, setCurrentSource] = useState(StreamSource.Vidnest);
+  const [currentLanguage, setCurrentLanguage] = useState(StreamLanguage.Sub);
+  
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   useEffect(() => {
-    const getInitialData = async () => {
+    const fetchInitialData = async () => {
       try {
-        const popular = await fetchPopularAnime();
-        setPopularAnime(popular);
-        setTrendingAnime(popular.slice(0, 10));
-        setFeaturedAnime(popular[0] || null);
+        setIsLoading(true);
+        const data = await getHomePageData();
+        setHomePageData(data);
       } catch (error) {
-        console.error("Failed to fetch popular anime:", error);
+        console.error("Failed to fetch home page data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
-    getInitialData();
+    fetchInitialData();
   }, []);
-  
-  const handleSearchSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      setIsSearching(true);
-      setSearchResults(null);
+
+  useEffect(() => {
+    const performSearch = async () => {
+      if (debouncedSearchTerm.trim() === '') {
+        setSearchResults([]);
+        if(view === 'search') setView('home');
+        return;
+      }
       try {
-        const results = await searchAnime(searchTerm.trim());
+        setIsSearching(true);
+        setView('search');
+        const results = await searchAnime(debouncedSearchTerm);
         setSearchResults(results);
       } catch (error) {
-        console.error("Search failed:", error);
-        setSearchResults([]);
+        console.error("Failed to search anime:", error);
       } finally {
         setIsSearching(false);
       }
+    };
+    if (debouncedSearchTerm) {
+      performSearch();
     } else {
-      setSearchResults(null);
+        setSearchResults([]);
+        if(view === 'search') setView('home');
+    }
+  }, [debouncedSearchTerm]);
+
+  const handleSelectAnime = async (anime: Anime | number) => {
+    try {
+      setIsLoading(true);
+      const animeId = typeof anime === 'number' ? anime : anime.anilistId;
+      const details = await getAnimeDetails(animeId);
+      setSelectedAnime(details);
+      setView('detail');
+      window.scrollTo(0, 0);
+    } catch (error) {
+      console.error("Failed to get anime details:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
   
-  const handleGoHome = useCallback(() => {
-    setSelectedAnime(null);
-    setDetailedAnime(null);
-    setSearchTerm('');
-    setSearchResults(null);
-    window.scrollTo(0, 0);
-  }, []);
-  
-  const handleSelectAnime = useCallback((anime: Anime) => {
-    setDetailedAnime(anime);
-    window.scrollTo(0, 0);
-  }, []);
-
-  const handleSelectAnimeById = useCallback(async (id: number) => {
-    setIsDetailLoading(true);
-    setDetailedAnime(null);
-    setSelectedAnime(null);
-    window.scrollTo(0, 0);
-    try {
-      const anime = await fetchAnimeById(id);
-      setDetailedAnime(anime);
-    } catch (error) {
-      console.error("Failed to fetch anime details:", error);
-      handleGoHome();
-    } finally {
-      setIsDetailLoading(false);
-    }
-  }, [handleGoHome]);
-
-  const handleWatchNow = useCallback((anime: Anime) => {
+  const handleWatchNow = (anime: Anime) => {
     setSelectedAnime(anime);
-    setDetailedAnime(null);
     setCurrentEpisode(1);
-  }, []);
-
-  const handleBackFromDetails = useCallback(() => {
-    setDetailedAnime(null);
-  }, []);
-
-  const handleBackFromPlayer = useCallback(() => {
-    // When coming back from player, show the detail page of the anime that was being watched.
-    if(selectedAnime){
-      setDetailedAnime(selectedAnime);
+    setView('player');
+    window.scrollTo(0, 0);
+  };
+  
+  const handleBack = () => {
+    if (view === 'player') {
+      setView('detail');
+    } else if (view === 'detail') {
+      setView(searchTerm ? 'search' : 'home');
     }
+  };
+
+  const handleHome = () => {
+    setView('home');
+    setSearchTerm('');
     setSelectedAnime(null);
-  }, [selectedAnime]);
-  
-  // Debounced search has been replaced by on-submit search
-  // The useDebounce hook is no longer used for triggering searches but we'll keep the hook file for potential future use.
-
-  if (selectedAnime) {
-    return <AnimePlayer anime={selectedAnime} {...{ currentEpisode, currentSource, currentLanguage, onEpisodeChange: setCurrentEpisode, onSourceChange: setCurrentSource, onLanguageChange: setCurrentLanguage, onBack: handleBackFromPlayer }} />;
-  }
-  
-  if (isDetailLoading) {
-    return (
-      <div className="bg-gray-950 min-h-screen">
-        <Header searchTerm={searchTerm} onSearchChange={setSearchTerm} onSearchSubmit={handleSearchSubmit} onHomeClick={handleGoHome} isSearching={isSearching} />
-        <div className="h-[80vh] flex items-center justify-center"><LoadingSpinner /></div>
-      </div>
-    );
   }
 
-  if (detailedAnime) {
-      return <AnimeDetailPage anime={detailedAnime} onWatchNow={handleWatchNow} onBack={handleBackFromDetails} onSelectRelated={handleSelectAnimeById} />;
-  }
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Search is triggered by debouncedSearchTerm effect
+  };
+
+  const renderContent = () => {
+    if (isLoading && !homePageData && view === 'home') {
+        return <div className="h-screen"><LoadingSpinner /></div>;
+    }
+
+    switch (view) {
+      case 'player':
+        if (selectedAnime) {
+          return (
+            <AnimePlayer
+              anime={selectedAnime}
+              currentEpisode={currentEpisode}
+              currentSource={currentSource}
+              currentLanguage={currentLanguage}
+              onEpisodeChange={setCurrentEpisode}
+              onSourceChange={setCurrentSource}
+              onLanguageChange={setCurrentLanguage}
+              onBack={handleBack}
+            />
+          );
+        }
+        return null;
+
+      case 'detail':
+        if (selectedAnime) {
+          return <AnimeDetailPage anime={selectedAnime} onWatchNow={handleWatchNow} onBack={handleBack} onSelectRelated={handleSelectAnime} />;
+        }
+        return <div className="h-screen"><LoadingSpinner /></div>;
+
+      case 'search':
+        return (
+          <main className="container mx-auto p-4 md:p-8">
+            <AnimeGrid title={`Search Results for "${searchTerm}"`} animeList={searchResults} onSelectAnime={handleSelectAnime} />
+          </main>
+        );
+
+      case 'home':
+      default:
+        if (!homePageData) return <div className="h-screen"><LoadingSpinner /></div>;
+        return (
+          <>
+            {homePageData.trending.length > 0 && <Hero animes={homePageData.trending} onWatchNow={handleWatchNow} onDetails={handleSelectAnime}/>}
+            <main className="container mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
+              <div className="lg:col-span-3">
+                <AnimeCarousel title="Trending Now" animeList={homePageData.trending} onSelectAnime={handleSelectAnime} />
+                <AnimeGrid title="Most Popular" animeList={homePageData.popular} onSelectAnime={handleSelectAnime} />
+              </div>
+              <div className="lg:col-span-1">
+                <VerticalAnimeList title="Top Airing" animeList={homePageData.topAiring} onSelectAnime={handleSelectAnime} />
+              </div>
+            </main>
+          </>
+        );
+    }
+  };
 
   return (
     <div className="bg-gray-950 min-h-screen">
-      <Header 
-        searchTerm={searchTerm} 
-        onSearchChange={setSearchTerm} 
+      <Header
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
         onSearchSubmit={handleSearchSubmit}
-        onHomeClick={handleGoHome}
+        onHomeClick={handleHome}
+        onBackClick={handleBack}
+        showBackButton={view === 'detail' || view === 'player'}
         isSearching={isSearching}
-        showBackButton={searchResults !== null}
-        onBackClick={handleGoHome}
       />
-      <main className="container mx-auto p-4 md:p-8">
-        {isSearching ? (
-           <div className="h-[60vh] flex items-center justify-center"><LoadingSpinner /></div>
-        ) : searchResults !== null ? (
-            <AnimeGrid title={searchTerm ? `Search Results for "${searchTerm}"` : 'Search'} animeList={searchResults} onSelectAnime={handleSelectAnime} />
-        ) : (
-          <>
-            <Hero anime={featuredAnime} onWatchNow={handleWatchNow} />
-            {trendingAnime.length > 0 && <AnimeCarousel title="Trending Now" animeList={trendingAnime} onSelectAnime={handleSelectAnime} />}
-            {popularAnime.length > 0 && <AnimeGrid title="All Time Popular" animeList={popularAnime} onSelectAnime={handleSelectAnime} />}
-          </>
-        )}
-      </main>
+      {renderContent()}
     </div>
   );
 };

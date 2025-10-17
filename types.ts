@@ -1,7 +1,8 @@
+
 export interface StaffMember {
   id: number;
   name: string;
-  role:string;
+  role: string;
 }
 
 export interface RelatedAnime {
@@ -25,13 +26,26 @@ export interface Anime {
   staff: StaffMember[];
   relations: RelatedAnime[];
 }
- 
+
 export enum StreamSource {
-  Vidnest = 'vidnest',
-  AnimePahe = 'animepahe',
+  Vidnest = 'Vidnest',
+  AnimePahe = 'AnimePahe',
 }
 
 export enum StreamLanguage {
   Sub = 'sub',
   Dub = 'dub',
+}
+
+export interface HiAnime {
+    id: string;
+    title: string;
+    coverImage: string;
+    url: string;
+}
+
+export interface HomePageData {
+    trending: Anime[];
+    popular: Anime[];
+    topAiring: Anime[];
 }

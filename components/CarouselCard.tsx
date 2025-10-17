@@ -1,39 +1,28 @@
+
 import React from 'react';
 import { Anime } from '../types';
 
 interface CarouselCardProps {
   anime: Anime;
   onSelect: (anime: Anime) => void;
-  index: number;
 }
 
-const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, index }) => {
+const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect }) => {
   return (
-    <div 
-      className="group flex-shrink-0 w-64 md:w-72 cursor-pointer"
+    <div
+      className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg w-64 flex-shrink-0 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
       onClick={() => onSelect(anime)}
     >
-      <div className="relative aspect-video rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
-        <img
-          src={anime.bannerImage}
-          alt={anime.title}
-          className="w-full h-full object-cover"
-          loading="lazy"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (target.src !== anime.coverImage) {
-              target.onerror = null;
-              target.src = anime.coverImage;
-            }
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-        <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-sm rounded-md px-2 py-1">
-          <span className="text-white text-2xl font-black drop-shadow-lg">#{String(index + 1).padStart(2, '0')}</span>
-        </div>
+      <img
+        src={anime.coverImage}
+        alt={anime.title}
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        loading="lazy"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+      <div className="absolute bottom-0 left-0 p-4">
+        <h3 className="text-white text-md font-bold truncate">{anime.title}</h3>
       </div>
-      <h3 className="text-white text-base font-semibold truncate mt-2 group-hover:text-cyan-400 transition-colors">{anime.title}</h3>
-      <p className="text-gray-400 text-sm">{anime.year}</p>
     </div>
   );
 };
