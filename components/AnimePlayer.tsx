@@ -30,6 +30,15 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
 
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
 
+  const handleSourceChange = (source: StreamSource) => {
+    onSourceChange(source);
+    // If user selects Source 1 (AnimePahe), force the language to SUB
+    // as it doesn't support DUB streams.
+    if (source === StreamSource.AnimePahe) {
+      onLanguageChange(StreamLanguage.Sub);
+    }
+  };
+
   const renderControlButton = <T,>(value: T, currentValue: T, setter: (value: T) => void, text: string) => (
     <button
       onClick={() => setter(value)}
@@ -70,13 +79,14 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
             <div className="flex flex-wrap gap-4 items-center mb-4">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-400">Source:</span>
-                {renderControlButton(StreamSource.AnimePahe, currentSource, onSourceChange, 'Source 1')}
-                {renderControlButton(StreamSource.Vidnest, currentSource, onSourceChange, 'Source 2')}
+                {renderControlButton(StreamSource.AnimePahe, currentSource, handleSourceChange, 'Source 1')}
+                {renderControlButton(StreamSource.Vidnest, currentSource, handleSourceChange, 'Source 2')}
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-400">Language:</span>
                 {renderControlButton(StreamLanguage.Sub, currentLanguage, onLanguageChange, 'SUB')}
-                {renderControlButton(StreamLanguage.Dub, currentLanguage, onLanguageChange, 'DUB')}
+                {currentSource !== StreamSource.AnimePahe &&
+                  renderControlButton(StreamLanguage.Dub, currentLanguage, onLanguageChange, 'DUB')}
               </div>
             </div>
             
