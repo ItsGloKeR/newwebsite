@@ -25,7 +25,9 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   onBack
 }) => {
   const episodeCount = anime.episodes || 1;
+
   const streamUrl = `${STREAM_URLS[currentSource]}/${anime.anilistId}/${currentEpisode}/${currentLanguage}`;
+
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
 
   const renderControlButton = <T,>(value: T, currentValue: T, setter: (value: T) => void, text: string) => (
@@ -57,6 +59,9 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
               src={streamUrl}
               title={`${anime.title} - Episode ${currentEpisode}`}
               allowFullScreen
+              // This sandbox attribute is the key to blocking pop-ups.
+              // It allows scripts and fullscreen, but disallows pop-ups by default.
+              sandbox="allow-scripts allow-same-origin allow-presentation"
               className="w-full h-full border-0"
             ></iframe>
           </div>
