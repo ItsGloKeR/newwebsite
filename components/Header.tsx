@@ -16,7 +16,7 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onHomeClick, onScheduleClick,
           className="text-2xl font-black text-white cursor-pointer"
           onClick={onHomeClick}
         >
-          <span className="text-cyan-400">Ani</span>Stream
+          <span className="text-cyan-400">Glok</span>Anime
         </h1>
         <div className="flex items-center gap-4">
           <nav className="hidden md:flex items-center gap-4">

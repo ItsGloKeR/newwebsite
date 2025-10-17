@@ -115,7 +115,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
           </div>
           <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-end md:pb-8">
             <button onClick={onBack} className="absolute top-4 left-4 text-white bg-black/50 p-2 rounded-full hover:bg-cyan-500 transition-colors z-20">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -157,10 +157,6 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
              <div>
                 <h3 className="font-bold text-lg mb-2">Studios</h3>
                 <p className="text-gray-400">{anime.studios.join(', ')}</p>
-             </div>
-             <div>
-                <h3 className="font-bold text-lg mb-2">Aired</h3>
-                <p className="text-gray-400">{anime.year || 'N/A'}</p>
              </div>
              <div>
                 <h3 className="font-bold text-lg mb-2">Main Staff</h3>
