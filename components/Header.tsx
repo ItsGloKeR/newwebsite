@@ -1,14 +1,14 @@
 
+
 import React from 'react';
 
 interface HeaderProps {
   onSearch: (term: string) => void;
   onHomeClick: () => void;
-  onScheduleClick: () => void;
   searchTerm: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ onSearch, onHomeClick, onScheduleClick, searchTerm }) => {
+const Header: React.FC<HeaderProps> = ({ onSearch, onHomeClick, searchTerm }) => {
   return (
     <header className="bg-gray-900/80 backdrop-blur-md sticky top-0 z-50 p-4 shadow-lg">
       <div className="container mx-auto flex justify-between items-center">
@@ -21,7 +21,6 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onHomeClick, onScheduleClick,
         <div className="flex items-center gap-4">
           <nav className="hidden md:flex items-center gap-4">
             <button onClick={onHomeClick} className="text-gray-300 hover:text-white transition-colors font-semibold">Home</button>
-            <button onClick={onScheduleClick} className="text-gray-300 hover:text-white transition-colors font-semibold">Schedule</button>
           </nav>
           <div className="relative">
             <input

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { getAiringSchedule } from '../services/anilistService';
 import { AiringSchedule } from '../types';
@@ -70,12 +71,16 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
   };
   
   if (isLoading) {
-    return <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>;
+    return (
+      <div className="h-64 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8 animate-fade-in">
-      <h1 className="text-4xl font-bold text-white mb-8 border-l-4 border-cyan-400 pl-4">Airing Schedule (Next 7 Days)</h1>
+    <section className="mt-12 animate-fade-in">
+      <h2 className="text-3xl font-bold text-white mb-6 border-l-4 border-cyan-400 pl-4">Airing Schedule (Next 7 Days)</h2>
       {Object.keys(scheduleByDay).length === 0 && !isLoading && (
         <p className="text-gray-400">No airing schedule found for the next 7 days.</p>
       )}
@@ -94,7 +99,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 };
 

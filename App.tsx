@@ -17,7 +17,7 @@ import { useDebounce } from './hooks/useDebounce';
 import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 
-type View = 'home' | 'details' | 'player' | 'schedule';
+type View = 'home' | 'details' | 'player';
 
 const AppContent: React.FC = () => {
     const [view, setView] = useState<View>('home');
@@ -159,12 +159,6 @@ const AppContent: React.FC = () => {
         setView('home');
     };
 
-    const handleScheduleClick = () => {
-        setSearchTerm('');
-        setSelectedAnime(null);
-        setView('schedule');
-    };
-
     const renderHomePage = () => {
         if (debouncedSearchTerm) {
             return (
@@ -183,7 +177,8 @@ const AppContent: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         <div className="lg:col-span-3">
                             <AnimeCarousel title="Trending Now" animeList={trending} onSelectAnime={handleSelectAnime} />
-                            <AnimeGrid title="Popular This Season" animeList={popular} onSelectAnime={handleSelectAnime} />
+                            <AnimeGrid title="Popular Animes" animeList={popular} onSelectAnime={handleSelectAnime} />
+                            <SchedulePage onSelectAnime={handleSelectAnime} />
                         </div>
                         <div className="lg:col-span-1">
                             <VerticalAnimeList title="Top 10 Airing" animeList={topAiring} onSelectAnime={handleSelectAnime} />
@@ -218,9 +213,6 @@ const AppContent: React.FC = () => {
                         onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
                     />;
             
-            case 'schedule':
-                return <SchedulePage onSelectAnime={handleSelectAnime} />;
-
             case 'home':
             default:
                 if (isLoading && trending.length === 0) {
@@ -232,7 +224,7 @@ const AppContent: React.FC = () => {
 
     return (
         <div className="bg-gray-950 min-h-screen">
-            {view !== 'player' && <Header onSearch={handleSearch} onHomeClick={handleHomeClick} onScheduleClick={handleScheduleClick} searchTerm={searchTerm} />}
+            {view !== 'player' && <Header onSearch={handleSearch} onHomeClick={handleHomeClick} searchTerm={searchTerm} />}
             {renderContent()}
             {view !== 'player' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} />}
             <BackToTopButton />
