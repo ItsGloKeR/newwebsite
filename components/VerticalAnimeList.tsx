@@ -9,12 +9,13 @@ interface VerticalAnimeListProps {
   onViewMore?: () => void;
 }
 
-const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) => void; }> = ({ anime, onSelect }) => {
+const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) => void; rank: number; }> = ({ anime, onSelect, rank }) => {
   return (
     <li 
       className="flex items-center gap-4 p-2 rounded-lg cursor-pointer hover:bg-gray-800/50 transition-colors"
       onClick={() => onSelect(anime)}
     >
+      <span className="text-2xl font-bold text-gray-500 w-8 text-center flex-shrink-0">{rank}</span>
       <img 
         src={anime.coverImage} 
         alt={anime.title} 
@@ -45,8 +46,8 @@ const VerticalAnimeList: React.FC<VerticalAnimeListProps> = ({ title, animeList,
         )}
       </div>
       <ul className="flex flex-col gap-4">
-        {animeList.map(anime => (
-          <VerticalAnimeListItem key={anime.anilistId} anime={anime} onSelect={onSelectAnime} />
+        {animeList.map((anime, index) => (
+          <VerticalAnimeListItem key={anime.anilistId} anime={anime} onSelect={onSelectAnime} rank={index + 1} />
         ))}
       </ul>
     </section>
