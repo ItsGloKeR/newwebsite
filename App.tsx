@@ -599,7 +599,7 @@ const AppContent: React.FC = () => {
                 onNavigate={handleViewMore}
             />
             {renderContent()}
-            <Footer onAdminClick={() => setIsAdminModalOpen(true)} />
+            <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} />
             <BackToTopButton />
             <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
             <FilterModal 

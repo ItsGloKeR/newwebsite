@@ -54,12 +54,16 @@ const Header: React.FC<HeaderProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
-             <h1 
-                className="text-2xl font-black text-white cursor-pointer"
-                onClick={onHomeClick}
-            >
-                <span className="text-cyan-400">Ani</span>GloK
-            </h1>
+            <div className="cursor-pointer" onClick={onHomeClick}>
+                <svg width="123" height="28" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.6923 4.5L2.84615 27.5H30.5385L16.6923 4.5Z" stroke="#22d3ee" strokeWidth="2"/>
+                    <path d="M16.6923 15.5L11.7692 23.5H21.6154L16.6923 15.5Z" fill="white"/>
+                    <text x="40" y="23" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="900" fill="#22d3ee">
+                        Ani
+                        <tspan fill="white">GloK</tspan>
+                    </text>
+                </svg>
+            </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative" ref={searchContainerRef}>
