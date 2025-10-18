@@ -1,4 +1,4 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, User } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -82,17 +82,23 @@ const ANIME_FIELDS_FRAGMENT = `
 `;
 
 // Helper function to fetch data from AniList with rate-limiting retry logic
-const fetchAniListData = async (query: string, variables: object) => {
+const fetchAniListData = async (query: string, variables: object, token?: string | null) => {
   const maxRetries = 5;
   let delay = 1000; // Start with 1 second for fallback
 
   for (let i = 0; i < maxRetries; i++) {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(ANILIST_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ query, variables }),
     });
 
@@ -259,6 +265,34 @@ export const getHomePageData = async () => {
     currentSeason: season,
     currentYear: year,
   };
+};
+
+export const getMultipleAnimeDetails = async (ids: number[]): Promise<Anime[]> => {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(id_in: $ids, type: ANIME) {
+          ...animeFields
+        }
+      }
+    }
+    fragment animeFields on Media {
+      ${ANIME_FIELDS_FRAGMENT}
+    }
+  `;
+
+  const variables = { ids };
+  try {
+    const data = await fetchAniListData(query, variables);
+    return data.Page.media.map(mapToAnime);
+  } catch (error) {
+    console.error('Failed to fetch multiple anime details:', error);
+    return [];
+  }
 };
 
 export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
@@ -487,4 +521,64 @@ export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSu
     isAdult: media.isAdult,
     episodes: media.episodes,
   }));
+};
+
+export const getAuthenticatedUser = async (token: string): Promise<User> => {
+    const query = `
+      query {
+        Viewer {
+          id
+          name
+          avatar {
+            large
+          }
+        }
+      }
+    `;
+    const data = await fetchAniListData(query, {}, token);
+    const viewer = data.Viewer;
+    return {
+        id: viewer.id,
+        name: viewer.name,
+        avatar: viewer.avatar.large,
+    };
+};
+
+export const getContinueWatchingList = async (userId: number, token: string): Promise<Anime[]> => {
+    const query = `
+      query ($userId: Int) {
+        MediaListCollection(userId: $userId, type: ANIME, status: CURRENT, sort: UPDATED_TIME_DESC) {
+          lists {
+            entries {
+              progress
+              media {
+                ...animeFields
+              }
+            }
+          }
+        }
+      }
+      fragment animeFields on Media {
+        ${ANIME_FIELDS_FRAGMENT}
+      }
+    `;
+    const variables = { userId };
+    const data = await fetchAniListData(query, variables, token);
+
+    if (!data.MediaListCollection?.lists[0]?.entries) {
+        return [];
+    }
+    
+    const animeList = data.MediaListCollection.lists[0].entries.map((entry: any) => {
+        const anime = mapToAnime(entry.media);
+        if (entry.progress && anime.episodes) {
+            // AniList progress is number of episodes watched. Convert to percentage.
+            const percentage = (entry.progress / anime.episodes) * 100;
+            // Only show if progress is meaningful (not 0% or >95%)
+            anime.progress = (percentage > 0 && percentage < 95) ? percentage : 0;
+        }
+        return anime;
+    }).filter((anime: Anime) => anime.progress > 0); // Filter out items that are on the list but have 0 progress.
+
+    return animeList;
 };

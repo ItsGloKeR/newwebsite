@@ -209,3 +209,10 @@ export interface PlayerEvent {
   duration: number;
 }
 export type PlayerEventCallback = (event: PlayerEvent) => void;
+
+// Auth Types
+export interface User {
+  id: number;
+  name: string;
+  avatar: string;
+}
