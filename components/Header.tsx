@@ -103,7 +103,19 @@ const Header: React.FC<HeaderProps> = ({
                  <div className="w-10 h-10 bg-gray-700 rounded-full animate-pulse"></div>
             ) : user ? (
                 <div className="relative group">
-                    <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors" />
+                    {user.avatar ? (
+                        <img 
+                            src={user.avatar} 
+                            alt={user.name} 
+                            className="w-10 h-10 rounded-full cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors object-cover" 
+                        />
+                    ) : (
+                        <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors">
+                            <span className="text-white font-bold text-xl">
+                                {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                            </span>
+                        </div>
+                    )}
                     <div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg hidden group-hover:block animate-fade-in-fast z-50">
                         <div className="p-3 border-b border-gray-700">
                         <p className="font-semibold text-white truncate">{user.name}</p>

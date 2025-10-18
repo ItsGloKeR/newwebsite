@@ -582,3 +582,37 @@ export const getContinueWatchingList = async (userId: number, token: string): Pr
 
     return animeList;
 };
+
+const UPDATE_ANILIST_PROGRESS_MUTATION = `
+  mutation ($mediaId: Int, $progress: Int) {
+    SaveMediaListEntry (mediaId: $mediaId, progress: $progress) {
+      id
+      progress
+      status
+    }
+  }
+`;
+
+/**
+ * Updates the progress for a media item on the authenticated user's AniList account.
+ * @param mediaId The AniList ID of the anime.
+ * @param episode The episode number the user has watched.
+ * @param token The user's authentication token.
+ */
+export const updateAniListProgress = async (mediaId: number, episode: number, token: string): Promise<void> => {
+  if (!token) {
+    console.warn("Cannot update AniList progress: no token provided.");
+    return;
+  }
+  // Do not send an update for episode 0 or less.
+  if (episode <= 0) {
+      return;
+  }
+  try {
+    await fetchAniListData(UPDATE_ANILIST_PROGRESS_MUTATION, { mediaId, progress: episode }, token);
+    console.log(`Successfully updated progress for media ${mediaId} to episode ${episode} on AniList.`);
+  } catch (error) {
+    // Fail silently from the user's perspective, but log the error for debugging.
+    console.error("Failed to update AniList progress:", error);
+  }
+};

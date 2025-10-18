@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime } from '../types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime, PlayerEvent } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { progressTracker } from '../utils/progressTracking';
+import { useAuth } from '../contexts/AuthContext';
+import { updateAniListProgress } from '../services/anilistService';
 
 const AdminEpisodeEditor: React.FC<{ anime: Anime; episode: number }> = ({ anime, episode }) => {
     const { isAdmin, overrides, updateEpisodeStreamUrl } = useAdmin();
@@ -154,7 +156,9 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   onSelectRelated
 }) => {
   const { getStreamUrl } = useAdmin();
+  const { token } = useAuth();
   const episodeCount = anime.episodes || 1;
+  const debounceTimerRef = useRef<number | null>(null);
 
   const streamUrl = useMemo(() => {
     const baseUrl = getStreamUrl(anime.anilistId, currentEpisode, currentSource, currentLanguage);
@@ -189,6 +193,46 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
       onLanguageChange(StreamLanguage.Sub);
     }
   };
+
+  // Effect for saving progress to AniList for logged-in users
+  useEffect(() => {
+    if (!token || !anime) {
+      return;
+    }
+
+    const handlePlayerEvent = (event: PlayerEvent) => {
+      let shouldUpdate = false;
+
+      if (event.event === 'ended') {
+        shouldUpdate = true;
+      } else if (event.event === 'pause' && event.currentTime > 60) {
+        shouldUpdate = true;
+      } else if (event.event === 'timeupdate' && event.duration > 0) {
+        const watchedPercentage = (event.currentTime / event.duration) * 100;
+        if (watchedPercentage > 90) {
+          shouldUpdate = true;
+        }
+      }
+
+      if (shouldUpdate) {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = window.setTimeout(() => {
+          updateAniListProgress(anime.anilistId, currentEpisode, token);
+        }, 3000); // Debounce for 3 seconds
+      }
+    };
+
+    progressTracker.addEventListener(handlePlayerEvent);
+
+    return () => {
+      progressTracker.removeEventListener(handlePlayerEvent);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [anime, currentEpisode, token]);
 
   const renderControlButton = <T,>(value: T, currentValue: T, setter: (value: T) => void, text: string) => (
     <button
