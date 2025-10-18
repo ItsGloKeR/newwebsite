@@ -6,9 +6,10 @@ interface AnimeCarouselProps {
   title: string;
   animeList: Anime[];
   onSelectAnime: (anime: Anime) => void;
+  onViewMore?: () => void;
 }
 
-const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelectAnime }) => {
+const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelectAnime, onViewMore }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -23,7 +24,17 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelec
 
   return (
     <section className="mb-12 relative">
-      <h2 className="text-3xl font-bold text-white mb-6 border-l-4 border-cyan-400 pl-4">{title}</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
+        {onViewMore && (
+          <button 
+            onClick={onViewMore} 
+            className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+          >
+            View More &gt;
+          </button>
+        )}
+      </div>
       
       {animeList.length > 4 && (
         <>

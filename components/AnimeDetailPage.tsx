@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Anime, RelatedAnime, StreamSource } from '../types';
+import { Anime, RelatedAnime, StreamSource, RecommendedAnime } from '../types';
 import GenrePill from './GenrePill';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
+import TrailerModal from './TrailerModal';
 
 const RELATED_ANIME_LIMIT = 10;
 
@@ -31,6 +32,32 @@ const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) 
     <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
   </div>
 );
+
+interface RecommendationCardProps {
+  anime: RecommendedAnime;
+  onSelect: (id: number) => void;
+}
+
+const RecommendationCard: React.FC<RecommendationCardProps> = ({ anime, onSelect }) => (
+  <div 
+    className="flex-shrink-0 w-32 md:w-40 cursor-pointer group"
+    onClick={() => onSelect(anime.id)}
+  >
+    <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
+        <img 
+          src={anime.coverImage} 
+          alt={anime.title} 
+          className="w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+        <div className="absolute bottom-0 left-0 p-2">
+            <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>
+        </div>
+    </div>
+  </div>
+);
+
 
 const TitleEditor: React.FC<{ anime: Anime }> = ({ anime }) => {
     const { updateTitle } = useAdmin();
@@ -143,6 +170,7 @@ interface AnimeDetailPageProps {
 
 const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const { isAdmin } = useAdmin();
 
   return (
@@ -182,15 +210,38 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
             <div className="my-4 flex flex-wrap gap-2">
               {anime.genres.map(genre => <GenrePill key={genre} genre={genre} />)}
             </div>
-            <button 
-              onClick={() => onWatchNow(anime)}
-              className="mt-4 bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2 w-fit"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-              </svg>
-              Watch Now
-            </button>
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <button 
+                onClick={() => onWatchNow(anime)}
+                className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                </svg>
+                Watch Now
+              </button>
+              {anime.trailer && anime.trailer.site === 'youtube' ? (
+                <button
+                  onClick={() => setIsTrailerOpen(true)}
+                  className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  Play Trailer
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="bg-gray-800 text-gray-500 font-bold py-3 px-8 rounded-full cursor-not-allowed flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  No Trailer
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -257,7 +308,25 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
               </div>
            </div>
         )}
+
+        {anime.recommendations && anime.recommendations.length > 0 && (
+           <div className="mt-12">
+              <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4 mb-4">You Might Also Like</h2>
+              <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
+                {anime.recommendations.map(rec => (
+                  <RecommendationCard key={rec.id} anime={rec} onSelect={onSelectRelated} />
+                ))}
+              </div>
+           </div>
+        )}
       </div>
+      
+      {isTrailerOpen && anime.trailer && (
+        <TrailerModal 
+          trailerId={anime.trailer.id} 
+          onClose={() => setIsTrailerOpen(false)} 
+        />
+      )}
     </div>
   );
 };

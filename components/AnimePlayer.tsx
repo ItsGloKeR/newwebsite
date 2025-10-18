@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
@@ -125,6 +125,20 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
 
   const streamUrl = getStreamUrl(anime.anilistId, currentEpisode, currentSource, currentLanguage);
 
+  const nextAiringDate = useMemo(() => {
+    if (!anime.nextAiringEpisode) return null;
+    const date = new Date(anime.nextAiringEpisode.airingAt * 1000);
+    return date.toLocaleString(undefined, {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: true,
+    });
+  }, [anime.nextAiringEpisode]);
+
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
 
   const handleSourceChange = (source: StreamSource) => {
@@ -171,6 +185,11 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                         ></iframe>
                     </div>
                     <div className="p-6">
+                        {anime.status === 'RELEASING' && nextAiringDate && (
+                            <div className="bg-cyan-900/50 text-cyan-300 text-center text-sm font-semibold p-2 rounded-md mb-4 animate-fade-in">
+                                🚀 Estimated next episode ({anime.nextAiringEpisode?.episode}) will come at {nextAiringDate}
+                            </div>
+                        )}
                         <h2 className="text-3xl font-bold text-white mb-2">{anime.title} - Episode {currentEpisode}</h2>
                         <div className="flex flex-wrap gap-4 items-center mb-4">
                         <div className="flex items-center gap-2">
@@ -193,14 +212,32 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                         <div className="mt-4">
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="text-xl font-semibold text-white">Episodes</h3>
-                            {episodeCount > 1 && (
-                            <button
-                                onClick={() => onEpisodeChange(episodeCount)}
-                                className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
-                            >
-                                Latest Ep
-                            </button>
-                            )}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => onEpisodeChange(currentEpisode - 1)}
+                                    disabled={currentEpisode <= 1}
+                                    className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Previous episode"
+                                >
+                                    Prev
+                                </button>
+                                <button
+                                    onClick={() => onEpisodeChange(currentEpisode + 1)}
+                                    disabled={currentEpisode >= episodeCount}
+                                    className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Next episode"
+                                >
+                                    Next
+                                </button>
+                                {episodeCount > 1 && (
+                                <button
+                                    onClick={() => onEpisodeChange(episodeCount)}
+                                    className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
+                                >
+                                    Latest Ep
+                                </button>
+                                )}
+                            </div>
                         </div>
                         <div className="max-h-60 overflow-y-auto bg-black/20 p-3 rounded-md grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
                             {episodes.map(ep => (

@@ -1,4 +1,4 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -19,6 +19,8 @@ const ANIME_FIELDS_FRAGMENT = `
   status
   nextAiringEpisode {
     episode
+    airingAt
+    timeUntilAiring
   }
   seasonYear
   averageScore
@@ -53,6 +55,10 @@ const ANIME_FIELDS_FRAGMENT = `
         }
       }
     }
+  }
+  trailer {
+    id
+    site
   }
   recommendations(sort: RATING_DESC, perPage: 10) {
     nodes {
@@ -144,6 +150,17 @@ const mapToAnime = (data: any): Anime => {
       coverImage: node.mediaRecommendation.coverImage.extraLarge,
     }));
 
+  const trailer: AnimeTrailer | undefined = data.trailer && data.trailer.site === 'youtube'
+    ? { id: data.trailer.id, site: data.trailer.site }
+    : undefined;
+
+  const nextAiringEpisode: NextAiringEpisode | undefined = data.nextAiringEpisode
+    ? {
+        episode: data.nextAiringEpisode.episode,
+        airingAt: data.nextAiringEpisode.airingAt,
+        timeUntilAiring: data.nextAiringEpisode.timeUntilAiring,
+      }
+    : undefined;
 
   let episodeCount = data.episodes;
   if (data.status === 'RELEASING' && data.nextAiringEpisode) {
@@ -165,7 +182,9 @@ const mapToAnime = (data: any): Anime => {
     studios: data.studios?.nodes.map((n: any) => n.name) || [],
     staff,
     relations,
+    trailer,
     recommendations,
+    nextAiringEpisode,
   };
 };
 
@@ -187,6 +206,11 @@ export const getHomePageData = async () => {
           ...animeFields
         }
       }
+      topUpcoming: Page(page: 1, perPage: 10) {
+        media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED, isAdult: false) {
+          ...animeFields
+        }
+      }
     }
 
     fragment animeFields on Media {
@@ -200,8 +224,48 @@ export const getHomePageData = async () => {
     trending: data.trending.media.map(mapToAnime),
     popular: data.popular.media.map(mapToAnime),
     topAiring: data.topAiring.media.map(mapToAnime),
+    topUpcoming: data.topUpcoming.media.map(mapToAnime),
   };
 };
+
+export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
+    const query = `
+      query {
+        Page(page: 1, perPage: 18) {
+          airingSchedules(notYetAired: false, sort: TIME_DESC) {
+            id
+            episode
+            airingAt
+            media {
+              id
+              title {
+                romaji
+                english
+              }
+              coverImage {
+                extraLarge
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const data = await fetchAniListData(query, {});
+    const schedules: AiringSchedule[] = data.Page.airingSchedules;
+
+    // The API might return duplicates for the same episode. Let's ensure it's unique.
+    const uniqueSchedules = schedules.reduce((acc, current) => {
+        const key = `${current.media.id}-${current.episode}`;
+        if (!acc.find(item => `${item.media.id}-${item.episode}` === key)) {
+            acc.push(current);
+        }
+        return acc;
+    }, [] as AiringSchedule[]);
+    
+    return uniqueSchedules;
+};
+
 
 export const discoverAnime = async (searchTerm: string, filters: FilterState, pageLimit = 2): Promise<Anime[]> => {
   const perPage = 50;

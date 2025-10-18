@@ -1,4 +1,4 @@
-// FIX: Define and export StreamSource enum to resolve circular dependency and typing errors.
+// FIX: Removed a circular import of StreamSource from this file itself.
 export enum StreamSource {
   Vidnest = 'vidnest',
   AnimePahe = 'animepahe',
@@ -29,6 +29,17 @@ export interface RecommendedAnime {
   coverImage: string;
 }
 
+export interface NextAiringEpisode {
+  episode: number;
+  airingAt: number; // timestamp
+  timeUntilAiring: number; // seconds
+}
+
+export interface AnimeTrailer {
+  id: string;
+  site: string;
+}
+
 export interface Anime {
   anilistId: number;
   title: string;
@@ -43,7 +54,9 @@ export interface Anime {
   studios: string[];
   staff: StaffMember[];
   relations: RelatedAnime[];
+  trailer?: AnimeTrailer;
   recommendations?: RecommendedAnime[];
+  nextAiringEpisode?: NextAiringEpisode;
 }
 
 export interface AiringSchedule {

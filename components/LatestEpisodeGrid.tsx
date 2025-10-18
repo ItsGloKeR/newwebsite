@@ -1,18 +1,18 @@
 import React from 'react';
-import { Anime } from '../types';
-import AnimeCard from './AnimeCard';
+import { AiringSchedule } from '../types';
+import LatestEpisodeCard from './LatestEpisodeCard';
 import SkeletonCard from './SkeletonCard';
 
-interface AnimeGridProps {
+interface LatestEpisodeGridProps {
   title: string;
-  animeList: Anime[];
-  onSelectAnime: (anime: Anime) => void;
+  episodes: AiringSchedule[];
+  onSelectAnime: (anime: { anilistId: number }) => void;
   isLoading?: boolean;
   onViewMore?: () => void;
 }
 
-const AnimeGrid: React.FC<AnimeGridProps> = ({ title, animeList, onSelectAnime, isLoading, onViewMore }) => {
-  const skeletonCount = 18; // A good number to fill the view
+const LatestEpisodeGrid: React.FC<LatestEpisodeGridProps> = ({ title, episodes, onSelectAnime, isLoading, onViewMore }) => {
+  const skeletonCount = 18;
 
   return (
     <section className="mb-12">
@@ -31,16 +31,16 @@ const AnimeGrid: React.FC<AnimeGridProps> = ({ title, animeList, onSelectAnime, 
         {isLoading ? (
           Array.from({ length: skeletonCount }).map((_, index) => <SkeletonCard key={index} />)
         ) : (
-          animeList.map(anime => (
-            <AnimeCard key={anime.anilistId} anime={anime} onSelect={onSelectAnime} />
+          episodes.map(schedule => (
+            <LatestEpisodeCard key={schedule.id} schedule={schedule} onSelect={onSelectAnime} />
           ))
         )}
-        {!isLoading && animeList.length === 0 && (
-          <p className="text-gray-400 col-span-full">No anime found for this selection.</p>
+        {!isLoading && episodes.length === 0 && (
+          <p className="text-gray-400 col-span-full">No recent episodes found.</p>
         )}
       </div>
     </section>
   );
 };
 
-export default AnimeGrid;
+export default LatestEpisodeGrid;

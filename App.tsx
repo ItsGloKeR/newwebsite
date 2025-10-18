@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort } from './types';
-import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime } from './services/anilistService';
+import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus } from './types';
+import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes } from './services/anilistService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -19,6 +19,7 @@ import { initialTrending, initialPopular, initialTopAiring } from './static/init
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
+import LatestEpisodeGrid from './components/LatestEpisodeGrid';
 
 
 type View = 'home' | 'details' | 'player';
@@ -37,6 +38,8 @@ const AppContent: React.FC = () => {
     const [trending, setTrending] = useState<Anime[]>(initialTrending);
     const [popular, setPopular] = useState<Anime[]>(initialPopular);
     const [topAiring, setTopAiring] = useState<Anime[]>(initialTopAiring);
+    const [topUpcoming, setTopUpcoming] = useState<Anime[]>([]);
+    const [latestEpisodes, setLatestEpisodes] = useState<AiringSchedule[]>([]);
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
     const [allGenres, setAllGenres] = useState<string[]>([]);
     
@@ -52,6 +55,7 @@ const AppContent: React.FC = () => {
     const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState<FilterState>(initialFilters);
+    const [discoveryTitle, setDiscoveryTitle] = useState('Filtered Results');
     const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
@@ -80,14 +84,17 @@ const AppContent: React.FC = () => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const [{ trending, popular, topAiring }, genres] = await Promise.all([
+                const [{ trending, popular, topAiring, topUpcoming }, genres, latest] = await Promise.all([
                     getHomePageData(),
-                    getGenreCollection()
+                    getGenreCollection(),
+                    getLatestEpisodes(),
                 ]);
                 setTrending(applyOverridesToList(trending));
                 setPopular(applyOverridesToList(popular));
                 setTopAiring(applyOverridesToList(topAiring));
+                setTopUpcoming(applyOverridesToList(topUpcoming));
                 setAllGenres(genres);
+                setLatestEpisodes(latest);
             } catch (error) {
                 console.error("Failed to fetch home page data:", error);
             } finally {
@@ -102,6 +109,7 @@ const AppContent: React.FC = () => {
         setTrending(applyOverridesToList);
         setPopular(applyOverridesToList);
         setTopAiring(applyOverridesToList);
+        setTopUpcoming(applyOverridesToList);
         setSearchResults(applyOverridesToList);
         if (selectedAnime) {
             setSelectedAnime(applyOverrides);
@@ -169,6 +177,7 @@ const AppContent: React.FC = () => {
     
     const handleSearch = (term: string) => {
         setSearchTerm(term);
+        setDiscoveryTitle(`Results for "${term}"`);
         setView('home'); // Switch to home view to show search results
     };
 
@@ -227,14 +236,23 @@ const AppContent: React.FC = () => {
     const handleApplyFilters = (newFilters: FilterState) => {
         setIsFilterModalOpen(false);
         setFilters(newFilters);
+        setDiscoveryTitle("Filtered Results");
         setView('home');
+    };
+
+    const handleViewMore = (partialFilters: Partial<FilterState>, title: string) => {
+        setSearchTerm('');
+        setFilters({ ...initialFilters, ...partialFilters });
+        setDiscoveryTitle(title);
+        setView('home');
+        window.scrollTo(0, 0);
     };
 
     const generateDiscoveryTitle = () => {
         if (debouncedSearchTerm.trim()) {
             return `Results for "${debouncedSearchTerm}"`;
         }
-        return "Filtered Results";
+        return discoveryTitle;
     };
 
     const renderHomePage = () => {
@@ -257,12 +275,40 @@ const AppContent: React.FC = () => {
                 <div className="container mx-auto p-4 md:p-8">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         <div className="lg:col-span-3">
-                            <AnimeCarousel title="Trending Now" animeList={trending} onSelectAnime={handleSelectAnime} />
-                            <AnimeGrid title="Popular Animes" animeList={popular} onSelectAnime={handleSelectAnime} />
+                            <AnimeCarousel 
+                                title="Trending Now" 
+                                animeList={trending} 
+                                onSelectAnime={handleSelectAnime}
+                                onViewMore={() => handleViewMore({ sort: MediaSort.TRENDING_DESC }, "Trending Anime")}
+                            />
+                            <LatestEpisodeGrid 
+                                title="Latest Episodes"
+                                episodes={latestEpisodes}
+                                onSelectAnime={handleSelectAnime}
+                                isLoading={isLoading}
+                                onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.TRENDING_DESC }, "Recently Released Anime")}
+                            />
+                            <AnimeGrid 
+                                title="Popular Animes" 
+                                animeList={popular} 
+                                onSelectAnime={handleSelectAnime} 
+                                onViewMore={() => handleViewMore({ sort: MediaSort.POPULARITY_DESC }, "Popular Anime")}
+                            />
                             <SchedulePage onSelectAnime={handleSelectAnime} />
+                            <AnimeCarousel 
+                                title="Top Upcoming" 
+                                animeList={topUpcoming} 
+                                onSelectAnime={handleSelectAnime}
+                                onViewMore={() => handleViewMore({ statuses: [MediaStatus.NOT_YET_RELEASED], sort: MediaSort.POPULARITY_DESC }, "Top Upcoming Anime")}
+                            />
                         </div>
                         <div className="lg:col-span-1">
-                            <VerticalAnimeList title="Top 10 Airing" animeList={topAiring} onSelectAnime={handleSelectAnime} />
+                            <VerticalAnimeList 
+                                title="Top 10 Airing" 
+                                animeList={topAiring} 
+                                onSelectAnime={handleSelectAnime}
+                                onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.POPULARITY_DESC }, "Top Airing Anime")}
+                            />
                         </div>
                     </div>
                 </div>
