@@ -2,13 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SearchSuggestion, FilterState } from '../types';
 import SearchSuggestions from './SearchSuggestions';
 import DropdownMenu from './DropdownMenu';
-import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
   onSearch: (term: string) => void;
   onHomeClick: () => void;
   onFilterClick: () => void;
-  onPlanToWatchClick: () => void;
   searchTerm: string;
   suggestions: SearchSuggestion[];
   onSuggestionClick: (anime: { anilistId: number }) => void;
@@ -19,8 +17,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ 
   onSearch, 
   onHomeClick, 
-  onFilterClick,
-  onPlanToWatchClick,
+  onFilterClick, 
   searchTerm,
   suggestions,
   onSuggestionClick,
@@ -31,7 +28,6 @@ const Header: React.FC<HeaderProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
-  const { user, login, logout, isLoading: isAuthLoading } = useAuth();
   
   const showSuggestions = isSearchFocused && searchTerm.trim() !== '';
 
@@ -65,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({
                 <span className="text-cyan-400">Ani</span>GloK
             </h1>
         </div>
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-4">
           <div className="relative" ref={searchContainerRef}>
             {/* Search Icon */}
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({
               value={searchTerm}
               onChange={(e) => onSearch(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
-              className="bg-gray-800 text-white rounded-full py-2 pl-10 pr-24 w-48 sm:w-64 md:w-80 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+              className="bg-gray-800 text-white rounded-full py-2 pl-10 pr-24 w-64 md:w-80 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
             />
             {/* Filter Button */}
             <button 
@@ -96,47 +92,6 @@ const Header: React.FC<HeaderProps> = ({
                     onSuggestionClick={onSuggestionClick} 
                     isLoading={isSuggestionsLoading}
                 />
-            )}
-          </div>
-
-           {/* Auth Section */}
-          <div className="flex items-center">
-            {isAuthLoading ? (
-                 <div className="w-10 h-10 bg-gray-700 rounded-full animate-pulse"></div>
-            ) : user ? (
-                <div className="flex items-center gap-3">
-                    <span className="hidden sm:block text-white font-semibold truncate max-w-[100px]">{user.name}</span>
-                    <div className="relative group">
-                        {user.avatar ? (
-                            <img 
-                                src={user.avatar} 
-                                alt={user.name} 
-                                className="w-10 h-10 rounded-full cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors object-cover" 
-                            />
-                        ) : (
-                            <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors">
-                                <span className="text-white font-bold text-xl">
-                                    {user.name ? user.name.charAt(0).toUpperCase() : '?'}
-                                </span>
-                            </div>
-                        )}
-                        <div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg hidden group-hover:block animate-fade-in-fast z-50">
-                            <div className="p-3 border-b border-gray-700">
-                            <p className="font-semibold text-white truncate">{user.name}</p>
-                            </div>
-                            <button onClick={onPlanToWatchClick} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                                Plan to Watch
-                            </button>
-                            <button onClick={logout} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors rounded-b-md">
-                            Logout
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <button onClick={login} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-full transition-colors whitespace-nowrap">
-                    Login
-                </button>
             )}
           </div>
         </div>

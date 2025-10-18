@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Anime } from '../types';
 import CarouselCard from './CarouselCard';
 
@@ -8,10 +8,30 @@ interface AnimeCarouselProps {
   onSelectAnime: (anime: Anime) => void;
   onViewMore?: () => void;
   showRank?: boolean;
+  onRemoveItem?: (animeId: number) => void;
 }
 
-const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelectAnime, onViewMore, showRank = true }) => {
+const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelectAnime, onViewMore, showRank = true, onRemoveItem }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (scrollContainerRef.current) {
+        const { scrollWidth, clientWidth } = scrollContainerRef.current;
+        setShowScrollButtons(scrollWidth > clientWidth);
+      }
+    };
+    
+    // A small timeout allows the browser to render and calculate dimensions correctly
+    const timer = setTimeout(checkOverflow, 100);
+    window.addEventListener('resize', checkOverflow);
+
+    return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', checkOverflow);
+    };
+  }, [animeList]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -37,7 +57,7 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelec
         )}
       </div>
       
-      {animeList.length > 4 && (
+      {showScrollButtons && (
         <>
             <button 
                 onClick={() => scroll('left')}
@@ -65,6 +85,7 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelec
             anime={anime} 
             onSelect={onSelectAnime} 
             rank={showRank ? index + 1 : undefined} 
+            onRemove={onRemoveItem}
           />
         ))}
       </div>

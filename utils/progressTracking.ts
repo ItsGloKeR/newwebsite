@@ -1,6 +1,6 @@
-import { MediaProgress, PlayerEventCallback, MediaProgressEntry } from '../types';
+import { MediaProgress, PlayerEventCallback, MediaProgressEntry, Anime } from '../types';
 
-const PROGRESS_STORAGE_KEY = 'vidLinkProgress';
+const PROGRESS_STORAGE_key = 'vidLinkProgress';
 
 class ProgressTracker {
   private listeners: Set<PlayerEventCallback> = new Set();
@@ -21,16 +21,58 @@ class ProgressTracker {
     }
 
     if (event.data?.type === 'MEDIA_DATA') {
-      const mediaData = event.data.data;
+      const newMediaData: MediaProgress = event.data.data;
       const currentProgress = this.getAllMediaData();
-      const updatedProgress = { ...currentProgress, ...mediaData };
-      localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(updatedProgress));
+
+      // Merge new data, preserving lastAccessed
+      for (const anilistId in newMediaData) {
+        if (Object.prototype.hasOwnProperty.call(newMediaData, anilistId)) {
+          const newEntry = newMediaData[anilistId];
+          const existingEntry = currentProgress[anilistId];
+          // Preserve the lastAccessed timestamp if it exists on the old entry
+          currentProgress[anilistId] = {
+            ...newEntry,
+            lastAccessed: existingEntry?.lastAccessed || Date.now(),
+          };
+        }
+      }
       
+      localStorage.setItem(PROGRESS_STORAGE_key, JSON.stringify(currentProgress));
       window.dispatchEvent(new CustomEvent('progressUpdated'));
     }
 
     if (event.data?.type === 'PLAYER_EVENT') {
       this.listeners.forEach(callback => callback(event.data.data));
+    }
+  }
+
+  public addToHistory(anime: Anime) {
+    const allData = this.getAllMediaData();
+    const existingEntry = allData[anime.anilistId];
+
+    const newEntry: MediaProgressEntry = {
+      id: anime.anilistId,
+      type: 'tv',
+      title: anime.title,
+      poster_path: anime.coverImage,
+      progress: existingEntry?.progress || { watched: 0, duration: 0 },
+      last_season_watched: existingEntry?.last_season_watched || '1',
+      last_episode_watched: existingEntry?.last_episode_watched || '1',
+      show_progress: existingEntry?.show_progress || {},
+      lastAccessed: Date.now(),
+    };
+
+    allData[anime.anilistId] = newEntry;
+    localStorage.setItem(PROGRESS_STORAGE_key, JSON.stringify(allData));
+    window.dispatchEvent(new CustomEvent('progressUpdated'));
+  }
+
+  public removeFromHistory(anilistId: number) {
+    const allData = this.getAllMediaData();
+    if (allData[anilistId]) {
+      delete allData[anilistId];
+      localStorage.setItem(PROGRESS_STORAGE_key, JSON.stringify(allData));
+      window.dispatchEvent(new CustomEvent('progressUpdated'));
     }
   }
 
@@ -44,7 +86,7 @@ class ProgressTracker {
 
   public getAllMediaData(): MediaProgress {
     try {
-      const data = localStorage.getItem(PROGRESS_STORAGE_KEY);
+      const data = localStorage.getItem(PROGRESS_STORAGE_key);
       return data ? JSON.parse(data) : {};
     } catch (error) {
       console.error('Failed to parse progress data:', error);

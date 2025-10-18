@@ -6,9 +6,17 @@ interface CarouselCardProps {
   anime: Anime;
   onSelect: (anime: Anime) => void;
   rank?: number;
+  onRemove?: (animeId: number) => void;
 }
 
-const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) => {
+const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRemove }) => {
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the main card click
+    if (onRemove) {
+      onRemove(anime.anilistId);
+    }
+  };
+
   return (
     <div
       className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg w-56 flex-shrink-0 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
@@ -21,13 +29,26 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) =>
         loading="lazy"
         onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
+
+      {onRemove && (
+        <button
+          onClick={handleRemove}
+          className="absolute top-2 left-2 z-30 bg-gray-900/70 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label="Remove from list"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+
       {anime.isAdult && (
-        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+        <div className={`absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20 transition-opacity ${onRemove ? 'group-hover:opacity-0' : ''}`}>
           18+
         </div>
       )}
       {anime.episodes != null && (
-        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20">
           {anime.episodes} Ep
         </div>
       )}

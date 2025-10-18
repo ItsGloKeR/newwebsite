@@ -197,6 +197,7 @@ export interface MediaProgressEntry {
   show_progress: {
     [key: string]: EpisodeProgress; // e.g., "s1e1"
   };
+  lastAccessed?: number;
 }
 
 export interface MediaProgress {
@@ -209,25 +210,3 @@ export interface PlayerEvent {
   duration: number;
 }
 export type PlayerEventCallback = (event: PlayerEvent) => void;
-
-// Auth Types
-export interface User {
-  id: number;
-  name: string;
-  avatar: string;
-}
-
-// AniList User List Types
-export enum MediaListStatus {
-  CURRENT = 'CURRENT',
-  PLANNING = 'PLANNING',
-  COMPLETED = 'COMPLETED',
-  DROPPED = 'DROPPED',
-  PAUSED = 'PAUSED',
-  REPEATING = 'REPEATING',
-}
-
-export interface MediaListEntry {
-  id: number;
-  status: MediaListStatus;
-}

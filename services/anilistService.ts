@@ -1,4 +1,4 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, User, MediaListStatus, MediaListEntry } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -82,23 +82,17 @@ const ANIME_FIELDS_FRAGMENT = `
 `;
 
 // Helper function to fetch data from AniList with rate-limiting retry logic
-const fetchAniListData = async (query: string, variables: object, token?: string | null) => {
+const fetchAniListData = async (query: string, variables: object) => {
   const maxRetries = 5;
   let delay = 1000; // Start with 1 second for fallback
 
   for (let i = 0; i < maxRetries; i++) {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const response = await fetch(ANILIST_API_URL, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: JSON.stringify({ query, variables }),
     });
 
@@ -521,163 +515,4 @@ export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSu
     isAdult: media.isAdult,
     episodes: media.episodes,
   }));
-};
-
-export const getAuthenticatedUser = async (token: string): Promise<User> => {
-    const query = `
-      query {
-        Viewer {
-          id
-          name
-          avatar {
-            large
-          }
-        }
-      }
-    `;
-    const data = await fetchAniListData(query, {}, token);
-    const viewer = data.Viewer;
-    return {
-        id: viewer.id,
-        name: viewer.name,
-        avatar: viewer.avatar.large,
-    };
-};
-
-export const getContinueWatchingList = async (userId: number, token: string): Promise<Anime[]> => {
-    const query = `
-      query ($userId: Int) {
-        MediaListCollection(userId: $userId, type: ANIME, status: CURRENT, sort: UPDATED_TIME_DESC) {
-          lists {
-            entries {
-              progress
-              media {
-                ...animeFields
-              }
-            }
-          }
-        }
-      }
-      fragment animeFields on Media {
-        ${ANIME_FIELDS_FRAGMENT}
-      }
-    `;
-    const variables = { userId };
-    const data = await fetchAniListData(query, variables, token);
-
-    if (!data.MediaListCollection?.lists[0]?.entries) {
-        return [];
-    }
-    
-    const animeList = data.MediaListCollection.lists[0].entries.map((entry: any) => {
-        const anime = mapToAnime(entry.media);
-        if (entry.progress && anime.episodes) {
-            // AniList progress is number of episodes watched. Convert to percentage.
-            const percentage = (entry.progress / anime.episodes) * 100;
-            // Only show if progress is meaningful (not 0% or >95%)
-            anime.progress = (percentage > 0 && percentage < 95) ? percentage : 0;
-        }
-        return anime;
-    }).filter((anime: Anime) => anime.progress > 0); // Filter out items that are on the list but have 0 progress.
-
-    return animeList;
-};
-
-const UPDATE_ANILIST_PROGRESS_MUTATION = `
-  mutation ($mediaId: Int, $progress: Int) {
-    SaveMediaListEntry (mediaId: $mediaId, progress: $progress) {
-      id
-      progress
-      status
-    }
-  }
-`;
-
-/**
- * Updates the progress for a media item on the authenticated user's AniList account.
- * @param mediaId The AniList ID of the anime.
- * @param episode The episode number the user has watched.
- * @param token The user's authentication token.
- */
-export const updateAniListProgress = async (mediaId: number, episode: number, token: string): Promise<void> => {
-  if (!token) {
-    console.warn("Cannot update AniList progress: no token provided.");
-    return;
-  }
-  // Do not send an update for episode 0 or less.
-  if (episode <= 0) {
-      return;
-  }
-  try {
-    await fetchAniListData(UPDATE_ANILIST_PROGRESS_MUTATION, { mediaId, progress: episode }, token);
-    console.log(`Successfully updated progress for media ${mediaId} to episode ${episode} on AniList.`);
-  } catch (error) {
-    // Fail silently from the user's perspective, but log the error for debugging.
-    console.error("Failed to update AniList progress:", error);
-  }
-};
-
-// Plan to Watch and List Management
-export const getMediaListEntry = async (mediaId: number, token: string): Promise<MediaListEntry | null> => {
-    const query = `
-        query ($mediaId: Int) {
-            MediaList(mediaId: $mediaId, type: ANIME) {
-                id
-                status
-            }
-        }
-    `;
-    const data = await fetchAniListData(query, { mediaId }, token);
-    return data.MediaList;
-};
-
-export const updateMediaListEntry = async (mediaId: number, status: MediaListStatus, token: string): Promise<MediaListEntry> => {
-    const query = `
-        mutation ($mediaId: Int, $status: MediaListStatus) {
-            SaveMediaListEntry (mediaId: $mediaId, status: $status) {
-                id
-                status
-            }
-        }
-    `;
-    const data = await fetchAniListData(query, { mediaId, status }, token);
-    return data.SaveMediaListEntry;
-};
-
-export const deleteMediaListEntry = async (entryId: number, token: string): Promise<{ deleted: boolean }> => {
-    const query = `
-        mutation ($id: Int) {
-            DeleteMediaListEntry (id: $id) {
-                deleted
-            }
-        }
-    `;
-    const data = await fetchAniListData(query, { id: entryId }, token);
-    return data.DeleteMediaListEntry;
-};
-
-export const getPlanToWatchList = async (userId: number, token: string): Promise<Anime[]> => {
-    const query = `
-        query ($userId: Int) {
-            MediaListCollection(userId: $userId, type: ANIME, status: PLANNING, sort: ADDED_TIME_DESC) {
-                lists {
-                    entries {
-                        media {
-                            ...animeFields
-                        }
-                    }
-                }
-            }
-        }
-        fragment animeFields on Media {
-            ${ANIME_FIELDS_FRAGMENT}
-        }
-    `;
-    const data = await fetchAniListData(query, { userId }, token);
-
-    if (!data.MediaListCollection?.lists?.[0]?.entries) {
-        return [];
-    }
-
-    return data.MediaListCollection.lists[0].entries.map((entry: any) => mapToAnime(entry.media));
 };

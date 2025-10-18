@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule } from './types';
-import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getContinueWatchingList, getPlanToWatchList } from './services/anilistService';
+import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails } from './services/anilistService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -14,18 +14,16 @@ import SchedulePage from './components/SchedulePage';
 import VerticalAnimeList from './components/VerticalAnimeList';
 import AdminModal from './components/AdminModal';
 import FilterModal from './components/FilterModal';
-import PlanToWatchPage from './components/PlanToWatchPage';
 import { useDebounce } from './hooks/useDebounce';
 import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import LatestEpisodeGrid from './components/LatestEpisodeGrid';
 import { progressTracker } from './utils/progressTracking';
 
 
-type View = 'home' | 'details' | 'player' | 'planToWatch';
+type View = 'home' | 'details' | 'player';
 
 const initialFilters: FilterState = {
     genres: [],
@@ -47,7 +45,6 @@ const AppContent: React.FC = () => {
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
     const [allGenres, setAllGenres] = useState<string[]>([]);
     const [continueWatching, setContinueWatching] = useState<Anime[]>([]);
-    const [planToWatchList, setPlanToWatchList] = useState<Anime[]>([]);
     
     const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
     const [playerState, setPlayerState] = useState({
@@ -59,7 +56,6 @@ const AppContent: React.FC = () => {
     
     const [isLoading, setIsLoading] = useState(true);
     const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
-    const [isPlanToWatchLoading, setIsPlanToWatchLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState<FilterState>(initialFilters);
     const [discoveryTitle, setDiscoveryTitle] = useState('Filtered Results');
@@ -73,12 +69,6 @@ const AppContent: React.FC = () => {
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
-    const { user, token, handleRedirect } = useAuth();
-
-    // Handle OAuth redirect from AniList on initial load
-    useEffect(() => {
-        handleRedirect();
-    }, [handleRedirect]);
 
     const isDiscoveryView = useMemo(() => {
         return debouncedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters);
@@ -196,49 +186,49 @@ const AppContent: React.FC = () => {
         }
     }, [overrides, applyOverridesToList, applyOverrides, selectedAnime]);
 
-    // Load Continue Watching list from AniList or local storage
+    // Load Continue Watching list
     useEffect(() => {
         const loadContinueWatching = async () => {
-            if (user && token) {
-                // User is logged in, fetch from their AniList account
-                const anilistWatching = await getContinueWatchingList(user.id, token);
-                const updatedList = applyOverridesToList(anilistWatching);
-                if (!isEqual(updatedList, continueWatching)) {
-                    setContinueWatching(updatedList);
-                }
-            } else {
-                // Fallback to local storage for logged-out users
-                const progressData = progressTracker.getAllMediaData();
-                const inProgress = Object.values(progressData).filter(p => {
-                    if (!p.progress || !p.progress.duration) return false;
-                    const percentage = (p.progress.watched / p.progress.duration) * 100;
-                    return p.progress.watched > 30 && percentage < 95;
-                });
+            const progressData = progressTracker.getAllMediaData();
+            
+            const inProgress = Object.values(progressData)
+                .filter(p => {
+                    if (p.progress?.duration > 0) {
+                        const percentage = (p.progress.watched / p.progress.duration) * 100;
+                        return percentage < 95; // Only show items that are not completed
+                    }
+                    return true; // Show items that haven't started playing yet
+                })
+                .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
 
-                if (inProgress.length === 0) {
-                    if (continueWatching.length > 0) setContinueWatching([]);
-                    return;
-                }
-
-                const ids = inProgress.map(p => p.id);
-                const animeDetails = await getMultipleAnimeDetails(ids);
-                
-                const enrichedList = enrichAnimeWithProgress(applyOverridesToList(animeDetails));
-                
-                if (!isEqual(enrichedList, continueWatching)) {
-                    setContinueWatching(enrichedList);
-                }
+            if (inProgress.length === 0) {
+                setContinueWatching([]);
+                return;
             }
+
+            const ids = inProgress.map(p => p.id);
+            const animeDetails = await getMultipleAnimeDetails(ids);
+            
+            // Create a map for quick lookup
+            const animeDetailsMap = new Map(animeDetails.map(a => [a.anilistId, a]));
+
+            // Re-sort based on the sorted `inProgress` list and enrich data
+            const sortedAnimeDetails = inProgress
+                .map(p => animeDetailsMap.get(p.id))
+                .filter((a): a is Anime => !!a); // Filter out any anime that failed to fetch
+
+            const enrichedList = enrichAnimeWithProgress(applyOverridesToList(sortedAnimeDetails));
+            
+            setContinueWatching(enrichedList);
         };
 
         loadContinueWatching();
-        
-        // This listener is mostly for local progress, but we'll re-check everything on update
+
         window.addEventListener('progressUpdated', loadContinueWatching);
         return () => {
             window.removeEventListener('progressUpdated', loadContinueWatching);
         };
-    }, [user, token, applyOverridesToList, enrichAnimeWithProgress, continueWatching]);
+    }, [applyOverridesToList, enrichAnimeWithProgress]);
 
 
     // Perform discovery search when term or filters change
@@ -282,18 +272,6 @@ const AppContent: React.FC = () => {
         };
         fetchSuggestions();
     }, [debouncedSuggestionsTerm]);
-
-    // Fetch Plan to Watch list when view is opened
-    useEffect(() => {
-        if (view === 'planToWatch' && user && token) {
-            setIsPlanToWatchLoading(true);
-            getPlanToWatchList(user.id, token)
-                .then(list => setPlanToWatchList(enrichAnimeWithProgress(applyOverridesToList(list))))
-                .catch(error => console.error("Failed to fetch Plan to Watch list:", error))
-                .finally(() => setIsPlanToWatchLoading(false));
-        }
-    }, [view, user, token, enrichAnimeWithProgress, applyOverridesToList]);
-
 
     // Handlers
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
@@ -348,6 +326,7 @@ const AppContent: React.FC = () => {
     };
 
     const handleWatchNow = (anime: Anime, episode = 1) => {
+        progressTracker.addToHistory(anime);
         // Clear previous anime to ensure loading state triggers, then fetch full details
         setPlayerState({ anime: null, episode, source: StreamSource.AnimePahe, language: StreamLanguage.Sub });
         setView('player');
@@ -381,6 +360,9 @@ const AppContent: React.FC = () => {
         handleWatchNow(anime, lastEpisode);
     };
 
+    const handleRemoveFromContinueWatching = (animeId: number) => {
+        progressTracker.removeFromHistory(animeId);
+    };
 
     const handleBackToDetails = () => {
         if (playerState.anime) {
@@ -419,12 +401,6 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
     };
 
-    const handlePlanToWatchClick = () => {
-        if (!user) return;
-        setView('planToWatch');
-        window.scrollTo(0, 0);
-    };
-
     const generateDiscoveryTitle = () => {
         if (debouncedSearchTerm.trim()) {
             return `Results for "${debouncedSearchTerm}"`;
@@ -458,6 +434,7 @@ const AppContent: React.FC = () => {
                                     animeList={continueWatching} 
                                     onSelectAnime={handleContinueWatching}
                                     showRank={false}
+                                    onRemoveItem={handleRemoveFromContinueWatching}
                                 />
                             )}
                             <AnimeCarousel 
@@ -538,14 +515,6 @@ const AppContent: React.FC = () => {
                         onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
                     />;
             
-            case 'planToWatch':
-                return <PlanToWatchPage 
-                    animeList={planToWatchList}
-                    onSelectAnime={handleSelectAnime}
-                    isLoading={isPlanToWatchLoading}
-                    onBack={handleHomeClick}
-                />;
-
             case 'home':
             default:
                 if (isLoading && trending.length === 0) {
@@ -560,8 +529,7 @@ const AppContent: React.FC = () => {
             <Header 
                 onSearch={handleSearch} 
                 onHomeClick={handleHomeClick} 
-                onFilterClick={() => setIsFilterModalOpen(true)}
-                onPlanToWatchClick={handlePlanToWatchClick}
+                onFilterClick={() => setIsFilterModalOpen(true)} 
                 searchTerm={searchTerm} 
                 suggestions={searchSuggestions}
                 onSuggestionClick={handleSuggestionClick}
@@ -586,9 +554,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
     <AdminProvider>
-        <AuthProvider>
-            <AppContent />
-        </AuthProvider>
+        <AppContent />
     </AdminProvider>
 );
 
