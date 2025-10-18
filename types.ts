@@ -23,6 +23,7 @@ export interface RelatedAnime {
   relationType: string;
   isAdult: boolean;
   episodes: number | null;
+  progress?: number;
 }
 
 export interface RecommendedAnime {
@@ -31,6 +32,7 @@ export interface RecommendedAnime {
   coverImage: string;
   isAdult: boolean;
   episodes: number | null;
+  progress?: number;
 }
 
 export interface NextAiringEpisode {
@@ -62,6 +64,7 @@ export interface Anime {
   recommendations?: RecommendedAnime[];
   nextAiringEpisode?: NextAiringEpisode;
   isAdult: boolean;
+  progress?: number;
 }
 
 export interface AiringSchedule {
@@ -80,6 +83,10 @@ export interface AiringSchedule {
     isAdult: boolean;
     episodes: number | null;
   };
+}
+
+export interface EnrichedAiringSchedule extends AiringSchedule {
+    progress?: number;
 }
 
 export interface NextEpisodeSchedule {
@@ -166,3 +173,39 @@ export interface AdminOverrides {
   // Global URL templates as a fallback
   globalStreamUrlTemplates: Partial<Record<StreamSource, string>>;
 }
+
+// Progress Tracking Types
+export interface Progress {
+  watched: number;
+  duration: number;
+}
+
+export interface EpisodeProgress {
+  season: string;
+  episode: string;
+  progress: Progress;
+}
+
+export interface MediaProgressEntry {
+  id: number;
+  type: 'tv' | 'movie';
+  title: string;
+  poster_path: string;
+  progress: Progress;
+  last_season_watched: string;
+  last_episode_watched: string;
+  show_progress: {
+    [key: string]: EpisodeProgress; // e.g., "s1e1"
+  };
+}
+
+export interface MediaProgress {
+  [anilistId: string]: MediaProgressEntry;
+}
+
+export interface PlayerEvent {
+  event: 'play' | 'pause' | 'ended' | 'seeked' | 'timeupdate';
+  currentTime: number;
+  duration: number;
+}
+export type PlayerEventCallback = (event: PlayerEvent) => void;

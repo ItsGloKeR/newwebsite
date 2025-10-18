@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason } from './types';
+import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes } from './services/anilistService';
 import Header from './components/Header';
 import Hero from './components/Hero';
@@ -20,6 +20,7 @@ import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import LatestEpisodeGrid from './components/LatestEpisodeGrid';
+import { progressTracker } from './utils/progressTracking';
 
 
 type View = 'home' | 'details' | 'player';
@@ -40,7 +41,7 @@ const AppContent: React.FC = () => {
     const [topAiring, setTopAiring] = useState<Anime[]>(initialTopAiring);
     const [topUpcoming, setTopUpcoming] = useState<Anime[]>([]);
     const [popularThisSeason, setPopularThisSeason] = useState<Anime[]>([]);
-    const [latestEpisodes, setLatestEpisodes] = useState<AiringSchedule[]>([]);
+    const [latestEpisodes, setLatestEpisodes] = useState<EnrichedAiringSchedule[]>([]);
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
     const [allGenres, setAllGenres] = useState<string[]>([]);
     
@@ -77,10 +78,70 @@ const AppContent: React.FC = () => {
         const overriddenTitle = overrides.anime[anime.anilistId]?.title;
         return overriddenTitle ? { ...anime, title: overriddenTitle } : anime;
     }, [overrides.anime]);
+    
+    const enrichAnimeWithProgress = useCallback((animeList: Anime[]): Anime[] => {
+        const allProgress = progressTracker.getAllMediaData();
+        return animeList.map(anime => {
+            const progressData = allProgress[anime.anilistId];
+            if (progressData?.progress?.watched && progressData?.progress?.duration) {
+            const percentage = (progressData.progress.watched / progressData.progress.duration) * 100;
+            return { ...anime, progress: percentage };
+            }
+            return { ...anime, progress: 0 };
+        });
+    }, []);
+
+    const enrichScheduleWithProgress = useCallback((scheduleList: AiringSchedule[]): EnrichedAiringSchedule[] => {
+        const allProgress = progressTracker.getAllMediaData();
+        return scheduleList.map(schedule => {
+            const progressData = allProgress[schedule.media.id];
+            if (progressData?.progress?.watched && progressData?.progress?.duration) {
+                const percentage = (progressData.progress.watched / progressData.progress.duration) * 100;
+                return { ...schedule, progress: percentage };
+            }
+            return schedule;
+        });
+    }, []);
+
 
     const applyOverridesToList = useCallback((list: Anime[]): Anime[] => {
         return list.map(applyOverrides);
     }, [applyOverrides]);
+
+    const refreshDataWithProgress = useCallback(() => {
+        setTrending(prev => enrichAnimeWithProgress(prev));
+        setPopular(prev => enrichAnimeWithProgress(prev));
+        setTopAiring(prev => enrichAnimeWithProgress(prev));
+        setTopUpcoming(prev => enrichAnimeWithProgress(prev));
+        setPopularThisSeason(prev => enrichAnimeWithProgress(prev));
+        setSearchResults(prev => enrichAnimeWithProgress(prev));
+        setLatestEpisodes(prev => enrichScheduleWithProgress(prev));
+
+        if (selectedAnime) {
+            const progressData = progressTracker.getMediaData(selectedAnime.anilistId);
+            let updatedAnime = { ...selectedAnime };
+            if (progressData?.progress?.watched && progressData?.progress?.duration) {
+                const percentage = (progressData.progress.watched / progressData.progress.duration) * 100;
+                updatedAnime.progress = percentage;
+            }
+            setSelectedAnime(updatedAnime);
+        }
+    }, [enrichAnimeWithProgress, enrichScheduleWithProgress, selectedAnime]);
+    
+    // Initialize tracker and listen for progress updates
+    useEffect(() => {
+        progressTracker.init();
+        
+        const handleProgressUpdate = () => {
+            refreshDataWithProgress();
+        };
+
+        window.addEventListener('progressUpdated', handleProgressUpdate);
+        return () => {
+            window.removeEventListener('progressUpdated', handleProgressUpdate);
+        };
+    }, [refreshDataWithProgress]);
+
 
     // Fetch initial data for the home page
     useEffect(() => {
@@ -92,13 +153,13 @@ const AppContent: React.FC = () => {
                     getGenreCollection(),
                     getLatestEpisodes(),
                 ]);
-                setTrending(applyOverridesToList(trending));
-                setPopular(applyOverridesToList(popular));
-                setTopAiring(applyOverridesToList(topAiring));
-                setTopUpcoming(applyOverridesToList(topUpcoming));
-                setPopularThisSeason(applyOverridesToList(popularThisSeason));
+                setTrending(enrichAnimeWithProgress(applyOverridesToList(trending)));
+                setPopular(enrichAnimeWithProgress(applyOverridesToList(popular)));
+                setTopAiring(enrichAnimeWithProgress(applyOverridesToList(topAiring)));
+                setTopUpcoming(enrichAnimeWithProgress(applyOverridesToList(topUpcoming)));
+                setPopularThisSeason(enrichAnimeWithProgress(applyOverridesToList(popularThisSeason)));
                 setAllGenres(genres);
-                setLatestEpisodes(latest);
+                setLatestEpisodes(enrichScheduleWithProgress(latest));
                 setCurrentSeason(currentSeason);
                 setCurrentYear(currentYear);
             } catch (error) {
@@ -108,7 +169,7 @@ const AppContent: React.FC = () => {
             }
         };
         fetchInitialData();
-    }, [applyOverridesToList]);
+    }, [applyOverridesToList, enrichAnimeWithProgress, enrichScheduleWithProgress]);
 
     // Re-apply overrides if they change
     useEffect(() => {
@@ -134,7 +195,7 @@ const AppContent: React.FC = () => {
             setIsDiscoverLoading(true);
             try {
                 const results = await discoverAnime(debouncedSearchTerm, filters);
-                setSearchResults(applyOverridesToList(results));
+                setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
             } catch (error) {
                 console.error("Failed to discover anime:", error);
             } finally {
@@ -142,7 +203,7 @@ const AppContent: React.FC = () => {
             }
         };
         performSearch();
-    }, [debouncedSearchTerm, filters, isDiscoveryView, applyOverridesToList]);
+    }, [debouncedSearchTerm, filters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress]);
     
     // Perform search for suggestions
     useEffect(() => {
@@ -172,7 +233,30 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
         try {
             const fullDetails = await getAnimeDetails(anime.anilistId);
-            setSelectedAnime(applyOverrides(fullDetails));
+            
+            const allProgress = progressTracker.getAllMediaData();
+
+            if (fullDetails.relations) {
+                fullDetails.relations = fullDetails.relations.map(rel => {
+                    const progressData = allProgress[rel.id];
+                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
+                        return { ...rel, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
+                    }
+                    return rel;
+                });
+            }
+            if (fullDetails.recommendations) {
+                fullDetails.recommendations = fullDetails.recommendations.map(rec => {
+                    const progressData = allProgress[rec.id];
+                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
+                        return { ...rec, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
+                    }
+                    return rec;
+                });
+            }
+
+            setSelectedAnime(enrichAnimeWithProgress([applyOverrides(fullDetails)])[0]);
+
         } catch (error) {
             console.error("Failed to get anime details:", error);
             setSelectedAnime(null); // Reset on error

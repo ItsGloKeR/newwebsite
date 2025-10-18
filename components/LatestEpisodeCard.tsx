@@ -1,9 +1,9 @@
 import React from 'react';
-import { AiringSchedule } from '../types';
+import { EnrichedAiringSchedule } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface LatestEpisodeCardProps {
-  schedule: AiringSchedule;
+  schedule: EnrichedAiringSchedule;
   onSelect: (anime: { anilistId: number }) => void;
 }
 
@@ -30,15 +30,24 @@ const LatestEpisodeCard: React.FC<LatestEpisodeCardProps> = ({ schedule, onSelec
       <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
         EP {schedule.episode}
       </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-      <div className="absolute bottom-0 left-0 p-4">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
+      <div className="absolute bottom-0 left-0 p-4 z-20">
         <h3 className="text-white text-lg font-bold truncate group-hover:whitespace-normal">{title}</h3>
       </div>
-      <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+      <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-white" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
         </svg>
       </div>
+       {/* Progress Bar */}
+      {schedule.progress > 0 && schedule.progress < 95 && (
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+              <div
+                  className="h-full bg-cyan-500"
+                  style={{ width: `${schedule.progress}%` }}
+              ></div>
+          </div>
+      )}
     </div>
   );
 };

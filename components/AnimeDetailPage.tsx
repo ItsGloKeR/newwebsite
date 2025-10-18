@@ -34,10 +34,18 @@ const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) 
             {anime.episodes} Ep
             </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-        <div className="absolute bottom-0 left-0 p-2">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
+        <div className="absolute bottom-0 left-0 p-2 z-20">
             <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>
         </div>
+        {anime.progress > 0 && anime.progress < 95 && (
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                <div
+                    className="h-full bg-cyan-500"
+                    style={{ width: `${anime.progress}%` }}
+                ></div>
+            </div>
+        )}
     </div>
     <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
   </div>
@@ -70,10 +78,18 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ anime, onSelect
             {anime.episodes} Ep
             </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-        <div className="absolute bottom-0 left-0 p-2">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
+        <div className="absolute bottom-0 left-0 p-2 z-20">
             <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>
         </div>
+         {anime.progress > 0 && anime.progress < 95 && (
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                <div
+                    className="h-full bg-cyan-500"
+                    style={{ width: `${anime.progress}%` }}
+                ></div>
+            </div>
+        )}
     </div>
   </div>
 );

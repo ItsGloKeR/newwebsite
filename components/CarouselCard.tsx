@@ -31,13 +31,13 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) =>
           {anime.episodes} Ep
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
       
       {/* Combined overlay for Rank and Title */}
-      <div className="absolute bottom-0 left-0 w-full flex items-end p-2">
+      <div className="absolute bottom-0 left-0 w-full flex items-end p-2 z-20">
         {/* Rank number is positioned absolutely but within the card's bounds */}
         {rank && (
-            <div className="absolute bottom-0 left-0 pointer-events-none z-10">
+            <div className="absolute bottom-0 left-0 pointer-events-none">
             <span className="text-8xl font-black text-gray-950/50 -translate-y-2" style={{ WebkitTextStroke: '2px #22d3ee' }}>
                 {rank}
             </span>
@@ -49,6 +49,15 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) =>
           {anime.title}
         </h3>
       </div>
+       {/* Progress Bar */}
+      {anime.progress > 0 && anime.progress < 95 && (
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+              <div
+                  className="h-full bg-cyan-500"
+                  style={{ width: `${anime.progress}%` }}
+              ></div>
+          </div>
+      )}
     </div>
   );
 };

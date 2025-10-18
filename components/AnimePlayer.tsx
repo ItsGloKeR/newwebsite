@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
+import { progressTracker } from '../utils/progressTracking';
 
 const AdminEpisodeEditor: React.FC<{ anime: Anime; episode: number }> = ({ anime, episode }) => {
     const { isAdmin, overrides, updateEpisodeStreamUrl } = useAdmin();
@@ -80,12 +81,22 @@ interface AnimePlayerProps {
 
 const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => void }> = ({ anime, onSelect }) => (
     <div className="flex gap-4 p-2 rounded-lg cursor-pointer hover:bg-gray-800/50 transition-colors" onClick={onSelect}>
-        <img
-            src={anime.coverImage}
-            alt={anime.title}
-            className="w-16 h-24 object-cover rounded-md flex-shrink-0"
-            onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-        />
+        <div className="relative w-16 h-24 flex-shrink-0">
+             <img
+                src={anime.coverImage}
+                alt={anime.title}
+                className="w-full h-full object-cover rounded-md"
+                onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+            />
+            {anime.progress > 0 && anime.progress < 95 && (
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                    <div
+                        className="h-full bg-cyan-500"
+                        style={{ width: `${anime.progress}%` }}
+                    ></div>
+                </div>
+            )}
+        </div>
         <div className="overflow-hidden">
             <h4 className="text-white font-semibold line-clamp-2 flex items-center gap-2">
                 {anime.title}
@@ -115,7 +126,15 @@ const RelatedCard: React.FC<{ anime: RelatedAnime, onSelect: () => void }> = ({ 
                 {anime.episodes} Ep
                 </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
+             {anime.progress > 0 && anime.progress < 95 && (
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                    <div
+                        className="h-full bg-cyan-500"
+                        style={{ width: `${anime.progress}%` }}
+                    ></div>
+                </div>
+            )}
         </div>
         <p className="text-white text-xs font-semibold line-clamp-2 mt-2 group-hover:text-cyan-400 transition-colors">{anime.title}</p>
         <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
@@ -137,7 +156,16 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   const { getStreamUrl } = useAdmin();
   const episodeCount = anime.episodes || 1;
 
-  const streamUrl = getStreamUrl(anime.anilistId, currentEpisode, currentSource, currentLanguage);
+  const streamUrl = useMemo(() => {
+    const baseUrl = getStreamUrl(anime.anilistId, currentEpisode, currentSource, currentLanguage);
+    const resumeTime = progressTracker.getResumeTime(anime.anilistId, currentEpisode);
+    if (resumeTime) {
+      const separator = baseUrl.includes('?') ? '&' : '?';
+      return `${baseUrl}${separator}t=${resumeTime}`;
+    }
+    return baseUrl;
+  }, [anime.anilistId, currentEpisode, currentSource, currentLanguage, getStreamUrl]);
+
 
   const nextAiringDate = useMemo(() => {
     if (!anime.nextAiringEpisode) return null;
@@ -190,7 +218,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                 <div className="bg-gray-900 rounded-lg shadow-xl overflow-hidden">
                     <div className="aspect-video bg-black">
                         <iframe
-                        key={streamUrl}
+                        key={`${streamUrl}-${currentSource}-${currentLanguage}`}
                         src={streamUrl}
                         title={`${anime.title} - Episode ${currentEpisode}`}
                         allowFullScreen

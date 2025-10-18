@@ -1,11 +1,11 @@
 import React from 'react';
-import { AiringSchedule } from '../types';
+import { EnrichedAiringSchedule } from '../types';
 import LatestEpisodeCard from './LatestEpisodeCard';
 import SkeletonCard from './SkeletonCard';
 
 interface LatestEpisodeGridProps {
   title: string;
-  episodes: AiringSchedule[];
+  episodes: EnrichedAiringSchedule[];
   onSelectAnime: (anime: { anilistId: number }) => void;
   isLoading?: boolean;
   onViewMore?: () => void;
