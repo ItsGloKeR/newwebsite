@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Anime, StreamSource, StreamLanguage } from './types';
 import { getHomePageData, searchAnime, getAnimeDetails } from './services/anilistService';
 import Header from './components/Header';
@@ -12,12 +12,14 @@ import Footer from './components/Footer';
 import BackToTopButton from './components/BackToTopButton';
 import SchedulePage from './components/SchedulePage';
 import VerticalAnimeList from './components/VerticalAnimeList';
+import AdminModal from './components/AdminModal';
 import { useDebounce } from './hooks/useDebounce';
 import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
+import { AdminProvider, useAdmin } from './contexts/AdminContext';
 
 type View = 'home' | 'details' | 'player' | 'schedule';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
     const [view, setView] = useState<View>('home');
     const [trending, setTrending] = useState<Anime[]>(initialTrending);
     const [popular, setPopular] = useState<Anime[]>(initialPopular);
@@ -35,7 +37,19 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSearching, setIsSearching] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
+    const { overrides } = useAdmin();
+
+    const applyOverrides = useCallback((anime: Anime): Anime => {
+        if (!anime) return anime;
+        const overriddenTitle = overrides.anime[anime.anilistId]?.title;
+        return overriddenTitle ? { ...anime, title: overriddenTitle } : anime;
+    }, [overrides.anime]);
+
+    const applyOverridesToList = useCallback((list: Anime[]): Anime[] => {
+        return list.map(applyOverrides);
+    }, [applyOverrides]);
 
     // Fetch initial data for the home page
     useEffect(() => {
@@ -43,9 +57,9 @@ const App: React.FC = () => {
             setIsLoading(true);
             try {
                 const { trending, popular, topAiring } = await getHomePageData();
-                setTrending(trending);
-                setPopular(popular);
-                setTopAiring(topAiring);
+                setTrending(applyOverridesToList(trending));
+                setPopular(applyOverridesToList(popular));
+                setTopAiring(applyOverridesToList(topAiring));
             } catch (error) {
                 console.error("Failed to fetch home page data:", error);
             } finally {
@@ -53,7 +67,19 @@ const App: React.FC = () => {
             }
         };
         fetchInitialData();
-    }, []);
+    }, [applyOverridesToList]);
+
+    // Re-apply overrides if they change
+    useEffect(() => {
+        setTrending(applyOverridesToList);
+        setPopular(applyOverridesToList);
+        setTopAiring(applyOverridesToList);
+        setSearchResults(applyOverridesToList);
+        if (selectedAnime) {
+            setSelectedAnime(applyOverrides);
+        }
+    }, [overrides, applyOverridesToList, applyOverrides, selectedAnime]);
+
 
     // Perform search when debounced search term changes
     useEffect(() => {
@@ -67,7 +93,7 @@ const App: React.FC = () => {
             setIsSearching(true);
             try {
                 const results = await searchAnime(debouncedSearchTerm);
-                setSearchResults(results);
+                setSearchResults(applyOverridesToList(results));
             } catch (error) {
                 console.error("Failed to search anime:", error);
             } finally {
@@ -75,7 +101,7 @@ const App: React.FC = () => {
             }
         };
         performSearch();
-    }, [debouncedSearchTerm]);
+    }, [debouncedSearchTerm, applyOverridesToList]);
 
     // Handlers
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
@@ -84,7 +110,7 @@ const App: React.FC = () => {
         window.scrollTo(0, 0);
         try {
             const fullDetails = await getAnimeDetails(anime.anilistId);
-            setSelectedAnime(fullDetails);
+            setSelectedAnime(applyOverrides(fullDetails));
         } catch (error) {
             console.error("Failed to get anime details:", error);
             setSelectedAnime(null); // Reset on error
@@ -208,10 +234,17 @@ const App: React.FC = () => {
         <div className="bg-gray-950 min-h-screen">
             {view !== 'player' && <Header onSearch={handleSearch} onHomeClick={handleHomeClick} onScheduleClick={handleScheduleClick} searchTerm={searchTerm} />}
             {renderContent()}
-            {view !== 'player' && <Footer />}
+            {view !== 'player' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} />}
             <BackToTopButton />
+            <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
         </div>
     );
 };
+
+const App: React.FC = () => (
+    <AdminProvider>
+        <AppContent />
+    </AdminProvider>
+);
 
 export default App;

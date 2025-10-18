@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Anime, RelatedAnime, NextEpisodeSchedule } from '../types';
+import { Anime, RelatedAnime, NextEpisodeSchedule, StreamSource } from '../types';
 import GenrePill from './GenrePill';
 import { fetchNextEpisodeSchedule } from '../services/hianimeService';
+import { useAdmin } from '../contexts/AdminContext';
 
 const RELATED_ANIME_LIMIT = 10;
 
@@ -49,6 +50,107 @@ const CountdownTimer: React.FC<{ seconds: number }> = ({ seconds }) => {
     );
 };
 
+const TitleEditor: React.FC<{ anime: Anime }> = ({ anime }) => {
+    const { updateTitle } = useAdmin();
+    const [isEditing, setIsEditing] = useState(false);
+    const [title, setTitle] = useState(anime.title);
+
+    useEffect(() => {
+        setTitle(anime.title);
+    }, [anime.title]);
+
+    const handleSave = () => {
+        updateTitle(anime.anilistId, title);
+        setIsEditing(false);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleSave();
+        } else if (e.key === 'Escape') {
+            setIsEditing(false);
+            setTitle(anime.title);
+        }
+    };
+
+    return (
+        <div className="flex items-center gap-4">
+            {isEditing ? (
+                 <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    onBlur={handleSave}
+                    onKeyDown={handleKeyDown}
+                    className="text-4xl lg:text-6xl font-black bg-gray-800 text-white rounded px-2 -mx-2"
+                    autoFocus
+                />
+            ) : (
+                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{anime.title}</h1>
+            )}
+            <button onClick={() => setIsEditing(!isEditing)} className="text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536l12.232-12.232z" />
+                </svg>
+            </button>
+        </div>
+    );
+};
+
+const AdminSettings: React.FC<{ anime: Anime }> = ({ anime }) => {
+    const { overrides, updateAnimeStreamUrlTemplate } = useAdmin();
+    const animeOverrides = overrides.anime[anime.anilistId];
+
+    const [animePaheUrl, setAnimePaheUrl] = useState(animeOverrides?.streamUrlTemplates?.animepahe || '');
+    const [vidnestUrl, setVidnestUrl] = useState(animeOverrides?.streamUrlTemplates?.vidnest || '');
+    
+    useEffect(() => {
+        setAnimePaheUrl(animeOverrides?.streamUrlTemplates?.animepahe || '');
+        setVidnestUrl(animeOverrides?.streamUrlTemplates?.vidnest || '');
+    }, [animeOverrides]);
+
+    const handleBlur = (source: StreamSource, value: string) => {
+        updateAnimeStreamUrlTemplate(anime.anilistId, source, value);
+    };
+
+    return (
+        <div className="mt-8 bg-gray-900/50 border border-cyan-500/30 rounded-lg p-6">
+            <h2 className="text-2xl font-bold text-cyan-400 mb-4">Admin Settings</h2>
+            <div className="text-sm text-gray-400 mb-4 space-y-1">
+                <p>Override the stream URL for this anime.</p>
+                <p>&bull; <b>Simple Mode:</b> Enter the base URL (e.g., <code className="bg-gray-800 text-cyan-300 px-1 rounded">https://.../one-piece</code>). The episode/language will be added automatically.</p>
+                <p>&bull; <b>Advanced Mode:</b> Provide a full template with <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code> for custom URL structures.</p>
+            </div>
+            <div className="space-y-4">
+                <div>
+                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="animeSource1">Source 1 URL (AnimePahe)</label>
+                    <input
+                        id="animeSource1"
+                        type="text"
+                        value={animePaheUrl}
+                        onChange={(e) => setAnimePaheUrl(e.target.value)}
+                        onBlur={(e) => handleBlur(StreamSource.AnimePahe, e.target.value)}
+                        placeholder="Enter base URL or full template"
+                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                </div>
+                <div>
+                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="animeSource2">Source 2 URL (Vidnest)</label>
+                    <input
+                        id="animeSource2"
+                        type="text"
+                        value={vidnestUrl}
+                        onChange={(e) => setVidnestUrl(e.target.value)}
+                        onBlur={(e) => handleBlur(StreamSource.Vidnest, e.target.value)}
+                        placeholder="Enter base URL or full template"
+                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 interface AnimeDetailPageProps {
   anime: Anime;
@@ -61,18 +163,17 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [schedule, setSchedule] = useState<NextEpisodeSchedule | null>(null);
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
+  const { isAdmin } = useAdmin();
 
   useEffect(() => {
     const getSchedule = async () => {
       if (!anime.title) return;
       setIsLoadingSchedule(true);
-      // Construct a plausible ID from the title for the hianime-api.
-      // This is a best-effort approach as we don't have the exact ID.
       const hianimeId = anime.title
         .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces/hyphens
-        .replace(/[\s]+/g, '-')       // Replace spaces with hyphens
-        .replace(/--+/g, '-');        // Replace multiple hyphens
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/[\s]+/g, '-')
+        .replace(/--+/g, '-');
       
       const scheduleData = await fetchNextEpisodeSchedule(hianimeId);
       setSchedule(scheduleData);
@@ -80,7 +181,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
     };
 
     getSchedule();
-  }, [anime.anilistId, anime.title]); // Refetch when the anime changes
+  }, [anime.anilistId, anime.title]);
 
   const mainStaff = anime.staff.filter(s => ['Director', 'Original Creator', 'Series Composition'].includes(s.role));
 
@@ -94,7 +195,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             if (target.src !== anime.coverImage) {
-              target.onerror = null; // prevent infinite loop if coverImage also fails
+              target.onerror = null;
               target.src = anime.coverImage;
             }
           }}
@@ -104,7 +205,6 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
       </div>
 
       <div className="container mx-auto p-4 md:p-8">
-        {/* --- Top Section: Cover, Title, Actions --- */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 relative z-10 -mt-32 md:-mt-48">
           <div className="md:col-span-4 lg:col-span-3">
             <img 
@@ -115,11 +215,15 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
           </div>
           <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-end md:pb-8">
             <button onClick={onBack} className="absolute top-4 left-4 text-white bg-black/50 p-2 rounded-full hover:bg-cyan-500 transition-colors z-20">
-              <svg xmlns="http://www.w.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{anime.title}</h1>
+            {isAdmin ? (
+                <TitleEditor anime={anime} />
+            ) : (
+                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{anime.title}</h1>
+            )}
             <div className="my-4 flex flex-wrap gap-2">
               {anime.genres.map(genre => <GenrePill key={genre} genre={genre} />)}
             </div>
@@ -135,7 +239,8 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
           </div>
         </div>
 
-        {/* --- Main Content: Synopsis, Details, Relations --- */}
+        {isAdmin && <AdminSettings anime={anime} />}
+
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4 mb-4">Synopsis</h2>
@@ -167,7 +272,6 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
                   </div>
                 ))}
              </div>
-             {/* Schedule Countdown Section */}
              {!isLoadingSchedule && schedule?.secondsUntilAiring && schedule.secondsUntilAiring > 0 && (
                 <div>
                     <h3 className="font-bold text-lg mb-2">Next Episode</h3>

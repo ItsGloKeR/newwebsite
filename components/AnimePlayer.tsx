@@ -1,7 +1,67 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Anime, StreamSource, StreamLanguage } from '../types';
-import { STREAM_URLS } from '../constants';
 import GenrePill from './GenrePill';
+import { useAdmin } from '../contexts/AdminContext';
+
+const AdminEpisodeEditor: React.FC<{ anime: Anime; episode: number }> = ({ anime, episode }) => {
+    const { isAdmin, overrides, updateEpisodeStreamUrl } = useAdmin();
+    const [isEditing, setIsEditing] = useState(false);
+
+    const episodeOverrides = overrides.anime[anime.anilistId]?.episodes?.[episode];
+    const [animePaheUrl, setAnimePaheUrl] = useState(episodeOverrides?.animepahe || '');
+    const [vidnestUrl, setVidnestUrl] = useState(episodeOverrides?.vidnest || '');
+
+    useEffect(() => {
+        setAnimePaheUrl(episodeOverrides?.animepahe || '');
+        setVidnestUrl(episodeOverrides?.vidnest || '');
+    }, [episodeOverrides, episode]);
+
+    if (!isAdmin) return null;
+
+    const handleBlur = (source: StreamSource, value: string) => {
+        updateEpisodeStreamUrl(anime.anilistId, episode, source, value);
+    };
+
+    return (
+        <div className="mt-4">
+            <button onClick={() => setIsEditing(!isEditing)} className="bg-gray-700 hover:bg-gray-600 text-cyan-300 text-sm font-semibold px-4 py-2 rounded-md transition-colors w-full text-left flex justify-between items-center">
+                <span>Admin: Edit Episode URL</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isEditing ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+            </button>
+            {isEditing && (
+                <div className="bg-gray-800/50 p-4 mt-2 rounded-md space-y-4 animate-fade-in">
+                    <p className="text-xs text-gray-400">Enter the full, direct URL for this specific episode. This will override all other settings.</p>
+                    <div>
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="epSource1">Source 1 Full URL (AnimePahe)</label>
+                        <input
+                            id="epSource1"
+                            type="text"
+                            value={animePaheUrl}
+                            onChange={(e) => setAnimePaheUrl(e.target.value)}
+                            onBlur={(e) => handleBlur(StreamSource.AnimePahe, e.target.value)}
+                            placeholder="https://..."
+                            className="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="epSource2">Source 2 Full URL (Vidnest)</label>
+                        <input
+                            id="epSource2"
+                            type="text"
+                            value={vidnestUrl}
+                            onChange={(e) => setVidnestUrl(e.target.value)}
+                            onBlur={(e) => handleBlur(StreamSource.Vidnest, e.target.value)}
+                            placeholder="https://..."
+                            className="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 interface AnimePlayerProps {
   anime: Anime;
@@ -24,16 +84,15 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   onLanguageChange,
   onBack
 }) => {
+  const { getStreamUrl } = useAdmin();
   const episodeCount = anime.episodes || 1;
 
-  const streamUrl = `${STREAM_URLS[currentSource]}/${anime.anilistId}/${currentEpisode}/${currentLanguage}`;
+  const streamUrl = getStreamUrl(anime.anilistId, currentEpisode, currentSource, currentLanguage);
 
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
 
   const handleSourceChange = (source: StreamSource) => {
     onSourceChange(source);
-    // If user selects Source 1 (AnimePahe), force the language to SUB
-    // as it doesn't support DUB or HINDI streams.
     if (source === StreamSource.AnimePahe) {
       onLanguageChange(StreamLanguage.Sub);
     }
@@ -68,8 +127,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
               src={streamUrl}
               title={`${anime.title} - Episode ${currentEpisode}`}
               allowFullScreen
-              // This sandbox attribute is the key to blocking pop-ups.
-              // It allows scripts and fullscreen, but disallows pop-ups by default.
               sandbox="allow-scripts allow-same-origin allow-presentation"
               className="w-full h-full border-0"
             ></iframe>
@@ -92,7 +149,9 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
               </div>
             </div>
             
-            <div>
+            <AdminEpisodeEditor anime={anime} episode={currentEpisode} />
+            
+            <div className="mt-4">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xl font-semibold text-white">Episodes</h3>
                 {episodeCount > 1 && (

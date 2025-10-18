@@ -62,3 +62,25 @@ export interface HiAnime {
   title: string;
   coverImage: string;
 }
+
+// Admin Panel Types - NEW STRUCTURE
+
+export interface EpisodeOverride {
+  [StreamSource.Vidnest]?: string; // Full URL for the episode
+  [StreamSource.AnimePahe]?: string; // Full URL for the episode
+}
+
+export interface AnimeOverride {
+  title?: string;
+  // URL Template for a specific anime, e.g. https://.../anime/{episode}/{language}
+  streamUrlTemplates?: Partial<Record<StreamSource, string>>;
+  // Per-episode full URL overrides
+  episodes?: Record<number, Partial<EpisodeOverride>>; // episode number -> override
+}
+
+export interface AdminOverrides {
+  // anilistId -> AnimeOverride
+  anime: Record<number, AnimeOverride>;
+  // Global URL templates as a fallback
+  globalStreamUrlTemplates: Partial<Record<StreamSource, string>>;
+}
