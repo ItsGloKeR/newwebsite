@@ -22,7 +22,7 @@ import HomePageSkeleton from './components/HomePageSkeleton';
 import LatestEpisodeGrid from './components/LatestEpisodeGrid';
 
 
-type View = 'home' | 'details' | 'player';
+type View = 'home' | 'details' | 'player' | 'schedule';
 
 const initialFilters: FilterState = {
     genres: [],
@@ -248,6 +248,11 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
     };
 
+    const handleViewFullSchedule = () => {
+        setView('schedule');
+        window.scrollTo(0, 0);
+    };
+
     const generateDiscoveryTitle = () => {
         if (debouncedSearchTerm.trim()) {
             return `Results for "${debouncedSearchTerm}"`;
@@ -294,11 +299,12 @@ const AppContent: React.FC = () => {
                                 onSelectAnime={handleSelectAnime} 
                                 onViewMore={() => handleViewMore({ sort: MediaSort.POPULARITY_DESC }, "Popular Anime")}
                             />
-                            <SchedulePage onSelectAnime={handleSelectAnime} />
+                            <SchedulePage onSelectAnime={handleSelectAnime} onViewMore={handleViewFullSchedule} />
                             <AnimeCarousel 
                                 title="Top Upcoming" 
                                 animeList={topUpcoming} 
                                 onSelectAnime={handleSelectAnime}
+                                showRank={false}
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.NOT_YET_RELEASED], sort: MediaSort.POPULARITY_DESC }, "Top Upcoming Anime")}
                             />
                         </div>
@@ -318,6 +324,12 @@ const AppContent: React.FC = () => {
 
     const renderContent = () => {
         switch(view) {
+            case 'schedule':
+                return (
+                    <main className="container mx-auto p-4 md:p-8">
+                        <SchedulePage onSelectAnime={handleSelectAnime} isFullPage={true} />
+                    </main>
+                );
             case 'player':
                  if (isLoading || !playerState.anime) {
                     return <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>;

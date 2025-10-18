@@ -353,8 +353,11 @@ export const getAnimeDetails = async (id: number): Promise<Anime> => {
 
 export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
     const query = `
-      query ($airingAt_greater: Int, $airingAt_lesser: Int) {
-        Page(page: 1, perPage: 50) {
+      query ($airingAt_greater: Int, $airingAt_lesser: Int, $page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          pageInfo {
+            hasNextPage
+          }
           airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME) {
             id
             episode
@@ -375,12 +378,32 @@ export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
     `;
     
     const now = Math.floor(Date.now() / 1000);
-    // Get schedule for the next 7 days
-    const sevenDaysLater = now + 7 * 24 * 60 * 60;
+    // Get schedule for the next 30 days
+    const thirtyDaysLater = now + 30 * 24 * 60 * 60;
+    
+    let allSchedules: AiringSchedule[] = [];
+    let page = 1;
+    let hasNextPage = true;
 
-    const variables = { airingAt_greater: now, airingAt_lesser: sevenDaysLater };
-    const data = await fetchAniListData(query, variables);
-    return data.Page.airingSchedules;
+    while (hasNextPage) {
+        const variables = {
+            airingAt_greater: now,
+            airingAt_lesser: thirtyDaysLater,
+            page: page,
+            perPage: 50
+        };
+        const data = await fetchAniListData(query, variables);
+        
+        if (data.Page && data.Page.airingSchedules) {
+            allSchedules = allSchedules.concat(data.Page.airingSchedules);
+            hasNextPage = data.Page.pageInfo.hasNextPage;
+            page++;
+        } else {
+            hasNextPage = false;
+        }
+    }
+    
+    return allSchedules;
 };
 
 export const getGenreCollection = async (): Promise<string[]> => {

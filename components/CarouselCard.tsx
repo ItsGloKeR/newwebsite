@@ -5,7 +5,7 @@ import { PLACEHOLDER_IMAGE_URL } from '../constants';
 interface CarouselCardProps {
   anime: Anime;
   onSelect: (anime: Anime) => void;
-  rank: number;
+  rank?: number;
 }
 
 const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) => {
@@ -26,14 +26,16 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) =>
       {/* Combined overlay for Rank and Title */}
       <div className="absolute bottom-0 left-0 w-full flex items-end p-2">
         {/* Rank number is positioned absolutely but within the card's bounds */}
-        <div className="absolute bottom-0 left-0 pointer-events-none z-10">
-          <span className="text-8xl font-black text-gray-950/50 -translate-y-2" style={{ WebkitTextStroke: '2px #22d3ee' }}>
-            {rank}
-          </span>
-        </div>
+        {rank && (
+            <div className="absolute bottom-0 left-0 pointer-events-none z-10">
+            <span className="text-8xl font-black text-gray-950/50 -translate-y-2" style={{ WebkitTextStroke: '2px #22d3ee' }}>
+                {rank}
+            </span>
+            </div>
+        )}
         
         {/* Title is positioned with a higher z-index and padding to avoid the number */}
-        <h3 className="relative z-20 text-white text-md font-bold truncate w-full pl-14">
+        <h3 className={`relative z-20 text-white text-md font-bold truncate w-full ${rank ? 'pl-14' : 'pl-2'}`}>
           {anime.title}
         </h3>
       </div>

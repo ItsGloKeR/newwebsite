@@ -7,9 +7,10 @@ interface AnimeCarouselProps {
   animeList: Anime[];
   onSelectAnime: (anime: Anime) => void;
   onViewMore?: () => void;
+  showRank?: boolean;
 }
 
-const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelectAnime, onViewMore }) => {
+const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelectAnime, onViewMore, showRank = true }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -59,7 +60,12 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, onSelec
 
       <div ref={scrollContainerRef} className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
         {animeList.map((anime, index) => (
-          <CarouselCard key={anime.anilistId} anime={anime} onSelect={onSelectAnime} rank={index + 1} />
+          <CarouselCard 
+            key={anime.anilistId} 
+            anime={anime} 
+            onSelect={onSelectAnime} 
+            rank={showRank ? index + 1 : undefined} 
+          />
         ))}
       </div>
     </section>

@@ -1,46 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getAiringSchedule } from '../services/anilistService';
 import { AiringSchedule } from '../types';
 import LoadingSpinner from './LoadingSpinner';
-import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface SchedulePageProps {
   onSelectAnime: (anime: { anilistId: number }) => void;
+  isFullPage?: boolean;
+  onViewMore?: () => void;
 }
 
-const ScheduleCard: React.FC<{ schedule: AiringSchedule, onSelect: () => void }> = ({ schedule, onSelect }) => {
-  const airingTime = new Date(schedule.airingAt * 1000);
-  const timeString = airingTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const dayString = airingTime.toLocaleDateString([], { weekday: 'short' });
-  const title = schedule.media.title.english || schedule.media.title.romaji;
+const ITEMS_PER_PAGE = 10;
 
-  return (
-    <div 
-      className="flex-shrink-0 w-40 cursor-pointer group"
-      onClick={onSelect}
-    >
-      <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
-          <img 
-            src={schedule.media.coverImage.extraLarge} 
-            alt={title} 
-            className="w-full h-full object-cover"
-            onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-2">
-              <p className="text-white text-sm font-bold line-clamp-2">{title}</p>
-          </div>
-      </div>
-      <div className="mt-2 text-center">
-        <p className="text-cyan-400 font-semibold text-sm">Ep {schedule.episode} airs {dayString}</p>
-        <p className="text-gray-300 text-xs">{timeString}</p>
-      </div>
-    </div>
-  )
-};
-
-const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
+const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage = false, onViewMore }) => {
   const [scheduleList, setScheduleList] = useState<AiringSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -57,30 +40,129 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
     fetchSchedule();
   }, []);
 
-  const handleSelect = (schedule: AiringSchedule) => {
-    onSelectAnime({ anilistId: schedule.media.id });
+  useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [selectedDate]);
+
+  const dayCount = isFullPage ? 30 : 7;
+  const dates = useMemo(() => {
+    return Array.from({ length: dayCount }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      return date;
+    });
+  }, [today, dayCount]);
+
+  const todaysSchedule = useMemo(() => {
+    return scheduleList
+      .filter(item => {
+        const itemDate = new Date(item.airingAt * 1000);
+        return (
+          itemDate.getFullYear() === selectedDate.getFullYear() &&
+          itemDate.getMonth() === selectedDate.getMonth() &&
+          itemDate.getDate() === selectedDate.getDate()
+        );
+      })
+      .sort((a, b) => a.airingAt - b.airingAt);
+  }, [scheduleList, selectedDate]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = scrollContainerRef.current.clientWidth * 0.7;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
   };
-  
+
+  const title = isFullPage ? "Full Airing Schedule" : "Airing Schedule";
+
   if (isLoading) {
     return (
-      <div className="h-64 flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="h-96 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-400"></div>
       </div>
     );
   }
 
-  if (scheduleList.length === 0) {
-      return null;
-  }
-
   return (
-    <section className="mt-12 animate-fade-in">
-      <h2 className="text-3xl font-bold text-white mb-6 border-l-4 border-cyan-400 pl-4">Airing Schedule</h2>
-      <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
-        {scheduleList.map(schedule => (
-            <ScheduleCard key={schedule.id} schedule={schedule} onSelect={() => handleSelect(schedule)} />
-        ))}
-      </div>
+    <section className="mt-12 mb-12 animate-fade-in">
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
+            {!isFullPage && onViewMore && (
+                <button 
+                    onClick={onViewMore} 
+                    className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+                >
+                    View More &gt;
+                </button>
+            )}
+        </div>
+        <div className="relative">
+            <button onClick={() => scroll('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-gray-800/50 p-2 rounded-full hover:bg-gray-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div ref={scrollContainerRef} className="flex gap-3 overflow-x-auto pb-4 carousel-scrollbar px-12">
+                {dates.map(date => {
+                    const isSelected = date.getTime() === selectedDate.getTime();
+                    return (
+                        <button
+                            key={date.toISOString()}
+                            onClick={() => setSelectedDate(date)}
+                            className={`flex-shrink-0 px-4 py-2 rounded-lg transition-colors text-center ${isSelected ? 'bg-gray-800' : 'hover:bg-gray-800/50'}`}
+                        >
+                            <p className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                                {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                            </p>
+                            <p className={`text-sm ${isSelected ? 'text-gray-300' : 'text-gray-400'}`}>
+                                {date.toLocaleDateString('en-US', { month: 'short' })} {date.getDate()}
+                            </p>
+                        </button>
+                    )
+                })}
+            </div>
+            <button onClick={() => scroll('right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-gray-800/50 p-2 rounded-full hover:bg-gray-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+        </div>
+        <div className="mt-6">
+            {todaysSchedule.length > 0 ? (
+                todaysSchedule.slice(0, visibleCount).map(item => (
+                    <div 
+                        key={item.id}
+                        onClick={() => onSelectAnime({ anilistId: item.media.id })}
+                        className="flex items-center justify-between py-4 border-b border-gray-800 cursor-pointer hover:bg-gray-900 px-2 rounded-md transition-colors"
+                    >
+                        <div className="flex items-center gap-4">
+                            <span className="text-gray-400 font-mono text-sm w-16">
+                                {new Date(item.airingAt * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                            </span>
+                            <span className="text-white font-semibold">
+                                {item.media.title.english || item.media.title.romaji}
+                            </span>
+                        </div>
+                        <span className="text-gray-400 text-sm">
+                            ▸ Episode {item.episode}
+                        </span>
+                    </div>
+                ))
+            ) : (
+                <div className="text-center py-12 text-gray-500">
+                    No episodes scheduled for this day.
+                </div>
+            )}
+            {todaysSchedule.length > visibleCount && (
+                <div className="mt-4 text-center">
+                    <button 
+                        onClick={() => setVisibleCount(c => c + ITEMS_PER_PAGE)}
+                        className="text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
+                    >
+                        Show more
+                    </button>
+                </div>
+            )}
+        </div>
     </section>
   );
 };
