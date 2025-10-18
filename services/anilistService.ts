@@ -1,4 +1,4 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -44,6 +44,20 @@ const ANIME_FIELDS_FRAGMENT = `
       node {
         id
         type
+        title {
+          romaji
+          english
+        }
+        coverImage {
+          extraLarge
+        }
+      }
+    }
+  }
+  recommendations(sort: RATING_DESC, perPage: 10) {
+    nodes {
+      mediaRecommendation {
+        id
         title {
           romaji
           english
@@ -121,6 +135,15 @@ const mapToAnime = (data: any): Anime => {
       coverImage: edge.node.coverImage.extraLarge,
       relationType: edge.relationType,
     }));
+  
+  const recommendations: RecommendedAnime[] = (data.recommendations?.nodes || [])
+    .filter((node: any) => node.mediaRecommendation)
+    .map((node: any) => ({
+      id: node.mediaRecommendation.id,
+      title: node.mediaRecommendation.title.english || node.mediaRecommendation.title.romaji,
+      coverImage: node.mediaRecommendation.coverImage.extraLarge,
+    }));
+
 
   let episodeCount = data.episodes;
   if (data.status === 'RELEASING' && data.nextAiringEpisode) {
@@ -142,6 +165,7 @@ const mapToAnime = (data: any): Anime => {
     studios: data.studios?.nodes.map((n: any) => n.name) || [],
     staff,
     relations,
+    recommendations,
   };
 };
 

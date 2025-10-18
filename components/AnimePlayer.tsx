@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Anime, StreamSource, StreamLanguage } from '../types';
-import GenrePill from './GenrePill';
+import { Anime, StreamSource, StreamLanguage, RecommendedAnime } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 const AdminEpisodeEditor: React.FC<{ anime: Anime; episode: number }> = ({ anime, episode }) => {
     const { isAdmin, overrides, updateEpisodeStreamUrl } = useAdmin();
@@ -74,7 +74,23 @@ interface AnimePlayerProps {
   onSourceChange: (source: StreamSource) => void;
   onLanguageChange: (language: StreamLanguage) => void;
   onBack: () => void;
+  onSelectRecommended: (anime: { anilistId: number }) => void;
 }
+
+const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => void }> = ({ anime, onSelect }) => (
+    <div className="flex gap-4 p-2 rounded-lg cursor-pointer hover:bg-gray-800/50 transition-colors" onClick={onSelect}>
+        <img
+            src={anime.coverImage}
+            alt={anime.title}
+            className="w-16 h-24 object-cover rounded-md flex-shrink-0"
+            onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+        />
+        <div className="overflow-hidden">
+            <h4 className="text-white font-semibold line-clamp-3">{anime.title}</h4>
+        </div>
+    </div>
+);
+
 
 const AnimePlayer: React.FC<AnimePlayerProps> = ({
   anime,
@@ -84,7 +100,8 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   onEpisodeChange,
   onSourceChange,
   onLanguageChange,
-  onBack
+  onBack,
+  onSelectRecommended
 }) => {
   const { getStreamUrl } = useAdmin();
   const episodeCount = anime.episodes || 1;
@@ -122,66 +139,95 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
           </svg>
           Back to details
         </button>
-        <div className="bg-gray-900 rounded-lg shadow-xl overflow-hidden">
-          <div className="aspect-video bg-black">
-            <iframe
-              key={streamUrl}
-              src={streamUrl}
-              title={`${anime.title} - Episode ${currentEpisode}`}
-              allowFullScreen
-              sandbox="allow-scripts allow-same-origin allow-presentation"
-              className="w-full h-full border-0"
-            ></iframe>
-          </div>
-          <div className="p-6">
-            <h2 className="text-3xl font-bold text-white mb-2">{anime.title} - Episode {currentEpisode}</h2>
-            <div className="flex flex-wrap gap-4 items-center mb-4">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-400">Source:</span>
-                {renderControlButton(StreamSource.AnimePahe, currentSource, handleSourceChange, 'Source 1')}
-                {renderControlButton(StreamSource.Vidnest, currentSource, handleSourceChange, 'Source 2')}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-400">Language:</span>
-                {renderControlButton(StreamLanguage.Sub, currentLanguage, onLanguageChange, 'SUB')}
-                {currentSource !== StreamSource.AnimePahe &&
-                  renderControlButton(StreamLanguage.Dub, currentLanguage, onLanguageChange, 'DUB')}
-                {currentSource !== StreamSource.AnimePahe &&
-                  renderControlButton(StreamLanguage.Hindi, currentLanguage, onLanguageChange, 'HINDI')}
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Main Content: Player and Controls */}
+            <div className="lg:col-span-2">
+                <div className="bg-gray-900 rounded-lg shadow-xl overflow-hidden">
+                    <div className="aspect-video bg-black">
+                        <iframe
+                        key={streamUrl}
+                        src={streamUrl}
+                        title={`${anime.title} - Episode ${currentEpisode}`}
+                        allowFullScreen
+                        sandbox="allow-scripts allow-same-origin allow-presentation"
+                        className="w-full h-full border-0"
+                        ></iframe>
+                    </div>
+                    <div className="p-6">
+                        <h2 className="text-3xl font-bold text-white mb-2">{anime.title} - Episode {currentEpisode}</h2>
+                        <div className="flex flex-wrap gap-4 items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-400">Source:</span>
+                            {renderControlButton(StreamSource.AnimePahe, currentSource, handleSourceChange, 'Source 1')}
+                            {renderControlButton(StreamSource.Vidnest, currentSource, handleSourceChange, 'Source 2')}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-400">Language:</span>
+                            {renderControlButton(StreamLanguage.Sub, currentLanguage, onLanguageChange, 'SUB')}
+                            {currentSource !== StreamSource.AnimePahe &&
+                            renderControlButton(StreamLanguage.Dub, currentLanguage, onLanguageChange, 'DUB')}
+                            {currentSource !== StreamSource.AnimePahe &&
+                            renderControlButton(StreamLanguage.Hindi, currentLanguage, onLanguageChange, 'HINDI')}
+                        </div>
+                        </div>
+                        
+                        <AdminEpisodeEditor anime={anime} episode={currentEpisode} />
+                        
+                        <div className="mt-4">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-xl font-semibold text-white">Episodes</h3>
+                            {episodeCount > 1 && (
+                            <button
+                                onClick={() => onEpisodeChange(episodeCount)}
+                                className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
+                            >
+                                Latest Ep
+                            </button>
+                            )}
+                        </div>
+                        <div className="max-h-60 overflow-y-auto bg-black/20 p-3 rounded-md grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                            {episodes.map(ep => (
+                            <button
+                                key={ep}
+                                onClick={() => onEpisodeChange(ep)}
+                                className={`aspect-square w-full flex items-center justify-center font-bold rounded-md transition-colors ${
+                                ep === currentEpisode
+                                    ? 'bg-cyan-500 text-white'
+                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}
+                            >
+                                {ep}
+                            </button>
+                            ))}
+                        </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <AdminEpisodeEditor anime={anime} episode={currentEpisode} />
-            
-            <div className="mt-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-xl font-semibold text-white">Episodes</h3>
-                {episodeCount > 1 && (
-                  <button
-                    onClick={() => onEpisodeChange(episodeCount)}
-                    className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
-                  >
-                    Latest Ep
-                  </button>
+
+            {/* Sidebar: Info and Recommendations */}
+            <aside className="lg:col-span-1 flex flex-col gap-6">
+                <div className="bg-gray-900 rounded-lg p-4">
+                    <div className="flex gap-4">
+                        <img src={anime.coverImage} alt={anime.title} className="w-24 h-36 object-cover rounded-md flex-shrink-0" />
+                        <div>
+                            <h3 className="text-xl font-bold line-clamp-3">{anime.title}</h3>
+                            <p className="text-sm text-gray-400 capitalize mt-2">{anime.status.toLowerCase().replace('_', ' ')}</p>
+                            <p className="text-sm text-gray-400">{anime.rating ? `${anime.rating}/100 Score` : ''}</p>
+                        </div>
+                    </div>
+                </div>
+                {anime.recommendations && anime.recommendations.length > 0 && (
+                    <div className="bg-gray-900 rounded-lg p-4 flex-grow">
+                        <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Recommended For You</h3>
+                        <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2">
+                           {anime.recommendations.map(rec => (
+                               <RecommendationCard key={rec.id} anime={rec} onSelect={() => onSelectRecommended({ anilistId: rec.id })} />
+                           ))}
+                        </div>
+                    </div>
                 )}
-              </div>
-              <div className="max-h-60 overflow-y-auto bg-black/20 p-3 rounded-md grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                {episodes.map(ep => (
-                  <button
-                    key={ep}
-                    onClick={() => onEpisodeChange(ep)}
-                    className={`aspect-square w-full flex items-center justify-center font-bold rounded-md transition-colors ${
-                      ep === currentEpisode
-                        ? 'bg-cyan-500 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    {ep}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+            </aside>
         </div>
       </div>
     </div>

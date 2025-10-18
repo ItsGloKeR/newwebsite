@@ -179,14 +179,27 @@ const AppContent: React.FC = () => {
     };
 
     const handleWatchNow = (anime: Anime) => {
-        setPlayerState({
-            anime: anime,
-            episode: 1,
-            source: StreamSource.AnimePahe,
-            language: StreamLanguage.Sub,
-        });
+        // Clear previous anime to ensure loading state triggers, then fetch full details
+        setPlayerState({ anime: null, episode: 1, source: StreamSource.AnimePahe, language: StreamLanguage.Sub });
         setView('player');
-        window.scrollTo(0, 0);
+
+        const fetchForPlayer = async () => {
+            setIsLoading(true);
+            window.scrollTo(0, 0);
+            try {
+                const fullDetails = await getAnimeDetails(anime.anilistId);
+                setPlayerState(prev => ({
+                    ...prev,
+                    anime: applyOverrides(fullDetails),
+                }));
+            } catch (error) {
+                console.error("Failed to get anime details for player:", error);
+                setView('home'); // Fallback to home on error
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchForPlayer();
     };
 
     const handleBackToDetails = () => {
@@ -260,7 +273,10 @@ const AppContent: React.FC = () => {
     const renderContent = () => {
         switch(view) {
             case 'player':
-                return playerState.anime ? <AnimePlayer
+                 if (isLoading || !playerState.anime) {
+                    return <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>;
+                }
+                return <AnimePlayer
                     anime={playerState.anime}
                     currentEpisode={playerState.episode}
                     currentSource={playerState.source}
@@ -269,7 +285,8 @@ const AppContent: React.FC = () => {
                     onSourceChange={(src) => setPlayerState(prev => ({...prev, source: src}))}
                     onLanguageChange={(lang) => setPlayerState(prev => ({...prev, language: lang}))}
                     onBack={handleBackToDetails}
-                /> : null; // Should not happen if logic is correct
+                    onSelectRecommended={handleSelectAnime}
+                />;
             
             case 'details':
                 return isLoading 

@@ -23,6 +23,12 @@ export interface RelatedAnime {
   relationType: string;
 }
 
+export interface RecommendedAnime {
+  id: number;
+  title: string;
+  coverImage: string;
+}
+
 export interface Anime {
   anilistId: number;
   title: string;
@@ -37,6 +43,7 @@ export interface Anime {
   studios: string[];
   staff: StaffMember[];
   relations: RelatedAnime[];
+  recommendations?: RecommendedAnime[];
 }
 
 export interface AiringSchedule {
