@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Anime, RelatedAnime, StreamSource, RecommendedAnime } from '../types';
+import { Anime, RelatedAnime, StreamSource, RecommendedAnime, ZenshinMapping } from '../types';
 import GenrePill from './GenrePill';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import TrailerModal from './TrailerModal';
+import { getZenshinMappings } from '../services/anilistService';
 
 const RELATED_ANIME_LIMIT = 10;
 
@@ -148,10 +149,15 @@ const AdminSettings: React.FC<{ anime: Anime }> = ({ anime }) => {
 
     const [animePaheUrl, setAnimePaheUrl] = useState(animeOverrides?.streamUrlTemplates?.animepahe || '');
     const [vidnestUrl, setVidnestUrl] = useState(animeOverrides?.streamUrlTemplates?.vidnest || '');
+    const [vidlinkUrl, setVidlinkUrl] = useState(animeOverrides?.streamUrlTemplates?.vidlink || '');
+    const [externalPlayerUrl, setExternalPlayerUrl] = useState(animeOverrides?.streamUrlTemplates?.externalplayer || '');
+
     
     useEffect(() => {
         setAnimePaheUrl(animeOverrides?.streamUrlTemplates?.animepahe || '');
         setVidnestUrl(animeOverrides?.streamUrlTemplates?.vidnest || '');
+        setVidlinkUrl(animeOverrides?.streamUrlTemplates?.vidlink || '');
+        setExternalPlayerUrl(animeOverrides?.streamUrlTemplates?.externalplayer || '');
     }, [animeOverrides]);
 
     const handleBlur = (source: StreamSource, value: string) => {
@@ -163,8 +169,8 @@ const AdminSettings: React.FC<{ anime: Anime }> = ({ anime }) => {
             <h2 className="text-2xl font-bold text-cyan-400 mb-4">Admin Settings</h2>
             <div className="text-sm text-gray-400 mb-4 space-y-1">
                 <p>Override the stream URL for this anime.</p>
-                <p>&bull; <b>Simple Mode:</b> Enter the base URL (e.g., <code className="bg-gray-800 text-cyan-300 px-1 rounded">https://.../one-piece</code>). The episode/language will be added automatically.</p>
-                <p>&bull; <b>Advanced Mode:</b> Provide a full template with <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code> for custom URL structures.</p>
+                <p>&bull; <b>Simple Mode (Src 1, 2):</b> Enter the base URL. The episode/language will be added automatically.</p>
+                <p>&bull; <b>Advanced Mode (Src 1, 2):</b> Provide a full template with tokens like <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code>.</p>
             </div>
             <div className="space-y-4">
                 <div>
@@ -191,6 +197,20 @@ const AdminSettings: React.FC<{ anime: Anime }> = ({ anime }) => {
                         className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                 </div>
+                {/*
+                 <div>
+                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="animeSource3">Source 3 URL (Vidlink)</label>
+                    <input
+                        id="animeSource3"
+                        type="text"
+                        value={vidlinkUrl}
+                        onChange={(e) => setVidlinkUrl(e.target.value)}
+                        onBlur={(e) => handleBlur(StreamSource.Vidlink, e.target.value)}
+                        placeholder="Enter base URL or full template"
+                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                </div>
+                */}
             </div>
         </div>
     );
@@ -207,7 +227,22 @@ interface AnimeDetailPageProps {
 const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
+  const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
   const { isAdmin } = useAdmin();
+
+  useEffect(() => {
+    if (!anime) return;
+    const fetchMappings = async () => {
+        try {
+            const data = await getZenshinMappings(anime.anilistId);
+            setZenshinData(data);
+        } catch (error) {
+            console.error("Failed to fetch zenshin mappings for details page", error);
+            setZenshinData(null);
+        }
+    };
+    fetchMappings();
+  }, [anime]);
 
   return (
     <div className="animate-fade-in text-white">
@@ -327,6 +362,19 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
                 <h3 className="font-bold text-lg text-gray-400">Status</h3>
                 <p className="text-white font-bold text-lg capitalize">{anime.status.toLowerCase().replace(/_/g, ' ')}</p>
              </div>
+              {zenshinData?.mappings?.imdb_id && (
+                <a 
+                    href={`https://www.imdb.com/title/${zenshinData.mappings.imdb_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex justify-between items-center group"
+                >
+                    <h3 className="font-bold text-lg text-gray-400 group-hover:text-yellow-400 transition-colors">IMDb</h3>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" className="fill-current text-white group-hover:text-yellow-400 transition-colors">
+                        <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12s4.48 10 10 10 10-4.48 10-10zm-3.32-1.39c.06.19.08.38.08.58v1.62c0 .9-.73 1.63-1.63 1.63h-1.4v-4.87h1.4c.9 0 1.63.73 1.63 1.63 0 .2-.02.39-.08.59zm-5.46 2.26h-1.4V8.13h1.4v4.74zm-3.72 0H8.1V8.13h1.4v4.74zm-2.09-2.26c0-.9.73-1.63 1.63-1.63h.42V8.13h-2.05c-.9 0-1.63.73-1.63 1.63v3.08c0 .9.73 1.63 1.63 1.63h2.05v-1.95h-.42c-.9 0-1.63-.73-1.63-1.63z"/>
+                    </svg>
+                </a>
+              )}
              <div>
                 <h3 className="font-bold text-lg mb-2 text-gray-400">Studios</h3>
                 <p className="text-white font-semibold">{anime.studios.join(', ')}</p>

@@ -3,6 +3,8 @@ import { StreamSource } from './types';
 export const STREAM_URLS: Record<StreamSource, string> = {
   [StreamSource.Vidnest]: 'https://vidnest.fun/anime/{anilistId}/{episode}/{language}',
   [StreamSource.AnimePahe]: 'https://vidnest.fun/animepahe/{anilistId}/{episode}/{language}',
+  [StreamSource.Vidlink]: 'https://vidlink.pro/anime/{malId}/{episode}/{language}',
+  [StreamSource.ExternalPlayer]: '', // This is handled dynamically in AdminContext
 };
 
 // SVG data URI for a simple grey placeholder image with a 2:3 aspect ratio

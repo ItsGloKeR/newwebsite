@@ -7,23 +7,30 @@ interface AnimeGridProps {
   title: string;
   animeList: Anime[];
   onSelectAnime: (anime: Anime) => void;
+  icon?: React.ReactNode;
   isLoading?: boolean;
   onViewMore?: () => void;
 }
 
-const AnimeGrid: React.FC<AnimeGridProps> = ({ title, animeList, onSelectAnime, isLoading, onViewMore }) => {
+const AnimeGrid: React.FC<AnimeGridProps> = ({ title, animeList, onSelectAnime, icon, isLoading, onViewMore }) => {
   const skeletonCount = 18; // A good number to fill the view
 
   return (
     <section className="mb-12">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
+        <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+          {icon && <span className="text-cyan-400">{icon}</span>}
+          <span>{title}</span>
+        </h2>
         {onViewMore && (
           <button 
             onClick={onViewMore} 
-            className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+            className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
           >
-            View More &gt;
+            <span>View All</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
           </button>
         )}
       </div>

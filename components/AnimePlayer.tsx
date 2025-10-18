@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime } from '../types';
+import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime, ZenshinMapping } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { progressTracker } from '../utils/progressTracking';
+import { getZenshinMappings } from '../services/anilistService';
 
 const AdminEpisodeEditor: React.FC<{ anime: Anime; episode: number }> = ({ anime, episode }) => {
     const { isAdmin, overrides, updateEpisodeStreamUrl } = useAdmin();
     const [isEditing, setIsEditing] = useState(false);
 
     const episodeOverrides = overrides.anime[anime.anilistId]?.episodes?.[episode];
-    // FIX: Access override properties using the StreamSource enum for type safety.
     const [animePaheUrl, setAnimePaheUrl] = useState(episodeOverrides?.[StreamSource.AnimePahe] || '');
     const [vidnestUrl, setVidnestUrl] = useState(episodeOverrides?.[StreamSource.Vidnest] || '');
+    const [vidlinkUrl, setVidlinkUrl] = useState(episodeOverrides?.[StreamSource.Vidlink] || '');
+    const [externalPlayerUrl, setExternalPlayerUrl] = useState(episodeOverrides?.[StreamSource.ExternalPlayer] || '');
+
 
     useEffect(() => {
-        // FIX: Access override properties using the StreamSource enum for type safety.
         setAnimePaheUrl(episodeOverrides?.[StreamSource.AnimePahe] || '');
         setVidnestUrl(episodeOverrides?.[StreamSource.Vidnest] || '');
+        setVidlinkUrl(episodeOverrides?.[StreamSource.Vidlink] || '');
+        setExternalPlayerUrl(episodeOverrides?.[StreamSource.ExternalPlayer] || '');
     }, [episodeOverrides, episode]);
 
     if (!isAdmin) return null;
@@ -60,6 +64,32 @@ const AdminEpisodeEditor: React.FC<{ anime: Anime; episode: number }> = ({ anime
                             className="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                         />
                     </div>
+                    {/*
+                    <div>
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="epSource3">Source 3 Full URL (Vidlink)</label>
+                        <input
+                            id="epSource3"
+                            type="text"
+                            value={vidlinkUrl}
+                            onChange={(e) => setVidlinkUrl(e.target.value)}
+                            onBlur={(e) => handleBlur(StreamSource.Vidlink, e.target.value)}
+                            placeholder="https://..."
+                            className="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="epSource4">Source 4 Full URL (External Player)</label>
+                        <input
+                            id="epSource4"
+                            type="text"
+                            value={externalPlayerUrl}
+                            onChange={(e) => setExternalPlayerUrl(e.target.value)}
+                            onBlur={(e) => handleBlur(StreamSource.ExternalPlayer, e.target.value)}
+                            placeholder="https://..."
+                            className="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                    </div>
+                    */}
                 </div>
             )}
         </div>
@@ -155,16 +185,46 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
 }) => {
   const { getStreamUrl } = useAdmin();
   const episodeCount = anime.episodes || 1;
+  const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
+  const [isZenshinLoading, setIsZenshinLoading] = useState(true);
+
+  useEffect(() => {
+    if (!anime) return;
+    const fetchMappings = async () => {
+        setIsZenshinLoading(true);
+        try {
+            const data = await getZenshinMappings(anime.anilistId);
+            setZenshinData(data);
+        } catch (error) {
+            console.error("Failed to fetch zenshin mappings", error);
+            setZenshinData(null);
+        } finally {
+            setIsZenshinLoading(false);
+        }
+    };
+    fetchMappings();
+  }, [anime]);
 
   const streamUrl = useMemo(() => {
-    const baseUrl = getStreamUrl(anime.anilistId, currentEpisode, currentSource, currentLanguage);
+    if (currentSource === StreamSource.ExternalPlayer) {
+        return 'about:blank'; // Don't load External Player in iframe
+    }
+    const baseUrl = getStreamUrl({
+      animeId: anime.anilistId,
+      malId: anime.malId,
+      episode: currentEpisode,
+      source: currentSource,
+      language: currentLanguage,
+      zenshinData,
+      animeFormat: anime.format,
+    });
     const resumeTime = progressTracker.getResumeTime(anime.anilistId, currentEpisode);
     if (resumeTime) {
       const separator = baseUrl.includes('?') ? '&' : '?';
       return `${baseUrl}${separator}t=${resumeTime}`;
     }
     return baseUrl;
-  }, [anime.anilistId, currentEpisode, currentSource, currentLanguage, getStreamUrl]);
+  }, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData]);
 
 
   const nextAiringDate = useMemo(() => {
@@ -184,20 +244,44 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
 
   const handleSourceChange = (source: StreamSource) => {
+    // If External Player is selected, open it in a new tab.
+    if (source === StreamSource.ExternalPlayer) {
+        const externalPlayerUrl = getStreamUrl({
+            animeId: anime.anilistId,
+            malId: anime.malId,
+            episode: currentEpisode,
+            source: StreamSource.ExternalPlayer,
+            language: StreamLanguage.Sub,
+            zenshinData,
+            animeFormat: anime.format,
+        });
+        if (externalPlayerUrl && !externalPlayerUrl.startsWith('about:blank')) {
+            window.open(externalPlayerUrl, '_blank');
+        }
+    }
+
     onSourceChange(source);
-    if (source === StreamSource.AnimePahe) {
+
+    if (source === StreamSource.AnimePahe || source === StreamSource.ExternalPlayer) {
       onLanguageChange(StreamLanguage.Sub);
     }
   };
+  
+  const currentZenshinEpisode = zenshinData?.episodes?.[currentEpisode];
+  const episodeTitle = currentZenshinEpisode?.title?.en || `Episode ${currentEpisode}`;
+  
+  const isExternalPlayerReady = !isZenshinLoading && !!zenshinData?.mappings?.imdb_id;
 
-  const renderControlButton = <T,>(value: T, currentValue: T, setter: (value: T) => void, text: string) => (
+
+  const renderControlButton = <T,>(value: T, currentValue: T, setter: (value: T) => void, text: string, disabled: boolean = false) => (
     <button
       onClick={() => setter(value)}
+      disabled={disabled}
       className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
         currentValue === value
           ? 'bg-cyan-500 text-white'
           : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-      }`}
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       {text}
     </button>
@@ -216,15 +300,23 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
             {/* Main Content: Player and Controls */}
             <div className="lg:col-span-2">
                 <div className="bg-gray-900 rounded-lg shadow-xl overflow-hidden">
-                    <div className="aspect-video bg-black">
-                        <iframe
-                        key={`${streamUrl}-${currentSource}-${currentLanguage}`}
-                        src={streamUrl}
-                        title={`${anime.title} - Episode ${currentEpisode}`}
-                        allowFullScreen
-                        sandbox="allow-scripts allow-same-origin allow-presentation"
-                        className="w-full h-full border-0"
-                        ></iframe>
+                    <div className="aspect-video bg-black flex items-center justify-center">
+                        {currentSource === StreamSource.ExternalPlayer ? (
+                            <div className="text-center p-8">
+                                <h3 className="text-2xl font-bold text-cyan-400 mb-2">Opened in New Tab</h3>
+                                <p className="text-gray-400">Source 4 has been opened in a new browser tab.</p>
+                                <p className="text-gray-500 text-sm mt-2">If it didn't open, please check your pop-up blocker.</p>
+                            </div>
+                        ) : (
+                            <iframe
+                            key={`${streamUrl}-${currentSource}-${currentLanguage}`}
+                            src={streamUrl}
+                            title={`${anime.title} - Episode ${currentEpisode}`}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                            allowFullScreen
+                            className="w-full h-full border-0"
+                            ></iframe>
+                        )}
                     </div>
                     <div className="p-6">
                         {anime.status === 'RELEASING' && nextAiringDate && (
@@ -232,70 +324,73 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                                 🚀 Estimated next episode ({anime.nextAiringEpisode?.episode}) will come at {nextAiringDate}
                             </div>
                         )}
-                        <h2 className="text-3xl font-bold text-white mb-2">{anime.title} - Episode {currentEpisode}</h2>
+                        <h2 className="text-3xl font-bold text-white mb-2">{anime.title} - {episodeTitle}</h2>
+                        {currentZenshinEpisode?.overview && (
+                          <p className="text-gray-300 text-sm mb-4 leading-relaxed">{currentZenshinEpisode.overview}</p>
+                        )}
                         <div className="flex flex-wrap gap-4 items-center mb-4">
                         <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-400">Source:</span>
                             {renderControlButton(StreamSource.AnimePahe, currentSource, handleSourceChange, 'Source 1')}
                             {renderControlButton(StreamSource.Vidnest, currentSource, handleSourceChange, 'Source 2')}
+                            {/* {renderControlButton(StreamSource.Vidlink, currentSource, handleSourceChange, 'Source 3', !anime.malId && !zenshinData?.mappings.mal_id)} */}
+                            {/* {renderControlButton(StreamSource.ExternalPlayer, currentSource, handleSourceChange, 'Source 4', !isExternalPlayerReady)} */}
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-400">Language:</span>
                             {renderControlButton(StreamLanguage.Sub, currentLanguage, onLanguageChange, 'SUB')}
-                            {currentSource !== StreamSource.AnimePahe &&
-                            renderControlButton(StreamLanguage.Dub, currentLanguage, onLanguageChange, 'DUB')}
-                            {currentSource !== StreamSource.AnimePahe &&
-                            renderControlButton(StreamLanguage.Hindi, currentLanguage, onLanguageChange, 'HINDI')}
+                            {renderControlButton(StreamLanguage.Dub, currentLanguage, onLanguageChange, 'DUB', currentSource === StreamSource.AnimePahe || currentSource === StreamSource.ExternalPlayer)}
+                            {renderControlButton(StreamLanguage.Hindi, currentLanguage, onLanguageChange, 'HINDI', currentSource === StreamSource.AnimePahe || currentSource === StreamSource.ExternalPlayer || currentSource === StreamSource.Vidlink)}
                         </div>
                         </div>
                         
                         <AdminEpisodeEditor anime={anime} episode={currentEpisode} />
                         
                         <div className="mt-4">
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xl font-semibold text-white">Episodes</h3>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => onEpisodeChange(currentEpisode - 1)}
-                                    disabled={currentEpisode <= 1}
-                                    className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    aria-label="Previous episode"
-                                >
-                                    Prev
-                                </button>
-                                <button
-                                    onClick={() => onEpisodeChange(currentEpisode + 1)}
-                                    disabled={currentEpisode >= episodeCount}
-                                    className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    aria-label="Next episode"
-                                >
-                                    Next
-                                </button>
-                                {episodeCount > 1 && (
-                                <button
-                                    onClick={() => onEpisodeChange(episodeCount)}
-                                    className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
-                                >
-                                    Latest Ep
-                                </button>
-                                )}
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-xl font-semibold text-white">Episodes</h3>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => onEpisodeChange(currentEpisode - 1)}
+                                        disabled={currentEpisode <= 1}
+                                        className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        aria-label="Previous episode"
+                                    >
+                                        Prev
+                                    </button>
+                                    <button
+                                        onClick={() => onEpisodeChange(currentEpisode + 1)}
+                                        disabled={currentEpisode >= episodeCount}
+                                        className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        aria-label="Next episode"
+                                    >
+                                        Next
+                                    </button>
+                                    {episodeCount > 1 && (
+                                    <button
+                                        onClick={() => onEpisodeChange(episodeCount)}
+                                        className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
+                                    >
+                                        Latest Ep
+                                    </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                        <div className="max-h-60 overflow-y-auto bg-black/20 p-3 rounded-md grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                            {episodes.map(ep => (
-                            <button
-                                key={ep}
-                                onClick={() => onEpisodeChange(ep)}
-                                className={`aspect-square w-full flex items-center justify-center font-bold rounded-md transition-colors ${
-                                ep === currentEpisode
-                                    ? 'bg-cyan-500 text-white'
-                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                }`}
-                            >
-                                {ep}
-                            </button>
-                            ))}
-                        </div>
+                            <div className="max-h-60 overflow-y-auto bg-black/20 p-3 rounded-md grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                                {episodes.map(ep => (
+                                <button
+                                    key={ep}
+                                    onClick={() => onEpisodeChange(ep)}
+                                    className={`aspect-square w-full flex items-center justify-center font-bold rounded-md transition-colors ${
+                                    ep === currentEpisode
+                                        ? 'bg-cyan-500 text-white'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    }`}
+                                >
+                                    {ep}
+                                </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -1,10 +1,20 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useMemo, useCallback } from 'react';
-import { AdminOverrides, StreamSource, StreamLanguage, AnimeOverride } from '../types';
+import { AdminOverrides, StreamSource, StreamLanguage, AnimeOverride, ZenshinMapping } from '../types';
 import { STREAM_URLS } from '../constants';
 import { staticOverrides } from '../overrides/data';
 
 const ADMIN_STORAGE_KEY = 'aniGlokAdminOverrides_v2'; // New key for new structure
 const ADMIN_SESSION_KEY = 'aniGlokAdminSession';
+
+interface GetStreamUrlParams {
+  animeId: number;
+  malId?: number;
+  episode: number;
+  source: StreamSource;
+  language: StreamLanguage;
+  zenshinData?: ZenshinMapping | null;
+  animeFormat?: string;
+}
 
 interface AdminContextType {
   isAdmin: boolean;
@@ -16,7 +26,7 @@ interface AdminContextType {
   updateGlobalStreamUrlTemplate: (source: StreamSource, newUrl: string) => void;
   updateAnimeStreamUrlTemplate: (animeId: number, source: StreamSource, newUrl: string) => void;
   updateEpisodeStreamUrl: (animeId: number, episode: number, source: StreamSource, newUrl: string) => void;
-  getStreamUrl: (animeId: number, episode: number, source: StreamSource, language: StreamLanguage) => string;
+  getStreamUrl: (params: GetStreamUrlParams) => string;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -129,16 +139,39 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }));
   };
 
-  const getStreamUrl = useCallback((animeId: number, episode: number, source: StreamSource, language: StreamLanguage): string => {
+  const getStreamUrl = useCallback((params: GetStreamUrlParams): string => {
+    const { animeId, malId, episode, source, language, zenshinData, animeFormat } = params;
+
     // Priority 1: Episode-specific full URL override
     const episodeOverride = mergedOverrides.anime[animeId]?.episodes?.[episode]?.[source];
     if (episodeOverride && episodeOverride.trim() !== '') {
       return episodeOverride;
     }
 
+    // Special handling for External Player (Source 4)
+    if (source === StreamSource.ExternalPlayer) {
+        const imdbId = zenshinData?.mappings?.imdb_id;
+        if (!imdbId) {
+            return 'about:blank#external-player-imdb-id-required';
+        }
+
+        if (animeFormat === 'MOVIE') {
+            return `https://vidsrc.to/embed/movie/${imdbId}`;
+        }
+        
+        // For TV shows, use the specific episode and season
+        const episodeData = zenshinData?.episodes?.[String(episode)];
+        const seasonNumber = episodeData?.seasonNumber || 1; 
+        const episodeNumber = episodeData?.episodeNumber || episode; // Fallback to absolute episode number if needed
+        
+        return `https://vidsrc.to/embed/tv/${imdbId}/${seasonNumber}/${episodeNumber}`;
+    }
+
+    // Standard handling for other sources
     const replaceTokens = (template: string) => {
         return template
             .replace('{anilistId}', String(animeId))
+            .replace('{malId}', String(malId || zenshinData?.mappings?.mal_id || ''))
             .replace('{episode}', String(episode))
             .replace('{language}', language);
     };
@@ -189,7 +222,7 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 export const useAdmin = (): AdminContextType => {
   const context = useContext(AdminContext);
   if (context === undefined) {
-    throw new Error('useAdmin must be used within an AdminProvider');
+    throw new Error('useAdmin must be be used within an AdminProvider');
   }
   return context;
 };

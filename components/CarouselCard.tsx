@@ -7,9 +7,10 @@ interface CarouselCardProps {
   onSelect: (anime: Anime) => void;
   rank?: number;
   onRemove?: (animeId: number) => void;
+  size?: 'normal' | 'small';
 }
 
-const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRemove }) => {
+const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRemove, size = 'normal' }) => {
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the main card click
     if (onRemove) {
@@ -17,9 +18,13 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
     }
   };
 
+  const widthClass = size === 'small' ? 'w-44' : 'w-56';
+  const rankSizeClass = size === 'small' ? 'text-7xl' : 'text-8xl';
+  const titlePaddingClass = size === 'small' ? 'pl-12' : 'pl-14';
+
   return (
     <div
-      className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg w-56 flex-shrink-0 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+      className={`group relative cursor-pointer overflow-hidden rounded-lg shadow-lg ${widthClass} flex-shrink-0 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl`}
       onClick={() => onSelect(anime)}
     >
       <img
@@ -59,14 +64,14 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
         {/* Rank number is positioned absolutely but within the card's bounds */}
         {rank && (
             <div className="absolute bottom-0 left-0 pointer-events-none">
-            <span className="text-8xl font-black text-gray-950/50 -translate-y-2" style={{ WebkitTextStroke: '2px #22d3ee' }}>
+            <span className={`${rankSizeClass} font-black text-gray-950/50 -translate-y-2`} style={{ WebkitTextStroke: '2px #22d3ee' }}>
                 {rank}
             </span>
             </div>
         )}
         
         {/* Title is positioned with a higher z-index and padding to avoid the number */}
-        <h3 className={`relative z-20 text-white text-md font-bold truncate w-full ${rank ? 'pl-14' : 'pl-2'}`}>
+        <h3 className={`relative z-20 text-white text-md font-bold truncate w-full ${rank ? titlePaddingClass : 'pl-2'}`}>
           {anime.title}
         </h3>
       </div>

@@ -1,9 +1,10 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
 const ANIME_FIELDS_FRAGMENT = `
   id
+  idMal
   isAdult
   title {
     romaji
@@ -18,6 +19,7 @@ const ANIME_FIELDS_FRAGMENT = `
   genres
   episodes
   status
+  format
   nextAiringEpisode {
     episode
     airingAt
@@ -179,9 +181,12 @@ const mapToAnime = (data: any): Anime => {
 
   return {
     anilistId: data.id,
+    malId: data.idMal,
     title: data.title.english || data.title.romaji,
     description,
+    format: data.format ? data.format.replace(/_/g, ' ') : 'N/A',
     coverImage: data.coverImage.extraLarge,
+    coverImageColor: data.coverImage.color,
     bannerImage: data.bannerImage || data.coverImage.extraLarge,
     genres: data.genres || [],
     episodes: episodeCount || 0,
@@ -231,6 +236,11 @@ export const getHomePageData = async () => {
           ...animeFields
         }
       }
+      topRated: Page(page: 1, perPage: 10) {
+        media(sort: SCORE_DESC, type: ANIME) {
+          ...animeFields
+        }
+      }
       topUpcoming: Page(page: 1, perPage: 10) {
         media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED) {
           ...animeFields
@@ -254,6 +264,7 @@ export const getHomePageData = async () => {
     trending: data.trending.media.map(mapToAnime),
     popular: data.popular.media.map(mapToAnime),
     topAiring: data.topAiring.media.map(mapToAnime),
+    topRated: data.topRated.media.map(mapToAnime),
     topUpcoming: data.topUpcoming.media.map(mapToAnime),
     popularThisSeason: data.popularThisSeason.media.map(mapToAnime),
     currentSeason: season,
@@ -515,4 +526,52 @@ export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSu
     isAdult: media.isAdult,
     episodes: media.episodes,
   }));
+};
+
+// Zenshin API for detailed episode mappings
+const ZENSHIN_API_BASE_URLS = [
+  'https://zenshin-supabase-api.onrender.com',
+  'https://zenshin-supabase-api-myig.onrender.com',
+];
+
+async function fetchFromZenshin(endpoint: string): Promise<Response> {
+  let error: any;
+  for (const baseUrl of ZENSHIN_API_BASE_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}/${endpoint}`);
+      if (response.ok || response.status === 404) {
+        return response;
+      }
+      error = new Error(`Request failed with status ${response.status} from ${baseUrl}`);
+    } catch (e) {
+      error = e;
+      console.warn(`Failed to fetch from ${baseUrl}. Trying next fallback.`, e);
+    }
+  }
+  throw error || new Error('All Zenshin API requests failed.');
+}
+
+export const getZenshinMappings = async (anilistId: number): Promise<ZenshinMapping | null> => {
+  try {
+    const response = await fetchFromZenshin(`mappings?anilist_id=${anilistId}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`No Zenshin mapping found for anilistId: ${anilistId}`);
+        return null;
+      }
+      throw new Error(`Failed to fetch Zenshin mappings. Status: ${response.status}`);
+    }
+    const data = await response.json();
+    // Attempt to merge mal_id from Zenshin if not present from AniList
+    if (data && data.mappings && data.mappings.mal_id) {
+        const animeDetails = await getAnimeDetails(anilistId);
+        if (!animeDetails.malId) {
+            data.malId = data.mappings.mal_id;
+        }
+    }
+    return data as ZenshinMapping;
+  } catch (error) {
+    console.error(`Error fetching Zenshin mappings for anilistId ${anilistId}:`, error);
+    return null;
+  }
 };

@@ -16,7 +16,7 @@ class ProgressTracker {
   }
 
   private handleMessage(event: MessageEvent) {
-    if (event.origin !== 'https://vidnest.fun') {
+    if (event.origin !== 'https://vidnest.fun' && event.origin !== 'https://vidlink.pro') {
       return;
     }
 

@@ -19,9 +19,7 @@ import { initialTrending, initialPopular, initialTopAiring } from './static/init
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
-import LatestEpisodeGrid from './components/LatestEpisodeGrid';
 import { progressTracker } from './utils/progressTracking';
-
 
 type View = 'home' | 'details' | 'player';
 
@@ -39,6 +37,7 @@ const AppContent: React.FC = () => {
     const [trending, setTrending] = useState<Anime[]>(initialTrending);
     const [popular, setPopular] = useState<Anime[]>(initialPopular);
     const [topAiring, setTopAiring] = useState<Anime[]>(initialTopAiring);
+    const [topRated, setTopRated] = useState<Anime[]>([]);
     const [topUpcoming, setTopUpcoming] = useState<Anime[]>([]);
     const [popularThisSeason, setPopularThisSeason] = useState<Anime[]>([]);
     const [latestEpisodes, setLatestEpisodes] = useState<EnrichedAiringSchedule[]>([]);
@@ -113,6 +112,7 @@ const AppContent: React.FC = () => {
         setTrending(prev => enrichAnimeWithProgress(prev));
         setPopular(prev => enrichAnimeWithProgress(prev));
         setTopAiring(prev => enrichAnimeWithProgress(prev));
+        setTopRated(prev => enrichAnimeWithProgress(prev));
         setTopUpcoming(prev => enrichAnimeWithProgress(prev));
         setPopularThisSeason(prev => enrichAnimeWithProgress(prev));
         setSearchResults(prev => enrichAnimeWithProgress(prev));
@@ -150,7 +150,7 @@ const AppContent: React.FC = () => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const [{ trending, popular, topAiring, topUpcoming, popularThisSeason, currentSeason, currentYear }, genres, latest] = await Promise.all([
+                const [{ trending, popular, topAiring, topRated, topUpcoming, popularThisSeason, currentSeason, currentYear }, genres, latest] = await Promise.all([
                     getHomePageData(),
                     getGenreCollection(),
                     getLatestEpisodes(),
@@ -158,6 +158,7 @@ const AppContent: React.FC = () => {
                 setTrending(enrichAnimeWithProgress(applyOverridesToList(trending)));
                 setPopular(enrichAnimeWithProgress(applyOverridesToList(popular)));
                 setTopAiring(enrichAnimeWithProgress(applyOverridesToList(topAiring)));
+                setTopRated(enrichAnimeWithProgress(applyOverridesToList(topRated)));
                 setTopUpcoming(enrichAnimeWithProgress(applyOverridesToList(topUpcoming)));
                 setPopularThisSeason(enrichAnimeWithProgress(applyOverridesToList(popularThisSeason)));
                 setAllGenres(genres);
@@ -178,6 +179,7 @@ const AppContent: React.FC = () => {
         setTrending(applyOverridesToList);
         setPopular(applyOverridesToList);
         setTopAiring(applyOverridesToList);
+        setTopRated(applyOverridesToList);
         setTopUpcoming(applyOverridesToList);
         setPopularThisSeason(applyOverridesToList);
         setSearchResults(applyOverridesToList);
@@ -408,12 +410,26 @@ const AppContent: React.FC = () => {
         return discoveryTitle;
     };
 
+    const iconProps = { className: "h-7 w-7" };
+    const smallIconProps = { className: "h-5 w-5 text-cyan-400" };
+
+    const ContinueWatchingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>;
+    const TrendingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.84 3.49a1 1 0 011.118 1.666l-2.863 4.312a1 1 0 00.325 1.488l4.463 2.231a1 1 0 01.554 1.326l-2.04 4.081a1 1 0 01-1.78-.9l1.297-2.592-3.125-1.562a3 3 0 01-.975-4.464L12.84 3.49zM6.86 3.49a1 1 0 011.118 1.666l-2.863 4.312a1 1 0 00.325 1.488l4.463 2.231a1 1 0 01.554 1.326l-2.04 4.081a1 1 0 01-1.78-.9l1.297-2.592-3.125-1.562a3 3 0 01-.975-4.464L6.86 3.49z" clipRule="evenodd" /></svg>;
+    const LatestIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 4a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm10 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
+    const PopularIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M11 2a1 1 0 10-2 0v1a1 1 0 102 0V2zM5 5a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm3 8a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm-3 4a1 1 0 100 2h8a1 1 0 100-2H5z" /><path fillRule="evenodd" d="M3 5a3 3 0 013-3h8a3 3 0 013 3v12a1 1 0 11-2 0V5a1 1 0 00-1-1H6a1 1 0 00-1 1v12a1 1 0 11-2 0V5z" clipRule="evenodd" /></svg>;
+    const UpcomingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
+    const SeasonIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 001 1h12a1 1 0 001-1V6h1a1 1 0 100-2h-1V3a1 1 0 00-1-1H5zM4 9a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zm2 3a1 1 0 100 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
+    const AiringIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.99 2.05c.53 0 1.04.08 1.54.23l-1.28 1.28A5.95 5.95 0 004.28 7.5l-1.28 1.28A7.94 7.94 0 019.99 2.05zM2.06 9.99a7.94 7.94 0 016.71-7.71l-1.28 1.28A5.95 5.95 0 003.5 12.5l-1.28 1.28A7.94 7.94 0 012.06 10zM10 4a6 6 0 100 12 6 6 0 000-12zM10 14a4 4 0 110-8 4 4 0 010 8z" /></svg>;
+    const RatedIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
+    const FilterIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" /></svg>;
+
     const renderHomePage = () => {
         if (isDiscoveryView) {
             return (
                 <main className="container mx-auto p-4 md:p-8">
                     <AnimeGrid
                         title={generateDiscoveryTitle()}
+                        icon={FilterIcon}
                         animeList={searchResults}
                         onSelectAnime={handleSelectAnime}
                         isLoading={isDiscoverLoading}
@@ -426,61 +442,107 @@ const AppContent: React.FC = () => {
             <main>
                 <Hero animes={trending} onWatchNow={handleWatchNow} onDetails={handleSelectAnime} />
                 <div className="container mx-auto p-4 md:p-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        <div className="lg:col-span-3">
-                             {continueWatching.length > 0 && (
-                                <AnimeCarousel 
-                                    title="Continue Watching" 
-                                    animeList={continueWatching} 
-                                    onSelectAnime={handleContinueWatching}
-                                    showRank={false}
-                                    onRemoveItem={handleRemoveFromContinueWatching}
-                                />
-                            )}
+                    {/* Full-width sections */}
+                    {continueWatching.length > 0 && (
+                        <div className="mb-12">
                             <AnimeCarousel 
-                                title="Trending Now" 
-                                animeList={trending} 
-                                onSelectAnime={handleSelectAnime}
-                                onViewMore={() => handleViewMore({ sort: MediaSort.TRENDING_DESC }, "Trending Anime")}
+                                title="Continue Watching"
+                                icon={ContinueWatchingIcon}
+                                animeList={continueWatching} 
+                                onSelectAnime={handleContinueWatching}
+                                showRank={false}
+                                onRemoveItem={handleRemoveFromContinueWatching}
                             />
-                            <LatestEpisodeGrid 
+                        </div>
+                    )}
+                    <div className="mb-12">
+                        <AnimeCarousel 
+                            title="Trending" 
+                            icon={TrendingIcon}
+                            animeList={trending} 
+                            onSelectAnime={handleSelectAnime}
+                            onViewMore={() => handleViewMore({ sort: MediaSort.TRENDING_DESC }, "Trending Anime")}
+                        />
+                    </div>
+
+                    {/* Left/Right Column Section */}
+                    <div className="mb-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
+                        <div className="lg:col-span-3 flex flex-col gap-12">
+                            <AnimeCarousel
                                 title="Latest Episodes"
-                                episodes={latestEpisodes}
+                                icon={LatestIcon}
+                                animeList={latestEpisodes.map(schedule => ({
+                                    anilistId: schedule.media.id,
+                                    title: schedule.media.title.english || schedule.media.title.romaji,
+                                    coverImage: schedule.media.coverImage.extraLarge,
+                                    episodes: schedule.episode,
+                                    isAdult: schedule.media.isAdult,
+                                    progress: schedule.progress || 0,
+                                    description: '',
+                                    bannerImage: '',
+                                    genres: [],
+                                    year: 0,
+                                    rating: 0,
+                                    status: '',
+                                    studios: [],
+                                    staff: [],
+                                    relations: [],
+                                    format: '',
+                                } as Anime))}
                                 onSelectAnime={handleSelectAnime}
-                                isLoading={isLoading}
+                                showRank={false}
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.TRENDING_DESC }, "Recently Released Anime")}
+                                cardSize="small"
                             />
-                            <AnimeGrid 
-                                title="Popular Animes" 
+                            <AnimeCarousel 
+                                title="All Time Popular" 
+                                icon={PopularIcon}
                                 animeList={popular} 
-                                onSelectAnime={handleSelectAnime} 
-                                onViewMore={() => handleViewMore({ sort: MediaSort.POPULARITY_DESC }, "Popular Anime")}
+                                onSelectAnime={handleSelectAnime}
+                                onViewMore={() => handleViewMore({ sort: MediaSort.POPULARITY_DESC }, "All Time Popular Anime")}
+                                showRank={false}
+                                cardSize="small"
                             />
-                            <SchedulePage onSelectAnime={handleSelectAnime} />
                             <AnimeCarousel 
                                 title="Top Upcoming" 
+                                icon={UpcomingIcon}
                                 animeList={topUpcoming} 
                                 onSelectAnime={handleSelectAnime}
                                 showRank={false}
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.NOT_YET_RELEASED], sort: MediaSort.POPULARITY_DESC }, "Top Upcoming Anime")}
+                                cardSize="small"
                             />
-                             <AnimeCarousel 
-                                title="Popular This Season" 
+                            <AnimeCarousel 
+                                title="Popular This Season"
+                                icon={SeasonIcon}
                                 animeList={popularThisSeason} 
                                 onSelectAnime={handleSelectAnime}
                                 showRank={false}
                                 onViewMore={() => handleViewMore({ season: currentSeason!, year: String(currentYear!), sort: MediaSort.POPULARITY_DESC }, "Popular This Season")}
+                                cardSize="small"
                             />
                         </div>
                         <div className="lg:col-span-1">
-                            <VerticalAnimeList 
-                                title="Top 10 Airing" 
-                                animeList={topAiring} 
-                                onSelectAnime={handleSelectAnime}
-                                onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.POPULARITY_DESC }, "Top Airing Anime")}
-                            />
+                            <div className="flex flex-col gap-8">
+                                <VerticalAnimeList 
+                                    title="Top Airing" 
+                                    animeList={topAiring} 
+                                    onSelectAnime={handleSelectAnime}
+                                    onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.POPULARITY_DESC }, "Top Airing Anime")}
+                                    icon={AiringIcon}
+                                />
+                                <VerticalAnimeList 
+                                    title="Top Rated" 
+                                    animeList={topRated} 
+                                    onSelectAnime={handleSelectAnime}
+                                    onViewMore={() => handleViewMore({ sort: MediaSort.SCORE_DESC }, "Top Rated Anime")}
+                                    icon={RatedIcon}
+                                />
+                            </div>
                         </div>
                     </div>
+                                        
+                    <SchedulePage onSelectAnime={handleSelectAnime} />
                 </div>
             </main>
         );

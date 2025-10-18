@@ -15,12 +15,16 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   
   const [vidnestUrl, setVidnestUrl] = useState(overrides.globalStreamUrlTemplates.vidnest || '');
   const [animePaheUrl, setAnimePaheUrl] = useState(overrides.globalStreamUrlTemplates.animepahe || '');
+  const [vidlinkUrl, setVidlinkUrl] = useState(overrides.globalStreamUrlTemplates.vidlink || '');
+  const [externalPlayerUrl, setExternalPlayerUrl] = useState(overrides.globalStreamUrlTemplates.externalplayer || '');
   const [copyButtonText, setCopyButtonText] = useState('Generate & Copy Code');
 
   useEffect(() => {
     if (isOpen) {
         setVidnestUrl(overrides.globalStreamUrlTemplates.vidnest || '');
         setAnimePaheUrl(overrides.globalStreamUrlTemplates.animepahe || '');
+        setVidlinkUrl(overrides.globalStreamUrlTemplates.vidlink || '');
+        setExternalPlayerUrl(overrides.globalStreamUrlTemplates.externalplayer || '');
     }
   }, [overrides, isOpen]);
 
@@ -42,8 +46,12 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const handleUrlChange = (source: StreamSource, value: string) => {
     if (source === StreamSource.Vidnest) {
       setVidnestUrl(value);
-    } else {
+    } else if (source === StreamSource.AnimePahe) {
       setAnimePaheUrl(value);
+    } else if (source === StreamSource.Vidlink) {
+      setVidlinkUrl(value);
+    } else if (source === StreamSource.ExternalPlayer) {
+        setExternalPlayerUrl(value);
     }
     updateGlobalStreamUrlTemplate(source, value);
   };
@@ -121,7 +129,7 @@ const handleCopy = () => {
             <div className="mb-6">
                 <h4 className="text-lg font-semibold mb-2">Edit Global Stream URL Templates</h4>
                  <p className="text-xs text-gray-400 mb-3">
-                    Use <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{anilistId}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code>, and <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{language}'}</code> as placeholders.
+                    Use <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{anilistId}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{malId}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code>, and <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{language}'}</code> as tokens in the URL templates.
                 </p>
                 <div className="mb-4">
                 <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source1">Global Source 1 Template (AnimePahe)</label>
@@ -134,7 +142,7 @@ const handleCopy = () => {
                     className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
                 </div>
-                <div>
+                <div className="mb-4">
                 <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source2">Global Source 2 Template (Vidnest)</label>
                 <input
                     id="source2"
@@ -145,6 +153,31 @@ const handleCopy = () => {
                     className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
                 </div>
+                {/*
+                <div className="mb-4">
+                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source3">Global Source 3 Template (Vidlink)</label>
+                <input
+                    id="source3"
+                    type="text"
+                    value={vidlinkUrl}
+                    onChange={(e) => handleUrlChange(StreamSource.Vidlink, e.target.value)}
+                    placeholder="e.g., https://vidlink.pro/anime/{malId}/{episode}/{language}"
+                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                </div>
+                <div>
+                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source4">Global Source 4 Template (External Player)</label>
+                <input
+                    id="source4"
+                    type="text"
+                    value={externalPlayerUrl}
+                    onChange={(e) => handleUrlChange(StreamSource.ExternalPlayer, e.target.value)}
+                    placeholder="This is handled automatically. Overrides are per-episode."
+                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    disabled
+                />
+                </div>
+                */}
             </div>
 
             <div className="mt-8 pt-6 border-t border-gray-700">
