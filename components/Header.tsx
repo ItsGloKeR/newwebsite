@@ -73,15 +73,16 @@ const Header: React.FC<HeaderProps> = ({
               value={searchTerm}
               onChange={(e) => onSearch(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
-              className="bg-gray-800 text-white rounded-full py-2 pl-10 pr-10 w-48 md:w-64 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+              className="bg-gray-800 text-white rounded-full py-2 pl-10 pr-24 w-64 md:w-80 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
             />
             {/* Filter Button */}
             <button 
               onClick={onFilterClick} 
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 bg-gray-700/80 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors rounded-full px-3 py-1"
               aria-label="Open filters"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <span className="font-semibold text-sm">Filter</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
               </svg>
             </button>
