@@ -26,7 +26,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username !== 'admin') {
+    if (username !== 'itsgloker') {
         setError('Invalid username.');
         return;
     }

@@ -61,7 +61,7 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }), [localOverrides]);
 
   const login = (password: string): boolean => {
-    if (password === 'password') {
+    if (password === 'qwerty@204') {
       setIsAdmin(true);
       try {
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
