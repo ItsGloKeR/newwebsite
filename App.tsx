@@ -286,6 +286,7 @@ const AppContent: React.FC = () => {
                     onLanguageChange={(lang) => setPlayerState(prev => ({...prev, language: lang}))}
                     onBack={handleBackToDetails}
                     onSelectRecommended={handleSelectAnime}
+                    onSelectRelated={handleSelectAnime}
                 />;
             
             case 'details':
@@ -309,7 +310,7 @@ const AppContent: React.FC = () => {
 
     return (
         <div className="bg-gray-950 min-h-screen">
-            {view !== 'player' && <Header 
+            <Header 
                 onSearch={handleSearch} 
                 onHomeClick={handleHomeClick} 
                 onFilterClick={() => setIsFilterModalOpen(true)} 
@@ -317,9 +318,9 @@ const AppContent: React.FC = () => {
                 suggestions={searchSuggestions}
                 onSuggestionClick={handleSuggestionClick}
                 isSuggestionsLoading={isSuggestionsLoading}
-            />}
+            />
             {renderContent()}
-            {view !== 'player' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} />}
+            <Footer onAdminClick={() => setIsAdminModalOpen(true)} />
             <BackToTopButton />
             <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
             <FilterModal 

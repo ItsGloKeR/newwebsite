@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Anime, StreamSource, StreamLanguage, RecommendedAnime } from '../types';
+import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
@@ -75,6 +75,7 @@ interface AnimePlayerProps {
   onLanguageChange: (language: StreamLanguage) => void;
   onBack: () => void;
   onSelectRecommended: (anime: { anilistId: number }) => void;
+  onSelectRelated: (anime: { anilistId: number }) => void;
 }
 
 const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => void }> = ({ anime, onSelect }) => (
@@ -91,6 +92,21 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => vo
     </div>
 );
 
+const RelatedCard: React.FC<{ anime: RelatedAnime, onSelect: () => void }> = ({ anime, onSelect }) => (
+    <div className="flex-shrink-0 w-32 cursor-pointer group" onClick={onSelect}>
+        <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
+            <img 
+              src={anime.coverImage} 
+              alt={anime.title} 
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+        </div>
+        <p className="text-white text-xs font-semibold line-clamp-2 mt-2 group-hover:text-cyan-400 transition-colors">{anime.title}</p>
+        <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
+    </div>
+);
 
 const AnimePlayer: React.FC<AnimePlayerProps> = ({
   anime,
@@ -101,7 +117,8 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   onSourceChange,
   onLanguageChange,
   onBack,
-  onSelectRecommended
+  onSelectRecommended,
+  onSelectRelated
 }) => {
   const { getStreamUrl } = useAdmin();
   const episodeCount = anime.episodes || 1;
@@ -131,7 +148,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   );
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col animate-fade-in">
+    <main className="min-h-screen text-white flex flex-col animate-fade-in">
       <div className="container mx-auto p-4 flex-grow">
         <button onClick={onBack} className="mb-4 text-cyan-400 hover:text-cyan-300 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -205,7 +222,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                 </div>
             </div>
 
-            {/* Sidebar: Info and Recommendations */}
+            {/* Sidebar: Info, Related, and Recommendations */}
             <aside className="lg:col-span-1 flex flex-col gap-6">
                 <div className="bg-gray-900 rounded-lg p-4">
                     <div className="flex gap-4">
@@ -217,6 +234,16 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                         </div>
                     </div>
                 </div>
+                {anime.relations && anime.relations.length > 0 && (
+                    <div className="bg-gray-900 rounded-lg p-4">
+                        <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Related Anime</h3>
+                        <div className="flex gap-4 overflow-x-auto carousel-scrollbar pb-2">
+                           {anime.relations.map(rel => (
+                               <RelatedCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />
+                           ))}
+                        </div>
+                    </div>
+                )}
                 {anime.recommendations && anime.recommendations.length > 0 && (
                     <div className="bg-gray-900 rounded-lg p-4 flex-grow">
                         <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Recommended For You</h3>
@@ -230,7 +257,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
             </aside>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 
