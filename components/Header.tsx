@@ -8,6 +8,7 @@ interface HeaderProps {
   onSearch: (term: string) => void;
   onHomeClick: () => void;
   onFilterClick: () => void;
+  onPlanToWatchClick: () => void;
   searchTerm: string;
   suggestions: SearchSuggestion[];
   onSuggestionClick: (anime: { anilistId: number }) => void;
@@ -18,7 +19,8 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ 
   onSearch, 
   onHomeClick, 
-  onFilterClick, 
+  onFilterClick,
+  onPlanToWatchClick,
   searchTerm,
   suggestions,
   onSuggestionClick,
@@ -102,27 +104,33 @@ const Header: React.FC<HeaderProps> = ({
             {isAuthLoading ? (
                  <div className="w-10 h-10 bg-gray-700 rounded-full animate-pulse"></div>
             ) : user ? (
-                <div className="relative group">
-                    {user.avatar ? (
-                        <img 
-                            src={user.avatar} 
-                            alt={user.name} 
-                            className="w-10 h-10 rounded-full cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors object-cover" 
-                        />
-                    ) : (
-                        <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors">
-                            <span className="text-white font-bold text-xl">
-                                {user.name ? user.name.charAt(0).toUpperCase() : '?'}
-                            </span>
+                <div className="flex items-center gap-3">
+                    <span className="hidden sm:block text-white font-semibold truncate max-w-[100px]">{user.name}</span>
+                    <div className="relative group">
+                        {user.avatar ? (
+                            <img 
+                                src={user.avatar} 
+                                alt={user.name} 
+                                className="w-10 h-10 rounded-full cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors object-cover" 
+                            />
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center cursor-pointer border-2 border-transparent group-hover:border-cyan-400 transition-colors">
+                                <span className="text-white font-bold text-xl">
+                                    {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                                </span>
+                            </div>
+                        )}
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg hidden group-hover:block animate-fade-in-fast z-50">
+                            <div className="p-3 border-b border-gray-700">
+                            <p className="font-semibold text-white truncate">{user.name}</p>
+                            </div>
+                            <button onClick={onPlanToWatchClick} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                                Plan to Watch
+                            </button>
+                            <button onClick={logout} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors rounded-b-md">
+                            Logout
+                            </button>
                         </div>
-                    )}
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg hidden group-hover:block animate-fade-in-fast z-50">
-                        <div className="p-3 border-b border-gray-700">
-                        <p className="font-semibold text-white truncate">{user.name}</p>
-                        </div>
-                        <button onClick={logout} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors rounded-b-md">
-                        Logout
-                        </button>
                     </div>
                 </div>
             ) : (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule } from './types';
-import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getContinueWatchingList } from './services/anilistService';
+import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getContinueWatchingList, getPlanToWatchList } from './services/anilistService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -14,6 +14,7 @@ import SchedulePage from './components/SchedulePage';
 import VerticalAnimeList from './components/VerticalAnimeList';
 import AdminModal from './components/AdminModal';
 import FilterModal from './components/FilterModal';
+import PlanToWatchPage from './components/PlanToWatchPage';
 import { useDebounce } from './hooks/useDebounce';
 import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
@@ -24,7 +25,7 @@ import LatestEpisodeGrid from './components/LatestEpisodeGrid';
 import { progressTracker } from './utils/progressTracking';
 
 
-type View = 'home' | 'details' | 'player';
+type View = 'home' | 'details' | 'player' | 'planToWatch';
 
 const initialFilters: FilterState = {
     genres: [],
@@ -46,6 +47,7 @@ const AppContent: React.FC = () => {
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
     const [allGenres, setAllGenres] = useState<string[]>([]);
     const [continueWatching, setContinueWatching] = useState<Anime[]>([]);
+    const [planToWatchList, setPlanToWatchList] = useState<Anime[]>([]);
     
     const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
     const [playerState, setPlayerState] = useState({
@@ -57,6 +59,7 @@ const AppContent: React.FC = () => {
     
     const [isLoading, setIsLoading] = useState(true);
     const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
+    const [isPlanToWatchLoading, setIsPlanToWatchLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState<FilterState>(initialFilters);
     const [discoveryTitle, setDiscoveryTitle] = useState('Filtered Results');
@@ -280,6 +283,18 @@ const AppContent: React.FC = () => {
         fetchSuggestions();
     }, [debouncedSuggestionsTerm]);
 
+    // Fetch Plan to Watch list when view is opened
+    useEffect(() => {
+        if (view === 'planToWatch' && user && token) {
+            setIsPlanToWatchLoading(true);
+            getPlanToWatchList(user.id, token)
+                .then(list => setPlanToWatchList(enrichAnimeWithProgress(applyOverridesToList(list))))
+                .catch(error => console.error("Failed to fetch Plan to Watch list:", error))
+                .finally(() => setIsPlanToWatchLoading(false));
+        }
+    }, [view, user, token, enrichAnimeWithProgress, applyOverridesToList]);
+
+
     // Handlers
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
         setIsLoading(true);
@@ -404,6 +419,12 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
     };
 
+    const handlePlanToWatchClick = () => {
+        if (!user) return;
+        setView('planToWatch');
+        window.scrollTo(0, 0);
+    };
+
     const generateDiscoveryTitle = () => {
         if (debouncedSearchTerm.trim()) {
             return `Results for "${debouncedSearchTerm}"`;
@@ -517,6 +538,14 @@ const AppContent: React.FC = () => {
                         onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
                     />;
             
+            case 'planToWatch':
+                return <PlanToWatchPage 
+                    animeList={planToWatchList}
+                    onSelectAnime={handleSelectAnime}
+                    isLoading={isPlanToWatchLoading}
+                    onBack={handleHomeClick}
+                />;
+
             case 'home':
             default:
                 if (isLoading && trending.length === 0) {
@@ -531,7 +560,8 @@ const AppContent: React.FC = () => {
             <Header 
                 onSearch={handleSearch} 
                 onHomeClick={handleHomeClick} 
-                onFilterClick={() => setIsFilterModalOpen(true)} 
+                onFilterClick={() => setIsFilterModalOpen(true)}
+                onPlanToWatchClick={handlePlanToWatchClick}
                 searchTerm={searchTerm} 
                 suggestions={searchSuggestions}
                 onSuggestionClick={handleSuggestionClick}

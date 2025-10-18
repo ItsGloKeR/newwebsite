@@ -216,3 +216,18 @@ export interface User {
   name: string;
   avatar: string;
 }
+
+// AniList User List Types
+export enum MediaListStatus {
+  CURRENT = 'CURRENT',
+  PLANNING = 'PLANNING',
+  COMPLETED = 'COMPLETED',
+  DROPPED = 'DROPPED',
+  PAUSED = 'PAUSED',
+  REPEATING = 'REPEATING',
+}
+
+export interface MediaListEntry {
+  id: number;
+  status: MediaListStatus;
+}

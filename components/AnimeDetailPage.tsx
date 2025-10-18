@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Anime, RelatedAnime, StreamSource, RecommendedAnime } from '../types';
+import { Anime, RelatedAnime, StreamSource, RecommendedAnime, MediaListEntry, MediaListStatus } from '../types';
 import GenrePill from './GenrePill';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import TrailerModal from './TrailerModal';
+import { useAuth } from '../contexts/AuthContext';
+import { getMediaListEntry, updateMediaListEntry, deleteMediaListEntry } from '../services/anilistService';
 
 const RELATED_ANIME_LIMIT = 10;
 
@@ -208,6 +210,93 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const { isAdmin } = useAdmin();
+  const { user, token } = useAuth();
+  const [listEntry, setListEntry] = useState<MediaListEntry | null>(null);
+  const [isListLoading, setIsListLoading] = useState(true);
+  const [isUpdatingList, setIsUpdatingList] = useState(false);
+
+  useEffect(() => {
+    // Reset on anime change
+    setListEntry(null);
+    setIsListLoading(true);
+
+    if (user && token && anime) {
+      getMediaListEntry(anime.anilistId, token)
+        .then(entry => setListEntry(entry))
+        .catch(console.error)
+        .finally(() => setIsListLoading(false));
+    } else {
+      setIsListLoading(false);
+    }
+  }, [user, token, anime]);
+
+  const handleTogglePlanToWatch = async () => {
+    if (!token || !anime) return;
+    
+    setIsUpdatingList(true);
+    try {
+      if (listEntry?.status === MediaListStatus.PLANNING) {
+        // It's on the plan to watch list, so we remove it
+        await deleteMediaListEntry(listEntry.id, token);
+        setListEntry(null);
+      } else {
+        // It's not on the plan to watch list (or on another list), so we add/move it
+        const updatedEntry = await updateMediaListEntry(anime.anilistId, MediaListStatus.PLANNING, token);
+        setListEntry(updatedEntry);
+      }
+    } catch (error) {
+      console.error("Failed to update Plan to Watch list", error);
+      // TODO: Optionally show a toast/error message to the user
+    } finally {
+      setIsUpdatingList(false);
+    }
+  };
+
+  const PlanToWatchButton = () => {
+    if (!user) return null;
+    
+    if (isListLoading) {
+      return (
+        <button disabled className="bg-gray-700/70 text-white font-bold py-3 px-8 rounded-full flex items-center justify-center w-[230px]">
+          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+        </button>
+      );
+    }
+
+    const isInPlanning = listEntry?.status === MediaListStatus.PLANNING;
+    const buttonClass = isInPlanning 
+      ? "bg-green-600/50 hover:bg-red-600/80 border-2 border-green-500 group" 
+      : "bg-gray-700/70 hover:bg-gray-600/70";
+    
+    return (
+        <button
+            onClick={handleTogglePlanToWatch}
+            disabled={isUpdatingList}
+            className={`backdrop-blur-sm text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2 relative ${buttonClass}`}
+        >
+            {isUpdatingList ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+            ) : isInPlanning ? (
+                <>
+                    <span className="group-hover:hidden flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                        <span>In Plan to Watch</span>
+                    </span>
+                    <span className="hidden group-hover:flex items-center gap-2 text-red-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                        <span>Remove</span>
+                    </span>
+                </>
+            ) : (
+                <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                    <span>Add to List</span>
+                </>
+            )}
+        </button>
+    );
+  };
+
 
   return (
     <div className="animate-fade-in text-white">
@@ -277,6 +366,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
                   No Trailer
                 </button>
               )}
+               <PlanToWatchButton />
             </div>
           </div>
         </div>

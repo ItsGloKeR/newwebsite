@@ -1,4 +1,4 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, User } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, User, MediaListStatus, MediaListEntry } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -615,4 +615,69 @@ export const updateAniListProgress = async (mediaId: number, episode: number, to
     // Fail silently from the user's perspective, but log the error for debugging.
     console.error("Failed to update AniList progress:", error);
   }
+};
+
+// Plan to Watch and List Management
+export const getMediaListEntry = async (mediaId: number, token: string): Promise<MediaListEntry | null> => {
+    const query = `
+        query ($mediaId: Int) {
+            MediaList(mediaId: $mediaId, type: ANIME) {
+                id
+                status
+            }
+        }
+    `;
+    const data = await fetchAniListData(query, { mediaId }, token);
+    return data.MediaList;
+};
+
+export const updateMediaListEntry = async (mediaId: number, status: MediaListStatus, token: string): Promise<MediaListEntry> => {
+    const query = `
+        mutation ($mediaId: Int, $status: MediaListStatus) {
+            SaveMediaListEntry (mediaId: $mediaId, status: $status) {
+                id
+                status
+            }
+        }
+    `;
+    const data = await fetchAniListData(query, { mediaId, status }, token);
+    return data.SaveMediaListEntry;
+};
+
+export const deleteMediaListEntry = async (entryId: number, token: string): Promise<{ deleted: boolean }> => {
+    const query = `
+        mutation ($id: Int) {
+            DeleteMediaListEntry (id: $id) {
+                deleted
+            }
+        }
+    `;
+    const data = await fetchAniListData(query, { id: entryId }, token);
+    return data.DeleteMediaListEntry;
+};
+
+export const getPlanToWatchList = async (userId: number, token: string): Promise<Anime[]> => {
+    const query = `
+        query ($userId: Int) {
+            MediaListCollection(userId: $userId, type: ANIME, status: PLANNING, sort: ADDED_TIME_DESC) {
+                lists {
+                    entries {
+                        media {
+                            ...animeFields
+                        }
+                    }
+                }
+            }
+        }
+        fragment animeFields on Media {
+            ${ANIME_FIELDS_FRAGMENT}
+        }
+    `;
+    const data = await fetchAniListData(query, { userId }, token);
+
+    if (!data.MediaListCollection?.lists?.[0]?.entries) {
+        return [];
+    }
+
+    return data.MediaListCollection.lists[0].entries.map((entry: any) => mapToAnime(entry.media));
 };
