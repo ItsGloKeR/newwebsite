@@ -22,10 +22,15 @@ const LatestEpisodeCard: React.FC<LatestEpisodeCardProps> = ({ schedule, onSelec
         loading="lazy"
         onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+      {schedule.media.isAdult && (
+        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+          18+
+        </div>
+      )}
       <div className="absolute top-2 right-2 bg-cyan-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md">
         EP {schedule.episode}
       </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
       <div className="absolute bottom-0 left-0 p-4">
         <h3 className="text-white text-lg font-bold truncate group-hover:whitespace-normal">{title}</h3>
       </div>

@@ -24,6 +24,16 @@ const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) 
           className="w-full h-full object-cover"
           onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
         />
+        {anime.isAdult && (
+            <div className="absolute top-1 left-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+            18+
+            </div>
+        )}
+        {anime.episodes != null && (
+            <div className="absolute top-1 right-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+            {anime.episodes} Ep
+            </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
         <div className="absolute bottom-0 left-0 p-2">
             <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>
@@ -50,6 +60,16 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ anime, onSelect
           className="w-full h-full object-cover"
           onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
         />
+        {anime.isAdult && (
+            <div className="absolute top-1 left-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+            18+
+            </div>
+        )}
+        {anime.episodes != null && (
+            <div className="absolute top-1 right-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+            {anime.episodes} Ep
+            </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
         <div className="absolute bottom-0 left-0 p-2">
             <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>

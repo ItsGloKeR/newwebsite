@@ -87,7 +87,11 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => vo
             onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
         />
         <div className="overflow-hidden">
-            <h4 className="text-white font-semibold line-clamp-3">{anime.title}</h4>
+            <h4 className="text-white font-semibold line-clamp-2 flex items-center gap-2">
+                {anime.title}
+                {anime.isAdult && <span className="flex-shrink-0 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-sm">18+</span>}
+            </h4>
+            <p className="text-gray-400 text-sm mt-1">{anime.episodes ? `${anime.episodes} Episodes` : 'TBA'}</p>
         </div>
     </div>
 );
@@ -101,6 +105,16 @@ const RelatedCard: React.FC<{ anime: RelatedAnime, onSelect: () => void }> = ({ 
               className="w-full h-full object-cover"
               onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
             />
+            {anime.isAdult && (
+                <div className="absolute top-1 left-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+                18+
+                </div>
+            )}
+            {anime.episodes != null && (
+                <div className="absolute top-1 right-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+                {anime.episodes} Ep
+                </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
         </div>
         <p className="text-white text-xs font-semibold line-clamp-2 mt-2 group-hover:text-cyan-400 transition-colors">{anime.title}</p>

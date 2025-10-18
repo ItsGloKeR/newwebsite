@@ -32,8 +32,13 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({ suggestions, onSu
               onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
             />
             <div className="overflow-hidden">
-              <p className="text-white font-semibold truncate">{anime.title}</p>
-              <p className="text-gray-400 text-sm">{anime.year}</p>
+              <p className="text-white font-semibold truncate flex items-center gap-2">
+                {anime.title}
+                {anime.isAdult && <span className="flex-shrink-0 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-sm">18+</span>}
+              </p>
+              <p className="text-gray-400 text-sm">
+                {anime.year} {anime.episodes ? `· ${anime.episodes} Episodes` : ''}
+              </p>
             </div>
           </li>
         ))}

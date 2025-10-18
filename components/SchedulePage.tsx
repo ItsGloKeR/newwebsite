@@ -121,8 +121,9 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
                             <span className="text-gray-400 font-mono text-sm w-16">
                                 {new Date(item.airingAt * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                             </span>
-                            <span className="text-white font-semibold">
+                            <span className="text-white font-semibold flex items-center gap-2">
                                 {item.media.title.english || item.media.title.romaji}
+                                {item.media.isAdult && <span className="flex-shrink-0 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-sm">18+</span>}
                             </span>
                         </div>
                         <span className="text-gray-400 text-sm">

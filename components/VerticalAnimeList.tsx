@@ -23,8 +23,13 @@ const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) =
         onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
       <div className="overflow-hidden">
-        <h4 className="text-white font-semibold truncate">{anime.title}</h4>
-        <p className="text-gray-400 text-sm">{anime.year}</p>
+        <h4 className="text-white font-semibold truncate flex items-center gap-2">
+            {anime.title}
+            {anime.isAdult && <span className="flex-shrink-0 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-sm">18+</span>}
+        </h4>
+        <p className="text-gray-400 text-sm">
+            {anime.year} {anime.episodes ? `· ${anime.episodes} Episodes` : ''}
+        </p>
         <p className="text-gray-400 text-sm truncate">{anime.genres.slice(0, 2).join(', ')}</p>
       </div>
     </li>

@@ -20,6 +20,16 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
         loading="lazy"
         onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
+      {anime.isAdult && (
+        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+          18+
+        </div>
+      )}
+      {anime.episodes != null && (
+        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+          {anime.episodes} Ep
+        </div>
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
       <div className="absolute bottom-0 left-0 p-4">
         <h3 className="text-white text-lg font-bold truncate group-hover:whitespace-normal">{anime.title}</h3>

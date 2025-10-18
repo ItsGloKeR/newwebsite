@@ -21,12 +21,16 @@ export interface RelatedAnime {
   title: string;
   coverImage: string;
   relationType: string;
+  isAdult: boolean;
+  episodes: number | null;
 }
 
 export interface RecommendedAnime {
   id: number;
   title: string;
   coverImage: string;
+  isAdult: boolean;
+  episodes: number | null;
 }
 
 export interface NextAiringEpisode {
@@ -47,7 +51,7 @@ export interface Anime {
   coverImage: string;
   bannerImage: string;
   genres: string[];
-  episodes: number;
+  episodes: number | null;
   year: number;
   rating: number;
   status: string;
@@ -57,6 +61,7 @@ export interface Anime {
   trailer?: AnimeTrailer;
   recommendations?: RecommendedAnime[];
   nextAiringEpisode?: NextAiringEpisode;
+  isAdult: boolean;
 }
 
 export interface AiringSchedule {
@@ -72,6 +77,8 @@ export interface AiringSchedule {
     coverImage: {
       extraLarge: string;
     };
+    isAdult: boolean;
+    episodes: number | null;
   };
 }
 
@@ -90,6 +97,8 @@ export interface SearchSuggestion {
   title: string;
   coverImage: string;
   year: number;
+  isAdult: boolean;
+  episodes: number | null;
 }
 
 // Advanced Filtering & Sorting Types

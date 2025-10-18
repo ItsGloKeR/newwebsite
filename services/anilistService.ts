@@ -4,6 +4,7 @@ const ANILIST_API_URL = 'https://graphql.anilist.co';
 
 const ANIME_FIELDS_FRAGMENT = `
   id
+  isAdult
   title {
     romaji
     english
@@ -46,6 +47,8 @@ const ANIME_FIELDS_FRAGMENT = `
       node {
         id
         type
+        isAdult
+        episodes
         title {
           romaji
           english
@@ -64,6 +67,8 @@ const ANIME_FIELDS_FRAGMENT = `
     nodes {
       mediaRecommendation {
         id
+        isAdult
+        episodes
         title {
           romaji
           english
@@ -140,6 +145,8 @@ const mapToAnime = (data: any): Anime => {
       title: edge.node.title.english || edge.node.title.romaji,
       coverImage: edge.node.coverImage.extraLarge,
       relationType: edge.relationType,
+      isAdult: edge.node.isAdult,
+      episodes: edge.node.episodes,
     }));
   
   const recommendations: RecommendedAnime[] = (data.recommendations?.nodes || [])
@@ -148,6 +155,8 @@ const mapToAnime = (data: any): Anime => {
       id: node.mediaRecommendation.id,
       title: node.mediaRecommendation.title.english || node.mediaRecommendation.title.romaji,
       coverImage: node.mediaRecommendation.coverImage.extraLarge,
+      isAdult: node.mediaRecommendation.isAdult,
+      episodes: node.mediaRecommendation.episodes,
     }));
 
   const trailer: AnimeTrailer | undefined = data.trailer && data.trailer.site === 'youtube'
@@ -185,6 +194,7 @@ const mapToAnime = (data: any): Anime => {
     trailer,
     recommendations,
     nextAiringEpisode,
+    isAdult: data.isAdult,
   };
 };
 
@@ -192,22 +202,22 @@ export const getHomePageData = async () => {
   const query = `
     query {
       trending: Page(page: 1, perPage: 10) {
-        media(sort: TRENDING_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED]) {
+        media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
           ...animeFields
         }
       }
       popular: Page(page: 1, perPage: 24) {
-        media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED]) {
+        media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
           ...animeFields
         }
       }
       topAiring: Page(page: 1, perPage: 10) {
-        media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, isAdult: false) {
+        media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING) {
           ...animeFields
         }
       }
       topUpcoming: Page(page: 1, perPage: 10) {
-        media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED, isAdult: false) {
+        media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED) {
           ...animeFields
         }
       }
@@ -238,6 +248,8 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
             airingAt
             media {
               id
+              isAdult
+              episodes
               title {
                 romaji
                 english
@@ -290,8 +302,7 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
           season: $season,
           seasonYear: $seasonYear,
           format_in: $format_in,
-          status_in: $status_in,
-          isAdult: false
+          status_in: $status_in
         ) {
           ...animeFields
         }
@@ -364,6 +375,7 @@ export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
             airingAt
             media {
               id
+              isAdult
               title {
                 romaji
                 english
@@ -423,8 +435,10 @@ export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSu
   const query = `
     query ($search: String) {
       Page(page: 1, perPage: 8) {
-        media(search: $search, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+        media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
           id
+          isAdult
+          episodes
           title {
             romaji
             english
@@ -446,5 +460,7 @@ export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSu
     title: media.title.english || media.title.romaji,
     coverImage: media.coverImage.medium,
     year: media.seasonYear,
+    isAdult: media.isAdult,
+    episodes: media.episodes,
   }));
 };
