@@ -51,7 +51,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [logout]);
 
   const login = () => {
-    const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${ANILIST_REDIRECT_URI}&response_type=token`;
+    const encodedRedirectUri = encodeURIComponent(ANILIST_REDIRECT_URI);
+    const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${encodedRedirectUri}&response_type=token`;
     // Open in the top-level window to break out of the iframe
     window.open(authUrl, '_top');
   };
