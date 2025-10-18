@@ -379,6 +379,7 @@ const AppContent: React.FC = () => {
                 suggestions={searchSuggestions}
                 onSuggestionClick={handleSuggestionClick}
                 isSuggestionsLoading={isSuggestionsLoading}
+                onNavigate={handleViewMore}
             />
             {renderContent()}
             <Footer onAdminClick={() => setIsAdminModalOpen(true)} />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SearchSuggestion } from '../types';
+import { SearchSuggestion, FilterState } from '../types';
 import SearchSuggestions from './SearchSuggestions';
+import DropdownMenu from './DropdownMenu';
 
 interface HeaderProps {
   onSearch: (term: string) => void;
@@ -10,6 +11,7 @@ interface HeaderProps {
   suggestions: SearchSuggestion[];
   onSuggestionClick: (anime: { anilistId: number }) => void;
   isSuggestionsLoading: boolean;
+  onNavigate: (filters: Partial<FilterState>, title: string) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -19,36 +21,46 @@ const Header: React.FC<HeaderProps> = ({
   searchTerm,
   suggestions,
   onSuggestionClick,
-  isSuggestionsLoading
+  isSuggestionsLoading,
+  onNavigate
 }) => {
-  const [isFocused, setIsFocused] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   
-  const showSuggestions = isFocused && searchTerm.trim() !== '';
+  const showSuggestions = isSearchFocused && searchTerm.trim() !== '';
 
-  // Handle click outside to close suggestions
+  // Handle click outside to close suggestions and menu
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setIsFocused(false);
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+        setIsMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [searchContainerRef]);
-
+  }, [headerRef]);
 
   return (
-    <header className="bg-gray-900/80 backdrop-blur-md sticky top-0 z-50 p-4 shadow-lg">
+    <header className="bg-gray-900/80 backdrop-blur-md sticky top-0 z-50 p-4 shadow-lg" ref={headerRef}>
       <div className="container mx-auto flex justify-between items-center">
-        <h1 
-          className="text-2xl font-black text-white cursor-pointer"
-          onClick={onHomeClick}
-        >
-          <span className="text-cyan-400">Ani</span>GloK
-        </h1>
+        <div className="flex items-center gap-4">
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white p-1 rounded-md hover:bg-gray-700 transition-colors" aria-label="Open menu">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+             <h1 
+                className="text-2xl font-black text-white cursor-pointer"
+                onClick={onHomeClick}
+            >
+                <span className="text-cyan-400">Ani</span>GloK
+            </h1>
+        </div>
         <div className="flex items-center gap-4">
           <div className="relative" ref={searchContainerRef}>
             {/* Search Icon */}
@@ -60,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({
               placeholder="Search anime..."
               value={searchTerm}
               onChange={(e) => onSearch(e.target.value)}
-              onFocus={() => setIsFocused(true)}
+              onFocus={() => setIsSearchFocused(true)}
               className="bg-gray-800 text-white rounded-full py-2 pl-10 pr-10 w-48 md:w-64 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
             />
             {/* Filter Button */}
@@ -83,6 +95,12 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
+      <DropdownMenu 
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        onFilterClick={onFilterClick}
+        onNavigate={onNavigate}
+      />
     </header>
   );
 };

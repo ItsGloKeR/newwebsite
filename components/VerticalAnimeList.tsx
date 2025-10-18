@@ -40,7 +40,7 @@ const VerticalAnimeList: React.FC<VerticalAnimeListProps> = ({ title, animeList,
   return (
     <section className="mb-12">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
+        <h2 className="text-2xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
         {onViewMore && (
           <button 
             onClick={onViewMore} 
