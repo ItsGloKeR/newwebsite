@@ -1,4 +1,4 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -198,9 +198,24 @@ const mapToAnime = (data: any): Anime => {
   };
 };
 
+const getCurrentSeason = (): { season: MediaSeason, year: number } => {
+    const now = new Date();
+    const month = now.getMonth(); // 0-11
+    const year = now.getFullYear();
+
+    if (month >= 0 && month <= 2) return { season: MediaSeason.WINTER, year };
+    if (month >= 3 && month <= 5) return { season: MediaSeason.SPRING, year };
+    if (month >= 6 && month <= 8) return { season: MediaSeason.SUMMER, year };
+    // month >= 9 && month <= 11
+    return { season: MediaSeason.FALL, year };
+};
+
+
 export const getHomePageData = async () => {
+  const { season, year } = getCurrentSeason();
+  
   const query = `
-    query {
+    query ($season: MediaSeason, $seasonYear: Int) {
       trending: Page(page: 1, perPage: 10) {
         media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
           ...animeFields
@@ -221,6 +236,11 @@ export const getHomePageData = async () => {
           ...animeFields
         }
       }
+      popularThisSeason: Page(page: 1, perPage: 10) {
+          media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear) {
+              ...animeFields
+          }
+      }
     }
 
     fragment animeFields on Media {
@@ -228,13 +248,16 @@ export const getHomePageData = async () => {
     }
   `;
 
-  const data = await fetchAniListData(query, {});
+  const data = await fetchAniListData(query, { season, seasonYear: year });
   
   return {
     trending: data.trending.media.map(mapToAnime),
     popular: data.popular.media.map(mapToAnime),
     topAiring: data.topAiring.media.map(mapToAnime),
     topUpcoming: data.topUpcoming.media.map(mapToAnime),
+    popularThisSeason: data.popularThisSeason.media.map(mapToAnime),
+    currentSeason: season,
+    currentYear: year,
   };
 };
 
@@ -376,6 +399,7 @@ export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
             media {
               id
               isAdult
+              episodes
               title {
                 romaji
                 english

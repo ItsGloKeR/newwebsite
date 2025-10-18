@@ -27,7 +27,7 @@ const LatestEpisodeCard: React.FC<LatestEpisodeCardProps> = ({ schedule, onSelec
           18+
         </div>
       )}
-      <div className="absolute top-2 right-2 bg-cyan-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md">
+      <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
         EP {schedule.episode}
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>

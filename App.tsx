@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus } from './types';
+import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes } from './services/anilistService';
 import Header from './components/Header';
 import Hero from './components/Hero';
@@ -39,6 +39,7 @@ const AppContent: React.FC = () => {
     const [popular, setPopular] = useState<Anime[]>(initialPopular);
     const [topAiring, setTopAiring] = useState<Anime[]>(initialTopAiring);
     const [topUpcoming, setTopUpcoming] = useState<Anime[]>([]);
+    const [popularThisSeason, setPopularThisSeason] = useState<Anime[]>([]);
     const [latestEpisodes, setLatestEpisodes] = useState<AiringSchedule[]>([]);
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
     const [allGenres, setAllGenres] = useState<string[]>([]);
@@ -60,6 +61,8 @@ const AppContent: React.FC = () => {
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [currentSeason, setCurrentSeason] = useState<MediaSeason | null>(null);
+    const [currentYear, setCurrentYear] = useState<number | null>(null);
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
@@ -84,7 +87,7 @@ const AppContent: React.FC = () => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const [{ trending, popular, topAiring, topUpcoming }, genres, latest] = await Promise.all([
+                const [{ trending, popular, topAiring, topUpcoming, popularThisSeason, currentSeason, currentYear }, genres, latest] = await Promise.all([
                     getHomePageData(),
                     getGenreCollection(),
                     getLatestEpisodes(),
@@ -93,8 +96,11 @@ const AppContent: React.FC = () => {
                 setPopular(applyOverridesToList(popular));
                 setTopAiring(applyOverridesToList(topAiring));
                 setTopUpcoming(applyOverridesToList(topUpcoming));
+                setPopularThisSeason(applyOverridesToList(popularThisSeason));
                 setAllGenres(genres);
                 setLatestEpisodes(latest);
+                setCurrentSeason(currentSeason);
+                setCurrentYear(currentYear);
             } catch (error) {
                 console.error("Failed to fetch home page data:", error);
             } finally {
@@ -110,6 +116,7 @@ const AppContent: React.FC = () => {
         setPopular(applyOverridesToList);
         setTopAiring(applyOverridesToList);
         setTopUpcoming(applyOverridesToList);
+        setPopularThisSeason(applyOverridesToList);
         setSearchResults(applyOverridesToList);
         if (selectedAnime) {
             setSelectedAnime(applyOverrides);
@@ -301,6 +308,13 @@ const AppContent: React.FC = () => {
                                 onSelectAnime={handleSelectAnime}
                                 showRank={false}
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.NOT_YET_RELEASED], sort: MediaSort.POPULARITY_DESC }, "Top Upcoming Anime")}
+                            />
+                             <AnimeCarousel 
+                                title="Popular This Season" 
+                                animeList={popularThisSeason} 
+                                onSelectAnime={handleSelectAnime}
+                                showRank={false}
+                                onViewMore={() => handleViewMore({ season: currentSeason!, year: String(currentYear!), sort: MediaSort.POPULARITY_DESC }, "Popular This Season")}
                             />
                         </div>
                         <div className="lg:col-span-1">
