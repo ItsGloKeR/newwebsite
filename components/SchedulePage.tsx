@@ -1,10 +1,8 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import { getAiringSchedule } from '../services/anilistService';
 import { AiringSchedule } from '../types';
 import LoadingSpinner from './LoadingSpinner';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface SchedulePageProps {
   onSelectAnime: (anime: { anilistId: number }) => void;
@@ -24,6 +22,7 @@ const ScheduleCard: React.FC<{ schedule: AiringSchedule, onSelect: () => void }>
         src={schedule.media.coverImage.extraLarge} 
         alt={schedule.media.title.romaji} 
         className="w-20 h-28 object-cover rounded-md"
+        onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
       <div className="flex flex-col justify-between">
         <div>

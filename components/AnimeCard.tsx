@@ -1,5 +1,6 @@
 import React from 'react';
 import { Anime } from '../types';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface AnimeCardProps {
   anime: Anime;
@@ -17,6 +18,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
         alt={anime.title}
         className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-100 brightness-90"
         loading="lazy"
+        onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
       <div className="absolute bottom-0 left-0 p-4">

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Anime } from '../types';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface CarouselCardProps {
   anime: Anime;
@@ -18,6 +19,7 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank }) =>
         alt={anime.title}
         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         loading="lazy"
+        onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
       

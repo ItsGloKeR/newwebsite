@@ -149,12 +149,12 @@ export const getHomePageData = async () => {
   const query = `
     query {
       trending: Page(page: 1, perPage: 10) {
-        media(sort: TRENDING_DESC, type: ANIME, isAdult: false) {
+        media(sort: TRENDING_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED]) {
           ...animeFields
         }
       }
       popular: Page(page: 1, perPage: 24) {
-        media(sort: POPULARITY_DESC, type: ANIME, isAdult: false) {
+        media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED]) {
           ...animeFields
         }
       }

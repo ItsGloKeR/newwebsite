@@ -18,6 +18,7 @@ import { useDebounce } from './hooks/useDebounce';
 import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import isEqual from 'lodash.isequal';
+import HomePageSkeleton from './components/HomePageSkeleton';
 
 
 type View = 'home' | 'details' | 'player';
@@ -283,7 +284,7 @@ const AppContent: React.FC = () => {
             case 'home':
             default:
                 if (isLoading && trending.length === 0) {
-                    return <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>;
+                    return <HomePageSkeleton />;
                 }
                 return renderHomePage();
         }

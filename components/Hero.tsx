@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Anime } from '../types';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface HeroProps {
   animes: Anime[];
@@ -50,6 +51,7 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails }) => {
           src={currentAnime.bannerImage || currentAnime.coverImage}
           alt={currentAnime.title}
           className="w-full h-full object-cover brightness-50 animate-fade-in"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/50 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-gray-950 to-transparent"></div>

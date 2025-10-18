@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Anime, RelatedAnime, StreamSource } from '../types';
 import GenrePill from './GenrePill';
 import { useAdmin } from '../contexts/AdminContext';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 const RELATED_ANIME_LIMIT = 10;
 
@@ -16,7 +17,12 @@ const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) 
     onClick={() => onSelect(anime.id)}
   >
     <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
-        <img src={anime.coverImage} alt={anime.title} className="w-full h-full object-cover"/>
+        <img 
+          src={anime.coverImage} 
+          alt={anime.title} 
+          className="w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
         <div className="absolute bottom-0 left-0 p-2">
             <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>
@@ -143,16 +149,10 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
     <div className="animate-fade-in text-white">
       <div className="relative h-[50vh] w-full">
         <img
-          src={anime.bannerImage}
+          src={anime.bannerImage || anime.coverImage}
           alt={anime.title}
           className="w-full h-full object-cover"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (target.src !== anime.coverImage) {
-              target.onerror = null;
-              target.src = anime.coverImage;
-            }
-          }}
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/80 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-gray-950 to-transparent"></div>
@@ -165,6 +165,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
               src={anime.coverImage} 
               alt={anime.title} 
               className="w-full rounded-lg shadow-2xl aspect-[2/3] object-cover"
+              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
             />
           </div>
           <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-end md:pb-8">

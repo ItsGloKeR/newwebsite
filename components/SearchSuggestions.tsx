@@ -1,5 +1,6 @@
 import React from 'react';
 import { SearchSuggestion } from '../types';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface SearchSuggestionsProps {
   suggestions: SearchSuggestion[];
@@ -24,7 +25,12 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({ suggestions, onSu
             onMouseDown={() => onSuggestionClick({ anilistId: anime.anilistId })} // Use onMouseDown to fire before input's onBlur
             className="flex items-center p-3 hover:bg-gray-700 cursor-pointer transition-colors"
           >
-            <img src={anime.coverImage} alt={anime.title} className="w-10 h-14 object-cover rounded-md mr-4 flex-shrink-0" />
+            <img 
+              src={anime.coverImage} 
+              alt={anime.title} 
+              className="w-10 h-14 object-cover rounded-md mr-4 flex-shrink-0" 
+              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+            />
             <div className="overflow-hidden">
               <p className="text-white font-semibold truncate">{anime.title}</p>
               <p className="text-gray-400 text-sm">{anime.year}</p>

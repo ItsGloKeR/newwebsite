@@ -1,5 +1,6 @@
 import React from 'react';
 import { Anime } from '../types';
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 interface VerticalAnimeListProps {
   title: string;
@@ -17,6 +18,7 @@ const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) =
         src={anime.coverImage} 
         alt={anime.title} 
         className="w-16 h-24 object-cover rounded-md flex-shrink-0 shadow-md"
+        onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
       <div className="overflow-hidden">
         <h4 className="text-white font-semibold truncate">{anime.title}</h4>
