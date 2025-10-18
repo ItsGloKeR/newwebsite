@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Anime, RelatedAnime, NextEpisodeSchedule, StreamSource } from '../types';
+import { Anime, RelatedAnime, StreamSource } from '../types';
 import GenrePill from './GenrePill';
-import { fetchNextEpisodeSchedule } from '../services/hianimeService';
 import { useAdmin } from '../contexts/AdminContext';
 
 const RELATED_ANIME_LIMIT = 10;
@@ -26,29 +25,6 @@ const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) 
     <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
   </div>
 );
-
-const CountdownTimer: React.FC<{ seconds: number }> = ({ seconds }) => {
-    const [remaining, setRemaining] = useState(seconds);
-
-    useEffect(() => {
-        if (remaining <= 0) return;
-        const interval = setInterval(() => {
-            setRemaining(prev => prev - 1);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [remaining]);
-
-    const d = Math.floor(remaining / (3600*24));
-    const h = Math.floor(remaining % (3600*24) / 3600);
-    const m = Math.floor(remaining % 3600 / 60);
-    const s = Math.floor(remaining % 60);
-
-    return (
-        <p className="text-lg">
-            Next episode airs in: <span className="font-bold text-cyan-400">{d}d {h}h {m}m {s}s</span>
-        </p>
-    );
-};
 
 const TitleEditor: React.FC<{ anime: Anime }> = ({ anime }) => {
     const { updateTitle } = useAdmin();
@@ -161,29 +137,7 @@ interface AnimeDetailPageProps {
 
 const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
-  const [schedule, setSchedule] = useState<NextEpisodeSchedule | null>(null);
-  const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
   const { isAdmin } = useAdmin();
-
-  useEffect(() => {
-    const getSchedule = async () => {
-      if (!anime.title) return;
-      setIsLoadingSchedule(true);
-      const hianimeId = anime.title
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/[\s]+/g, '-')
-        .replace(/--+/g, '-');
-      
-      const scheduleData = await fetchNextEpisodeSchedule(hianimeId);
-      setSchedule(scheduleData);
-      setIsLoadingSchedule(false);
-    };
-
-    getSchedule();
-  }, [anime.anilistId, anime.title]);
-
-  const mainStaff = anime.staff.filter(s => ['Director', 'Original Creator', 'Series Composition'].includes(s.role));
 
   return (
     <div className="animate-fade-in text-white">
@@ -257,27 +211,38 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
                  </button>
               )}
             </div>
-          </div>
-          <div className="lg:col-span-1 flex flex-col gap-6">
-             <div>
-                <h3 className="font-bold text-lg mb-2">Studios</h3>
-                <p className="text-gray-400">{anime.studios.join(', ')}</p>
-             </div>
-             <div>
-                <h3 className="font-bold text-lg mb-2">Main Staff</h3>
-                {mainStaff.map(s => (
-                  <div key={s.id} className="text-sm">
-                      <span className="text-gray-400">{s.role}: </span>
-                      <span className="text-white font-semibold">{s.name}</span>
-                  </div>
-                ))}
-             </div>
-             {!isLoadingSchedule && schedule?.secondsUntilAiring && schedule.secondsUntilAiring > 0 && (
-                <div>
-                    <h3 className="font-bold text-lg mb-2">Next Episode</h3>
-                    <CountdownTimer seconds={schedule.secondsUntilAiring} />
+
+            {anime.staff.length > 0 && (
+                <div className="mt-8">
+                    <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4 mb-4">Staff</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
+                        {anime.staff.map(s => (
+                            <div key={`${s.id}-${s.role}`} className="text-sm">
+                                <p className="text-white font-semibold">{s.name}</p>
+                                <p className="text-gray-400">{s.role}</p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-             )}
+            )}
+          </div>
+          <div className="lg:col-span-1 flex flex-col gap-6 bg-gray-900/50 p-6 rounded-lg">
+             <div className="flex justify-between items-center">
+                <h3 className="font-bold text-lg text-gray-400">Rating</h3>
+                <p className="text-white font-bold text-lg">{anime.rating ? `${anime.rating} / 100` : 'N/A'}</p>
+             </div>
+             <div className="flex justify-between items-center">
+                <h3 className="font-bold text-lg text-gray-400">Episodes</h3>
+                <p className="text-white font-bold text-lg">{anime.episodes ? `${anime.episodes}` : 'TBA'}</p>
+             </div>
+             <div className="flex justify-between items-center">
+                <h3 className="font-bold text-lg text-gray-400">Status</h3>
+                <p className="text-white font-bold text-lg capitalize">{anime.status.toLowerCase().replace(/_/g, ' ')}</p>
+             </div>
+             <div>
+                <h3 className="font-bold text-lg mb-2 text-gray-400">Studios</h3>
+                <p className="text-white font-semibold">{anime.studios.join(', ')}</p>
+             </div>
           </div>
         </div>
 

@@ -8,12 +8,14 @@ const AdminEpisodeEditor: React.FC<{ anime: Anime; episode: number }> = ({ anime
     const [isEditing, setIsEditing] = useState(false);
 
     const episodeOverrides = overrides.anime[anime.anilistId]?.episodes?.[episode];
-    const [animePaheUrl, setAnimePaheUrl] = useState(episodeOverrides?.animepahe || '');
-    const [vidnestUrl, setVidnestUrl] = useState(episodeOverrides?.vidnest || '');
+    // FIX: Access override properties using the StreamSource enum for type safety.
+    const [animePaheUrl, setAnimePaheUrl] = useState(episodeOverrides?.[StreamSource.AnimePahe] || '');
+    const [vidnestUrl, setVidnestUrl] = useState(episodeOverrides?.[StreamSource.Vidnest] || '');
 
     useEffect(() => {
-        setAnimePaheUrl(episodeOverrides?.animepahe || '');
-        setVidnestUrl(episodeOverrides?.vidnest || '');
+        // FIX: Access override properties using the StreamSource enum for type safety.
+        setAnimePaheUrl(episodeOverrides?.[StreamSource.AnimePahe] || '');
+        setVidnestUrl(episodeOverrides?.[StreamSource.Vidnest] || '');
     }, [episodeOverrides, episode]);
 
     if (!isAdmin) return null;

@@ -1,3 +1,4 @@
+// FIX: Define and export StreamSource enum to resolve circular dependency and typing errors.
 export enum StreamSource {
   Vidnest = 'vidnest',
   AnimePahe = 'animepahe',
@@ -32,6 +33,7 @@ export interface Anime {
   episodes: number;
   year: number;
   rating: number;
+  status: string;
   studios: string[];
   staff: StaffMember[];
   relations: RelatedAnime[];
@@ -62,6 +64,57 @@ export interface HiAnime {
   title: string;
   coverImage: string;
 }
+
+export interface SearchSuggestion {
+  anilistId: number;
+  title: string;
+  coverImage: string;
+  year: number;
+}
+
+// Advanced Filtering & Sorting Types
+export enum MediaSeason {
+  WINTER = 'WINTER',
+  SPRING = 'SPRING',
+  SUMMER = 'SUMMER',
+  FALL = 'FALL',
+}
+
+export enum MediaFormat {
+  TV = 'TV',
+  TV_SHORT = 'TV_SHORT',
+  MOVIE = 'MOVIE',
+  SPECIAL = 'SPECIAL',
+  OVA = 'OVA',
+  ONA = 'ONA',
+  MUSIC = 'MUSIC',
+}
+
+export enum MediaStatus {
+  FINISHED = 'FINISHED',
+  RELEASING = 'RELEASING',
+  NOT_YET_RELEASED = 'NOT_YET_RELEASED',
+  CANCELLED = 'CANCELLED',
+  HIATUS = 'HIATUS',
+}
+
+export enum MediaSort {
+  POPULARITY_DESC = 'POPULARITY_DESC',
+  TRENDING_DESC = 'TRENDING_DESC',
+  SCORE_DESC = 'SCORE_DESC',
+  FAVOURITES_DESC = 'FAVOURITES_DESC',
+  START_DATE_DESC = 'START_DATE_DESC',
+}
+
+export interface FilterState {
+  genres: string[];
+  year: string;
+  season?: MediaSeason;
+  formats: MediaFormat[];
+  statuses: MediaStatus[];
+  sort: MediaSort;
+}
+
 
 // Admin Panel Types - NEW STRUCTURE
 

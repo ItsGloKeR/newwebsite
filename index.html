@@ -41,6 +41,21 @@
       .carousel-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #67e8f9;
       }
+      /* Animations */
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+      }
+      @keyframes fadeInFast {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-fast {
+        animation: fadeInFast 0.2s ease-out;
+      }
     </style>
   <script type="importmap">
 {
@@ -48,7 +63,8 @@
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
+    "lodash.isequal": "https://aistudiocdn.com/lodash.isequal@^4.5.0"
   }
 }
 </script>

@@ -1,5 +1,4 @@
-
-import { Anime, RelatedAnime, StaffMember, AiringSchedule } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState } from '../types';
 
 const ANILIST_API_URL = 'https://graphql.anilist.co';
 
@@ -17,6 +16,7 @@ const ANIME_FIELDS_FRAGMENT = `
   bannerImage
   genres
   episodes
+  status
   nextAiringEpisode {
     episode
   }
@@ -56,28 +56,46 @@ const ANIME_FIELDS_FRAGMENT = `
   }
 `;
 
-// Helper function to fetch data from AniList
+// Helper function to fetch data from AniList with rate-limiting retry logic
 const fetchAniListData = async (query: string, variables: object) => {
-  const response = await fetch(ANILIST_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  const maxRetries = 5;
+  let delay = 1000; // Start with 1 second for fallback
 
-  if (!response.ok) {
-    throw new Error(`AniList API error: ${response.statusText}`);
+  for (let i = 0; i < maxRetries; i++) {
+    const response = await fetch(ANILIST_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      if (json.errors) {
+        console.error("AniList API Errors:", json.errors);
+        throw new Error(`GraphQL Error: ${json.errors.map((e: any) => e.message).join(', ')}`);
+      }
+      return json.data;
+    }
+
+    if (response.status === 429) {
+      const retryAfterHeader = response.headers.get('Retry-After');
+      // Use header value if present, otherwise use exponential backoff
+      const retryAfter = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : delay;
+      
+      console.warn(`Rate limited by AniList API. Retrying in ${retryAfter / 1000} seconds... (Attempt ${i + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, retryAfter));
+      delay *= 2; // Double the delay for the next potential fallback
+      continue;
+    }
+
+    // For any other server error, fail immediately without retrying
+    throw new Error(`AniList API error: ${response.status} ${response.statusText}`);
   }
 
-  const json = await response.json();
-  if (json.errors) {
-    console.error("AniList API Errors:", json.errors);
-    throw new Error(`GraphQL Error: ${json.errors.map((e: any) => e.message).join(', ')}`);
-  }
-
-  return json.data;
+  throw new Error(`Failed to fetch from AniList after ${maxRetries} attempts due to persistent rate limiting.`);
 };
 
 // Helper to map API response to our Anime type
@@ -105,8 +123,8 @@ const mapToAnime = (data: any): Anime => {
     }));
 
   let episodeCount = data.episodes;
-  if (data.nextAiringEpisode) {
-    // If there's a next airing episode, the number of released episodes is one less.
+  if (data.status === 'RELEASING' && data.nextAiringEpisode) {
+    // If it's airing, the number of released episodes is one less than the next to air.
     episodeCount = data.nextAiringEpisode.episode - 1;
   }
 
@@ -120,6 +138,7 @@ const mapToAnime = (data: any): Anime => {
     episodes: episodeCount || 0,
     year: data.seasonYear,
     rating: data.averageScore,
+    status: data.status,
     studios: data.studios?.nodes.map((n: any) => n.name) || [],
     staff,
     relations,
@@ -160,11 +179,32 @@ export const getHomePageData = async () => {
   };
 };
 
-export const searchAnime = async (searchTerm: string, page = 1, perPage = 20) => {
+export const discoverAnime = async (searchTerm: string, filters: FilterState, pageLimit = 2): Promise<Anime[]> => {
+  const perPage = 50;
   const query = `
-    query ($search: String, $page: Int, $perPage: Int) {
+    query (
+      $search: String,
+      $page: Int,
+      $perPage: Int,
+      $sort: [MediaSort],
+      $genres: [String],
+      $season: MediaSeason,
+      $seasonYear: Int,
+      $format_in: [MediaFormat],
+      $status_in: [MediaStatus]
+    ) {
       Page(page: $page, perPage: $perPage) {
-        media(search: $search, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+        media(
+          search: $search,
+          type: ANIME,
+          sort: $sort,
+          genre_in: $genres,
+          season: $season,
+          seasonYear: $seasonYear,
+          format_in: $format_in,
+          status_in: $status_in,
+          isAdult: false
+        ) {
           ...animeFields
         }
       }
@@ -173,10 +213,39 @@ export const searchAnime = async (searchTerm: string, page = 1, perPage = 20) =>
       ${ANIME_FIELDS_FRAGMENT}
     }
   `;
-  const variables = { search: searchTerm, page, perPage };
-  const data = await fetchAniListData(query, variables);
-  return data.Page.media.map(mapToAnime);
+
+  const buildVariables = (page: number) => {
+    const variables: any = {
+      search: searchTerm.trim() ? searchTerm.trim() : undefined,
+      sort: [filters.sort],
+      page,
+      perPage,
+    };
+    if (filters.genres.length > 0) variables.genres = filters.genres;
+    if (filters.year && !isNaN(parseInt(filters.year))) variables.seasonYear = parseInt(filters.year, 10);
+    if (filters.season) variables.season = filters.season;
+    if (filters.formats.length > 0) variables.format_in = filters.formats;
+    if (filters.statuses.length > 0) variables.status_in = filters.statuses;
+    return variables;
+  }
+
+  const pagePromises = Array.from({ length: pageLimit }, (_, i) => {
+    const variables = buildVariables(i + 1);
+    return fetchAniListData(query, variables);
+  });
+
+  try {
+    const pageResults = await Promise.all(pagePromises);
+    const allMedia = pageResults.flatMap(data => (data.Page && data.Page.media) ? data.Page.media : []);
+    const mappedAnime = allMedia.map(mapToAnime);
+    const uniqueAnime = Array.from(new Map(mappedAnime.map(anime => [anime.anilistId, anime])).values());
+    return uniqueAnime;
+  } catch (error) {
+    console.error(`Failed to fetch discovery pages in parallel:`, error);
+    return [];
+  }
 };
+
 
 export const getAnimeDetails = async (id: number): Promise<Anime> => {
     const query = `
@@ -224,4 +293,47 @@ export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
     const variables = { airingAt_greater: now, airingAt_lesser: sevenDaysLater };
     const data = await fetchAniListData(query, variables);
     return data.Page.airingSchedules;
+};
+
+export const getGenreCollection = async (): Promise<string[]> => {
+    const query = `
+      query {
+        GenreCollection
+      }
+    `;
+    const data = await fetchAniListData(query, {});
+    return data.GenreCollection.filter((genre: string | null) => genre !== null);
+};
+
+// A more lightweight search for suggestions dropdown
+export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSuggestion[]> => {
+  if (!searchTerm) return [];
+  
+  const query = `
+    query ($search: String) {
+      Page(page: 1, perPage: 8) {
+        media(search: $search, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+          id
+          title {
+            romaji
+            english
+          }
+          coverImage {
+            medium
+          }
+          seasonYear
+        }
+      }
+    }
+  `;
+
+  const variables = { search: searchTerm };
+  const data = await fetchAniListData(query, variables);
+
+  return data.Page.media.map((media: any) => ({
+    anilistId: media.id,
+    title: media.title.english || media.title.romaji,
+    coverImage: media.coverImage.medium,
+    year: media.seasonYear,
+  }));
 };

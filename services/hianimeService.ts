@@ -1,6 +1,6 @@
 import { HiAnime, NextEpisodeSchedule } from '../types';
 
-const HIANIME_API_BASE_URL = 'https://hianime-api-blond.vercel.app/api/v2/hianime';
+const HIANIME_API_BASE_URL = 'https://corsproxy.io/?https://hianime-api-blond.vercel.app/api/v2/hianime';
 
 // This is a mock service as the actual HiAnime API is not provided for all features.
 // It returns some placeholder data.

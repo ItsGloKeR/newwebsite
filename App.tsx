@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Anime, StreamSource, StreamLanguage } from './types';
-import { getHomePageData, searchAnime, getAnimeDetails } from './services/anilistService';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort } from './types';
+import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime } from './services/anilistService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -13,11 +13,23 @@ import BackToTopButton from './components/BackToTopButton';
 import SchedulePage from './components/SchedulePage';
 import VerticalAnimeList from './components/VerticalAnimeList';
 import AdminModal from './components/AdminModal';
+import FilterModal from './components/FilterModal';
 import { useDebounce } from './hooks/useDebounce';
 import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
+import isEqual from 'lodash.isequal';
+
 
 type View = 'home' | 'details' | 'player';
+
+const initialFilters: FilterState = {
+    genres: [],
+    year: '',
+    season: undefined,
+    formats: [],
+    statuses: [],
+    sort: MediaSort.POPULARITY_DESC,
+};
 
 const AppContent: React.FC = () => {
     const [view, setView] = useState<View>('home');
@@ -25,6 +37,7 @@ const AppContent: React.FC = () => {
     const [popular, setPopular] = useState<Anime[]>(initialPopular);
     const [topAiring, setTopAiring] = useState<Anime[]>(initialTopAiring);
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
+    const [allGenres, setAllGenres] = useState<string[]>([]);
     
     const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
     const [playerState, setPlayerState] = useState({
@@ -35,11 +48,21 @@ const AppContent: React.FC = () => {
     });
     
     const [isLoading, setIsLoading] = useState(true);
-    const [isSearching, setIsSearching] = useState(false);
+    const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filters, setFilters] = useState<FilterState>(initialFilters);
+    const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+    const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
+    const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
+
+    const isDiscoveryView = useMemo(() => {
+        return debouncedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters);
+    }, [debouncedSearchTerm, filters]);
 
     const applyOverrides = useCallback((anime: Anime): Anime => {
         if (!anime) return anime;
@@ -56,10 +79,14 @@ const AppContent: React.FC = () => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const { trending, popular, topAiring } = await getHomePageData();
+                const [{ trending, popular, topAiring }, genres] = await Promise.all([
+                    getHomePageData(),
+                    getGenreCollection()
+                ]);
                 setTrending(applyOverridesToList(trending));
                 setPopular(applyOverridesToList(popular));
                 setTopAiring(applyOverridesToList(topAiring));
+                setAllGenres(genres);
             } catch (error) {
                 console.error("Failed to fetch home page data:", error);
             } finally {
@@ -80,28 +107,47 @@ const AppContent: React.FC = () => {
         }
     }, [overrides, applyOverridesToList, applyOverrides, selectedAnime]);
 
-
-    // Perform search when debounced search term changes
+    // Perform discovery search when term or filters change
     useEffect(() => {
-        if (debouncedSearchTerm.trim() === '') {
+        if (!isDiscoveryView) {
             setSearchResults([]);
-            setIsSearching(false);
             return;
         }
 
         const performSearch = async () => {
-            setIsSearching(true);
+            setIsDiscoverLoading(true);
             try {
-                const results = await searchAnime(debouncedSearchTerm);
+                const results = await discoverAnime(debouncedSearchTerm, filters);
                 setSearchResults(applyOverridesToList(results));
             } catch (error) {
-                console.error("Failed to search anime:", error);
+                console.error("Failed to discover anime:", error);
             } finally {
-                setIsSearching(false);
+                setIsDiscoverLoading(false);
             }
         };
         performSearch();
-    }, [debouncedSearchTerm, applyOverridesToList]);
+    }, [debouncedSearchTerm, filters, isDiscoveryView, applyOverridesToList]);
+    
+    // Perform search for suggestions
+    useEffect(() => {
+        if (debouncedSuggestionsTerm.trim() === '') {
+            setSearchSuggestions([]);
+            return;
+        }
+
+        const fetchSuggestions = async () => {
+            setIsSuggestionsLoading(true);
+            try {
+                const results = await getSearchSuggestions(debouncedSuggestionsTerm);
+                setSearchSuggestions(results);
+            } catch (error) {
+                console.error("Failed to fetch search suggestions:", error);
+            } finally {
+                setIsSuggestionsLoading(false);
+            }
+        };
+        fetchSuggestions();
+    }, [debouncedSuggestionsTerm]);
 
     // Handlers
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
@@ -122,9 +168,13 @@ const AppContent: React.FC = () => {
     
     const handleSearch = (term: string) => {
         setSearchTerm(term);
-        if (term.trim() !== '' && view !== 'home') {
-            setView('home'); // Switch to home view to show search results
-        }
+        setView('home'); // Switch to home view to show search results
+    };
+
+    const handleSuggestionClick = (anime: { anilistId: number }) => {
+        setSearchTerm(''); 
+        setSearchSuggestions([]);
+        handleSelectAnime(anime);
     };
 
     const handleWatchNow = (anime: Anime) => {
@@ -154,22 +204,39 @@ const AppContent: React.FC = () => {
     
     const handleHomeClick = () => {
         setSearchTerm('');
+        setFilters(initialFilters);
         setSearchResults([]);
         setSelectedAnime(null);
         setView('home');
     };
 
+    const handleApplyFilters = (newFilters: FilterState) => {
+        setIsFilterModalOpen(false);
+        setFilters(newFilters);
+        setView('home');
+    };
+
+    const generateDiscoveryTitle = () => {
+        if (debouncedSearchTerm.trim()) {
+            return `Results for "${debouncedSearchTerm}"`;
+        }
+        return "Filtered Results";
+    };
+
     const renderHomePage = () => {
-        if (debouncedSearchTerm) {
+        if (isDiscoveryView) {
             return (
                 <main className="container mx-auto p-4 md:p-8">
-                    {isSearching 
-                        ? <div className="h-64 flex items-center justify-center"><LoadingSpinner /></div>
-                        : <AnimeGrid title={`Search Results for "${debouncedSearchTerm}"`} animeList={searchResults} onSelectAnime={handleSelectAnime} />
-                    }
+                    <AnimeGrid
+                        title={generateDiscoveryTitle()}
+                        animeList={searchResults}
+                        onSelectAnime={handleSelectAnime}
+                        isLoading={isDiscoverLoading}
+                    />
                 </main>
             );
         }
+
         return (
             <main>
                 <Hero animes={trending} onWatchNow={handleWatchNow} onDetails={handleSelectAnime} />
@@ -224,11 +291,27 @@ const AppContent: React.FC = () => {
 
     return (
         <div className="bg-gray-950 min-h-screen">
-            {view !== 'player' && <Header onSearch={handleSearch} onHomeClick={handleHomeClick} searchTerm={searchTerm} />}
+            {view !== 'player' && <Header 
+                onSearch={handleSearch} 
+                onHomeClick={handleHomeClick} 
+                onFilterClick={() => setIsFilterModalOpen(true)} 
+                searchTerm={searchTerm} 
+                suggestions={searchSuggestions}
+                onSuggestionClick={handleSuggestionClick}
+                isSuggestionsLoading={isSuggestionsLoading}
+            />}
             {renderContent()}
             {view !== 'player' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} />}
             <BackToTopButton />
             <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
+            <FilterModal 
+                isOpen={isFilterModalOpen} 
+                onClose={() => setIsFilterModalOpen(false)} 
+                allGenres={allGenres} 
+                onApply={handleApplyFilters}
+                currentFilters={filters}
+                initialFilters={initialFilters}
+            />
         </div>
     );
 };
