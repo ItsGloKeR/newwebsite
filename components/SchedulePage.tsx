@@ -5,13 +5,9 @@ import LoadingSpinner from './LoadingSpinner';
 
 interface SchedulePageProps {
   onSelectAnime: (anime: { anilistId: number }) => void;
-  isFullPage?: boolean;
-  onViewMore?: () => void;
 }
 
-const ITEMS_PER_PAGE = 10;
-
-const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage = false, onViewMore }) => {
+const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
   const [scheduleList, setScheduleList] = useState<AiringSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -22,7 +18,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage =
   }, []);
 
   const [selectedDate, setSelectedDate] = useState<Date>(today);
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,11 +35,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage =
     fetchSchedule();
   }, []);
 
-  useEffect(() => {
-    setVisibleCount(ITEMS_PER_PAGE);
-  }, [selectedDate]);
-
-  const dayCount = isFullPage ? 30 : 7;
+  const dayCount = 7;
   const dates = useMemo(() => {
     return Array.from({ length: dayCount }, (_, i) => {
       const date = new Date(today);
@@ -76,7 +67,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage =
     }
   };
 
-  const title = isFullPage ? "Full Airing Schedule" : "Airing Schedule";
+  const title = "Airing Schedule";
 
   if (isLoading) {
     return (
@@ -90,14 +81,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage =
     <section className="mt-12 mb-12 animate-fade-in">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
-            {!isFullPage && onViewMore && (
-                <button 
-                    onClick={onViewMore} 
-                    className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
-                >
-                    View More &gt;
-                </button>
-            )}
         </div>
         <div className="relative">
             <button onClick={() => scroll('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-gray-800/50 p-2 rounded-full hover:bg-gray-700 transition-colors">
@@ -128,7 +111,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage =
         </div>
         <div className="mt-6">
             {todaysSchedule.length > 0 ? (
-                todaysSchedule.slice(0, visibleCount).map(item => (
+                todaysSchedule.map(item => (
                     <div 
                         key={item.id}
                         onClick={() => onSelectAnime({ anilistId: item.media.id })}
@@ -150,16 +133,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime, isFullPage =
             ) : (
                 <div className="text-center py-12 text-gray-500">
                     No episodes scheduled for this day.
-                </div>
-            )}
-            {todaysSchedule.length > visibleCount && (
-                <div className="mt-4 text-center">
-                    <button 
-                        onClick={() => setVisibleCount(c => c + ITEMS_PER_PAGE)}
-                        className="text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
-                    >
-                        Show more
-                    </button>
                 </div>
             )}
         </div>
