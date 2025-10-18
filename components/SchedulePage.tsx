@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { getAiringSchedule } from '../services/anilistService';
 import { AiringSchedule } from '../types';
@@ -79,11 +80,14 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
         <p className="text-gray-400">No airing schedule found for the next 7 days.</p>
       )}
       <div className="flex flex-col gap-8">
-        {Object.entries(scheduleByDay).map(([day, schedules]) => (
+        {/* FIX: Use Object.keys to iterate over the scheduleByDay object.
+            This resolves a TypeScript issue where Object.entries was inferring the value as 'unknown'.
+            Accessing the value via scheduleByDay[day] ensures the correct type is used. */}
+        {Object.keys(scheduleByDay).map((day) => (
           <div key={day}>
             <h2 className="text-2xl font-semibold text-cyan-400 mb-4">{day}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {schedules.map(schedule => (
+              {scheduleByDay[day].map(schedule => (
                 <ScheduleCard key={schedule.id} schedule={schedule} onSelect={() => handleSelect(schedule)} />
               ))}
             </div>
