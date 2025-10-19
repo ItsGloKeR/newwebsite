@@ -392,6 +392,7 @@ const AppContent: React.FC = () => {
             setSelectedAnime(playerState.anime); // We already have full details
             setIsBannerInView(true); // Reset banner state for details page
             setView('details');
+            window.scrollTo(0, 0); // Scroll to top to ensure banner is visible
         } else {
             setView('home'); // Fallback
         }
@@ -647,9 +648,24 @@ const AppContent: React.FC = () => {
             <InfoModal 
                 isOpen={isLoginModalOpen}
                 onClose={() => setIsLoginModalOpen(false)}
-                title="Feature Not Available"
+                title="Login to AniGloK"
             >
-                <p>The login and user account feature is not yet implemented. We're working hard to bring this to you soon. Stay tuned!</p>
+                <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+                    <div>
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="fake-username">Username</label>
+                        <input id="fake-username" type="text" placeholder="your_username" className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                    </div>
+                    <div>
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="fake-password">Password</label>
+                        <input id="fake-password" type="password" placeholder="********" className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                    </div>
+                    <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled>
+                        Login
+                    </button>
+                    <p className="text-center text-yellow-400 text-sm mt-4 p-2 bg-yellow-900/50 rounded-md">
+                        Note: This feature is not yet implemented but will be available soon.
+                    </p>
+                </form>
             </InfoModal>
         </div>
     );
