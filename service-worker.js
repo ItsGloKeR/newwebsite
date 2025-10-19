@@ -2,7 +2,7 @@
 
 // Cache versions. Increment to force updates.
 const STATIC_CACHE_VERSION = 'v3';
-const API_STATIC_CACHE_VERSION = 'api-static-v2'; // Incremented due to duration change
+const API_STATIC_CACHE_VERSION = 'api-static-v3'; // Incremented to include Zenshin
 const API_DYNAMIC_CACHE_VERSION = 'api-dynamic-v1';
 
 const STATIC_CACHE_NAME = `static-cache-${STATIC_CACHE_VERSION}`;
@@ -17,9 +17,14 @@ const APP_SHELL_URLS = [
   '/index.tsx', // Cache the main application script
 ];
 
-const API_URL_PREFIXES = [
+const ANILIST_API_PREFIXES = [
   'https://graphql.anilist.co',
   'https://graphql.consumet.org',
+];
+
+const ZENSHIN_API_PREFIXES = [
+  'https://zenshin-supabase-api.onrender.com',
+  'https://zenshin-supabase-api-myig.onrender.com',
 ];
 
 // Cache Durations
@@ -59,21 +64,25 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // Handle API requests with a specific caching strategy.
-  if (request.method === 'POST' && API_URL_PREFIXES.some(prefix => request.url.startsWith(prefix))) {
-    event.respondWith(handleApiRequest(event));
+  // Handle AniList POST requests
+  if (request.method === 'POST' && ANILIST_API_PREFIXES.some(prefix => request.url.startsWith(prefix))) {
+    event.respondWith(handleApiPostRequest(event));
+    return;
+  }
+  
+  // Handle Zenshin GET requests
+  if (request.method === 'GET' && ZENSHIN_API_PREFIXES.some(prefix => request.url.startsWith(prefix))) {
+    // Zenshin data is static, so we cache it for 24 hours.
+    event.respondWith(handleStaticGetApiRequest(event, API_STATIC_CACHE_NAME, STATIC_DATA_MAX_AGE_MS));
     return;
   }
 
   // For all other GET requests (app shell, scripts, etc.), use a cache-first strategy.
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
-      // If we have a match in the cache, return it.
       if (cachedResponse) {
         return cachedResponse;
       }
-      
-      // Otherwise, fetch from the network.
       return fetch(request);
     })
   );
@@ -109,7 +118,7 @@ function categorizeRequest(payload) {
     return { type: 'dynamic', cacheName: API_DYNAMIC_CACHE_NAME, maxAge: DYNAMIC_DATA_MAX_AGE_MS };
 }
 
-async function handleApiRequest(event) {
+async function handleApiPostRequest(event) {
   const payload = await getRequestPayload(event.request);
   const category = categorizeRequest(payload);
 
@@ -135,27 +144,23 @@ async function handleApiRequest(event) {
       }
     }
 
-    // If no cache or cache is stale, fetch from the network.
     const networkResponse = await fetch(event.request.clone());
 
-    // Create a new response to add our custom header and cache it.
     if (networkResponse.ok) {
-      const responseToCache = await cloneResponse(networkResponse);
+      const responseToCache = await cloneResponseWithTimestamp(networkResponse);
       await cache.put(event.request, responseToCache);
     }
 
     return networkResponse;
 
   } catch (error) {
-    // Network failed. Try to serve from cache, even if stale.
-    console.error('Network request failed. Trying cache.', error);
+    console.error('Network request failed for POST API. Trying cache.', error);
     const cache = await caches.open(cacheName);
     const cachedResponse = await cache.match(event.request);
     if (cachedResponse) {
       return cachedResponse;
     }
 
-    // If no cache and network fails, return a basic error response.
     return new Response(JSON.stringify({ error: 'Offline and no data in cache.' }), {
       status: 503,
       statusText: 'Service Unavailable',
@@ -164,12 +169,45 @@ async function handleApiRequest(event) {
   }
 }
 
-/**
- * Clones a response and adds a timestamp header.
- * Reading the body of a response consumes it, so we need to clone it first
- * and then create a new response with the body and new headers.
- */
-async function cloneResponse(response) {
+async function handleStaticGetApiRequest(event, cacheName, maxAge) {
+  try {
+    const cache = await caches.open(cacheName);
+    const cachedResponse = await cache.match(event.request);
+
+    if (cachedResponse) {
+      const timestampHeader = cachedResponse.headers.get('X-Cache-Timestamp');
+      if (timestampHeader) {
+        const cacheTimestamp = parseInt(timestampHeader, 10);
+        const age = Date.now() - cacheTimestamp;
+        if (age < maxAge) {
+          return cachedResponse;
+        }
+      }
+    }
+
+    const networkResponse = await fetch(event.request.clone());
+    if (networkResponse.ok) {
+      const responseToCache = await cloneResponseWithTimestamp(networkResponse);
+      await cache.put(event.request, responseToCache);
+    }
+    return networkResponse;
+
+  } catch (error) {
+    console.error('Network request failed for GET API. Trying cache.', error);
+    const cache = await caches.open(cacheName);
+    const cachedResponse = await cache.match(event.request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    return new Response(JSON.stringify({ error: 'Offline and no data in cache for this GET request.' }), {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function cloneResponseWithTimestamp(response) {
   const body = await response.blob();
   const headers = new Headers(response.headers);
   headers.set('X-Cache-Timestamp', String(Date.now()));

@@ -73,6 +73,7 @@ const AppContent: React.FC = () => {
     const [currentYear, setCurrentYear] = useState<number | null>(null);
     const [heroBannerUrl, setHeroBannerUrl] = useState<string | null>(null);
     const [isBannerInView, setIsBannerInView] = useState(true);
+    const [isScheduleVisible, setIsScheduleVisible] = useState(false);
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
@@ -181,27 +182,41 @@ const AppContent: React.FC = () => {
     
     const handleWatchNow = (anime: Anime, episode = 1) => {
         progressTracker.addToHistory(anime);
-        // Clear previous anime to ensure loading state triggers, then fetch full details
-        setPlayerState({ anime: null, episode, source: StreamSource.AnimePahe, language: StreamLanguage.Sub });
+        // Optimistically navigate to the player with the data we already have.
+        // This allows the user to start watching even if the fresh API call fails.
+        setPlayerState({
+            anime: applyOverrides(anime),
+            episode,
+            source: StreamSource.AnimePahe,
+            language: StreamLanguage.Sub,
+        });
         setView('player');
+        window.scrollTo(0, 0);
 
-        const fetchForPlayer = async () => {
-            setIsLoading(true);
-            window.scrollTo(0, 0);
+        // In the background, try to fetch the absolute latest details to enrich the page.
+        // This won't block the UI. If it fails, the user can still use the player.
+        const fetchLatestDetails = async () => {
             try {
                 const fullDetails = await getAnimeDetails(anime.anilistId);
-                setPlayerState(prev => ({
-                    ...prev,
-                    anime: applyOverrides(fullDetails),
-                }));
+                // If successful, silently update the state with the richer data.
+                // This ensures things like relations/recommendations are fully populated.
+                setPlayerState(prev => {
+                    // Safety check: ensure the user hasn't navigated away to another anime
+                    if (prev.anime?.anilistId === fullDetails.anilistId) {
+                        return { ...prev, anime: applyOverrides(fullDetails) };
+                    }
+                    return prev;
+                });
             } catch (error) {
-                console.error("Failed to get anime details for player:", error);
-                setView('home'); // Fallback to home on error
-            } finally {
-                setIsLoading(false);
+                console.warn(
+                    "Could not fetch full/fresh details for the player. Using existing data as a fallback.",
+                    error
+                );
+                // On failure, we do nothing. The player is already functional with the initial data.
             }
         };
-        fetchForPlayer();
+
+        fetchLatestDetails();
     };
 
     // Initialize tracker and listen for progress updates
@@ -665,7 +680,22 @@ const AppContent: React.FC = () => {
                         </div>
                     </div>
                                         
-                    <SchedulePage onSelectAnime={handleSelectAnime} />
+                    {!isScheduleVisible ? (
+                        <div className="mb-12">
+                            <button
+                                onClick={() => setIsScheduleVisible(true)}
+                                className="w-full bg-gray-800/50 hover:bg-gray-800 text-white font-bold py-6 px-8 rounded-lg transition-all duration-300 transform hover:scale-[1.02] flex flex-col items-center justify-center gap-3 shadow-lg border-2 border-dashed border-gray-700 hover:border-cyan-500"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-cyan-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                                <span className="text-xl">View Full Airing Schedule</span>
+                                <span className="text-sm text-gray-400">See what's airing in the next 7 days</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <SchedulePage onSelectAnime={handleSelectAnime} />
+                    )}
                 </div>
             </main>
         );

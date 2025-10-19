@@ -78,7 +78,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ onSelectAnime }) => {
   }
 
   return (
-    <section className="mt-12 mb-12 animate-fade-in">
+    <section className="mb-12 animate-fade-in">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                 <span className="text-cyan-400">
