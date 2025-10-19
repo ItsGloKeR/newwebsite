@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'reac
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
+import { getLastPlayerSettings, setLastPlayerSettings } from './services/userPreferenceService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -286,11 +287,12 @@ const AppContent: React.FC = () => {
     
     const handleWatchNow = (anime: Anime, episode = 1) => {
         progressTracker.addToHistory(anime);
+        const lastSettings = getLastPlayerSettings();
         setPlayerState({
             anime: applyOverrides(anime),
             episode,
-            source: StreamSource.AnimePahe,
-            language: StreamLanguage.Sub,
+            source: lastSettings.source,
+            language: lastSettings.language,
         });
         setView('player');
         window.scrollTo(0, 0);
@@ -311,6 +313,20 @@ const AppContent: React.FC = () => {
             }
         };
         fetchLatestDetails();
+    };
+
+    const handleSourceChange = (source: StreamSource) => {
+        setPlayerState(prev => {
+            setLastPlayerSettings(source, prev.language);
+            return { ...prev, source };
+        });
+    };
+
+    const handleLanguageChange = (language: StreamLanguage) => {
+        setPlayerState(prev => {
+            setLastPlayerSettings(prev.source, language);
+            return { ...prev, language };
+        });
     };
 
     useEffect(() => {
@@ -782,8 +798,8 @@ const AppContent: React.FC = () => {
                     currentSource={playerState.source}
                     currentLanguage={playerState.language}
                     onEpisodeChange={(ep) => setPlayerState(prev => ({...prev, episode: ep}))}
-                    onSourceChange={(src) => setPlayerState(prev => ({...prev, source: src}))}
-                    onLanguageChange={(lang) => setPlayerState(prev => ({...prev, language: lang}))}
+                    onSourceChange={handleSourceChange}
+                    onLanguageChange={handleLanguageChange}
                     onBack={handleBackToDetails}
                     onSelectRecommended={handleSelectAnime}
                     onSelectRelated={handleSelectAnime}
