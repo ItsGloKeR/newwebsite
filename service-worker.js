@@ -2,12 +2,15 @@
 
 // Cache versions. Increment to force updates.
 const STATIC_CACHE_VERSION = 'v3';
-const API_STATIC_CACHE_VERSION = 'api-static-v3'; // Incremented to include Zenshin
+const API_STATIC_CACHE_VERSION = 'api-static-v3';
 const API_DYNAMIC_CACHE_VERSION = 'api-dynamic-v1';
+const IMAGE_CACHE_VERSION = 'images-v1'; // For images
 
 const STATIC_CACHE_NAME = `static-cache-${STATIC_CACHE_VERSION}`;
 const API_STATIC_CACHE_NAME = `api-cache-static-${API_STATIC_CACHE_VERSION}`;
 const API_DYNAMIC_CACHE_NAME = `api-cache-dynamic-${API_DYNAMIC_CACHE_VERSION}`;
+const IMAGE_CACHE_NAME = `image-cache-${IMAGE_CACHE_VERSION}`;
+
 
 // A list of all the files that make up the "app shell"
 const APP_SHELL_URLS = [
@@ -50,7 +53,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           // Delete old caches that are not the current ones
-          const isOldCache = ![STATIC_CACHE_NAME, API_STATIC_CACHE_NAME, API_DYNAMIC_CACHE_NAME].includes(cacheName);
+          const isOldCache = ![STATIC_CACHE_NAME, API_STATIC_CACHE_NAME, API_DYNAMIC_CACHE_NAME, IMAGE_CACHE_NAME].includes(cacheName);
           if (isOldCache) {
             console.log('Service Worker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
@@ -74,6 +77,25 @@ self.addEventListener('fetch', (event) => {
   if (request.method === 'GET' && ZENSHIN_API_PREFIXES.some(prefix => request.url.startsWith(prefix))) {
     // Zenshin data is static, so we cache it for 24 hours.
     event.respondWith(handleStaticGetApiRequest(event, API_STATIC_CACHE_NAME, STATIC_DATA_MAX_AGE_MS));
+    return;
+  }
+
+  // Handle image requests with a cache-first strategy
+  if (request.destination === 'image') {
+    event.respondWith(
+      caches.open(IMAGE_CACHE_NAME).then(cache => {
+        return cache.match(request).then(response => {
+          // Return from cache if found, otherwise fetch from network
+          const fetchPromise = fetch(request).then(networkResponse => {
+            if (networkResponse.ok) {
+              cache.put(request, networkResponse.clone());
+            }
+            return networkResponse;
+          });
+          return response || fetchPromise;
+        });
+      })
+    );
     return;
   }
 

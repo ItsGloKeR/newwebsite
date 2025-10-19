@@ -6,6 +6,7 @@ import * as db from './dbService';
 // Cache Durations
 const ANIME_DETAILS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 const HOME_PAGE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
+const LANDING_PAGE_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 const LATEST_EPISODES_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
 const AIRING_SCHEDULE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
 const GENRE_COLLECTION_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
@@ -278,6 +279,28 @@ const mapToAnime = (data: any): Anime => {
   };
 };
 
+const mapToSimpleAnime = (data: any): Anime => ({
+    anilistId: data.id,
+    englishTitle: data.title.english || data.title.romaji,
+    romajiTitle: data.title.romaji || data.title.english,
+    coverImage: data.coverImage.extraLarge,
+    isAdult: data.isAdult,
+    // Add default values for other required Anime fields
+    description: '',
+    bannerImage: '',
+    genres: [],
+    episodes: 0,
+    duration: null,
+    year: 0,
+    rating: 0,
+    status: '',
+    format: '',
+    studios: [],
+    staff: [],
+    relations: [],
+    recommendations: [],
+});
+
 export const getRandomAnime = async (): Promise<Anime | null> => {
     // Fetch the last page number to determine the range of pages
     const pageInfoQuery = `
@@ -336,6 +359,35 @@ const getCurrentSeason = (): { season: MediaSeason, year: number } => {
     if (month >= 6 && month <= 8) return { season: MediaSeason.SUMMER, year };
     // month >= 9 && month <= 11
     return { season: MediaSeason.FALL, year };
+};
+
+
+export const getLandingPageData = async () => {
+    const cacheKey = 'landingPageData';
+    return getOrSetCache(cacheKey, LANDING_PAGE_CACHE_DURATION, async () => {
+        const query = `
+            query {
+                popular: Page(page: 1, perPage: 8) {
+                    media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED]) {
+                        id
+                        isAdult
+                        title {
+                            romaji
+                            english
+                        }
+                        coverImage {
+                            extraLarge
+                        }
+                    }
+                }
+            }
+        `;
+
+        const data = await fetchAniListData(query, {});
+        return {
+            popular: data.popular.media.map(mapToSimpleAnime),
+        };
+    });
 };
 
 
