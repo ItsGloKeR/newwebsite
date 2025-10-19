@@ -17,11 +17,21 @@ const Feature: React.FC<{ icon: React.ReactNode; title: string; description: str
     </div>
 );
 
+const DataSaverIndicator: React.FC = () => (
+    <div className="flex items-center gap-1.5 text-xs text-yellow-400 bg-yellow-900/50 px-2 py-1 rounded-full">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6zM6 10a1 1 0 01-1-1V7a1 1 0 112 0v2a1 1 0 01-1 1zm8 0a1 1 0 01-1-1V7a1 1 0 112 0v2a1 1 0 01-1 1z" clipRule="evenodd" />
+        </svg>
+        <span>Data Saver On</span>
+    </div>
+);
+
 
 interface FooterProps {
   onAdminClick: () => void;
   onNavigate: (filters: Partial<FilterState>, title: string) => void;
   onLogoClick: () => void;
+  isDataSaverActive: boolean;
 }
 
 const DiscordIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -30,7 +40,7 @@ const DiscordIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick }) => {
+const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick, isDataSaverActive }) => {
     const [modalContent, setModalContent] = useState<{ title: string; content: React.ReactNode } | null>(null);
     const currentYear = new Date().getFullYear();
 
@@ -156,7 +166,10 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick }
                     <hr className="border-gray-800 my-8" />
 
                     <div className="text-center text-sm">
-                        <p>&copy; {currentYear} AniGloK. All Rights Reserved.</p>
+                        <div className="flex justify-center items-center flex-wrap gap-x-4 gap-y-2 mb-2">
+                            <p>&copy; {currentYear} AniGloK. All Rights Reserved.</p>
+                            {isDataSaverActive && <DataSaverIndicator />}
+                        </div>
                         <p className="mt-2 text-xs">
                             This site does not store any files on our server, we only link to the media which is hosted on 3rd party services.
                             <button onClick={onAdminClick} className="text-cyan-500 hover:underline ml-2">Admin</button>

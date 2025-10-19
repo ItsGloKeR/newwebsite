@@ -23,7 +23,27 @@ const ANILIST_API_URLS = [
 // This will keep track of the last known working API to prioritize it.
 let currentApiIndex = 0;
 
-const ANIME_FIELDS_FRAGMENT = `
+// A module-level flag to control data-saving behavior globally for this service.
+let isDataSaver = false;
+
+/**
+ * Sets the data saver mode for all subsequent API calls within this service.
+ * @param isActive A boolean indicating if data saver mode should be enabled.
+ */
+export function setDataSaverMode(isActive: boolean) {
+    if (isDataSaver !== isActive) {
+        console.log(`Data Saver Mode ${isActive ? 'activated' : 'deactivated'}. Fetching lighter data.`);
+        isDataSaver = isActive;
+    }
+}
+
+// Helper to get image quality based on data saver mode
+const getImageQuality = () => ({
+  cover: isDataSaver ? 'large' : 'extraLarge',
+  search: isDataSaver ? 'medium' : 'large',
+});
+
+const getAnimeFieldsFragment = () => `
   id
   idMal
   isAdult
@@ -33,7 +53,7 @@ const ANIME_FIELDS_FRAGMENT = `
   }
   description(asHtml: false)
   coverImage {
-    extraLarge
+    ${getImageQuality().cover}
     color
   }
   bannerImage
@@ -77,7 +97,7 @@ const ANIME_FIELDS_FRAGMENT = `
           english
         }
         coverImage {
-          extraLarge
+          ${getImageQuality().cover}
         }
       }
     }
@@ -86,7 +106,7 @@ const ANIME_FIELDS_FRAGMENT = `
     id
     site
   }
-  recommendations(sort: RATING_DESC, perPage: 10) {
+  recommendations(sort: RATING_DESC, perPage: ${isDataSaver ? 5 : 10}) {
     nodes {
       mediaRecommendation {
         id
@@ -97,7 +117,7 @@ const ANIME_FIELDS_FRAGMENT = `
           english
         }
         coverImage {
-          extraLarge
+          ${getImageQuality().cover}
         }
       }
     }
@@ -176,18 +196,19 @@ const fetchAniListData = async (query: string, variables: object) => {
  * @returns The data from cache or API.
  */
 async function getOrSetCache<T>(key: string, maxAgeMs: number, fetchFn: () => Promise<T>): Promise<T> {
-    const cachedData = await db.get<T>(key);
+    const cacheKeyWithMode = `${key}_${isDataSaver ? 'saver' : 'full'}`;
+    const cachedData = await db.get<T>(cacheKeyWithMode);
     if (cachedData) {
         return cachedData;
     }
 
     try {
         const freshData = await fetchFn();
-        await db.set(key, freshData, maxAgeMs);
+        await db.set(cacheKeyWithMode, freshData, maxAgeMs);
         return freshData;
     } catch (error) {
         console.error(`[API Error] Failed to fetch for key: ${key}.`, error);
-        const staleData = await db.getStale<T>(key);
+        const staleData = await db.getStale<T>(cacheKeyWithMode);
         if (staleData) {
             console.warn(`[Cache] Serving STALE data from DB for key: ${key} due to API error.`);
             return staleData;
@@ -218,7 +239,7 @@ const mapToAnime = (data: any): Anime => {
       id: edge.node.id,
       englishTitle: edge.node.title.english || edge.node.title.romaji,
       romajiTitle: edge.node.title.romaji || edge.node.title.english,
-      coverImage: edge.node.coverImage.extraLarge,
+      coverImage: edge.node.coverImage[getImageQuality().cover],
       relationType: edge.relationType,
       isAdult: edge.node.isAdult,
       episodes: edge.node.episodes,
@@ -230,7 +251,7 @@ const mapToAnime = (data: any): Anime => {
       id: node.mediaRecommendation.id,
       englishTitle: node.mediaRecommendation.title.english || node.mediaRecommendation.title.romaji,
       romajiTitle: node.mediaRecommendation.title.romaji || node.mediaRecommendation.title.english,
-      coverImage: node.mediaRecommendation.coverImage.extraLarge,
+      coverImage: node.mediaRecommendation.coverImage[getImageQuality().cover],
       isAdult: node.mediaRecommendation.isAdult,
       episodes: node.mediaRecommendation.episodes,
     }));
@@ -260,9 +281,9 @@ const mapToAnime = (data: any): Anime => {
     romajiTitle: data.title.romaji || data.title.english,
     description,
     format: data.format ? data.format.replace(/_/g, ' ') : 'N/A',
-    coverImage: data.coverImage.extraLarge,
+    coverImage: data.coverImage[getImageQuality().cover],
     coverImageColor: data.coverImage.color,
-    bannerImage: data.bannerImage || data.coverImage.extraLarge,
+    bannerImage: data.bannerImage || data.coverImage[getImageQuality().cover],
     genres: data.genres || [],
     episodes: episodeCount || 0,
     duration: data.duration,
@@ -283,7 +304,7 @@ const mapToSimpleAnime = (data: any): Anime => ({
     anilistId: data.id,
     englishTitle: data.title.english || data.title.romaji,
     romajiTitle: data.title.romaji || data.title.english,
-    coverImage: data.coverImage.extraLarge,
+    coverImage: data.coverImage[getImageQuality().cover],
     isAdult: data.isAdult,
     // Add default values for other required Anime fields
     description: '',
@@ -336,7 +357,7 @@ export const getRandomAnime = async (): Promise<Anime | null> => {
             }
         }
         fragment animeFields on Media {
-            ${ANIME_FIELDS_FRAGMENT}
+            ${getAnimeFieldsFragment()}
         }
     `;
     
@@ -376,7 +397,7 @@ export const getLandingPageData = async () => {
                             english
                         }
                         coverImage {
-                            extraLarge
+                            ${getImageQuality().cover}
                         }
                     }
                 }
@@ -398,32 +419,32 @@ export const getHomePageData = async () => {
         
         const query = `
             query ($season: MediaSeason, $seasonYear: Int) {
-            trending: Page(page: 1, perPage: 10) {
+            trending: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
-            popular: Page(page: 1, perPage: 24) {
+            popular: Page(page: 1, perPage: ${isDataSaver ? 12 : 24}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
-            topAiring: Page(page: 1, perPage: 10) {
+            topAiring: Page(page: 1, perPage: ${isDataSaver ? 5 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
-            topRated: Page(page: 1, perPage: 10) {
+            topRated: Page(page: 1, perPage: ${isDataSaver ? 5 : 10}) {
                 media(sort: SCORE_DESC, type: ANIME, genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
-            topUpcoming: Page(page: 1, perPage: 10) {
+            topUpcoming: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED, genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
-            popularThisSeason: Page(page: 1, perPage: 10) {
+            popularThisSeason: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear, genre_not_in: "Hentai", isAdult: false) {
                     ...animeFields
                 }
@@ -431,7 +452,7 @@ export const getHomePageData = async () => {
             }
 
             fragment animeFields on Media {
-            ${ANIME_FIELDS_FRAGMENT}
+            ${getAnimeFieldsFragment()}
             }
         `;
 
@@ -478,7 +499,7 @@ export const getMultipleAnimeDetails = async (ids: number[]): Promise<Anime[]> =
                 }
             }
             fragment animeFields on Media {
-                ${ANIME_FIELDS_FRAGMENT}
+                ${getAnimeFieldsFragment()}
             }
         `;
         const variables = { ids: idsToFetch };
@@ -508,7 +529,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
     return getOrSetCache(cacheKey, LATEST_EPISODES_CACHE_DURATION, async () => {
         const query = `
         query {
-            Page(page: 1, perPage: 25) {
+            Page(page: 1, perPage: ${isDataSaver ? 15 : 25}) {
             airingSchedules(notYetAired: false, sort: TIME_DESC) {
                 id
                 episode
@@ -523,7 +544,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
                     english
                 }
                 coverImage {
-                    extraLarge
+                    ${getImageQuality().cover}
                 }
                 }
             }
@@ -546,7 +567,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
             return acc;
         }, [] as AiringSchedule[]);
         
-        return uniqueSchedules.slice(0, 18);
+        return uniqueSchedules.slice(0, isDataSaver ? 10 : 18);
     });
 };
 
@@ -554,7 +575,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
 export const discoverAnime = async (searchTerm: string, filters: FilterState, pageLimit = 2): Promise<Anime[]> => {
   const cacheKey = `discover_${searchTerm}_${JSON.stringify(filters)}`;
   return getOrSetCache(cacheKey, DISCOVER_ANIME_CACHE_DURATION, async () => {
-    const perPage = 50;
+    const perPage = isDataSaver ? 25 : 50;
     const query = `
       query (
         $search: String,
@@ -587,7 +608,7 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
         }
       }
       fragment animeFields on Media {
-        ${ANIME_FIELDS_FRAGMENT}
+        ${getAnimeFieldsFragment()}
       }
     `;
 
@@ -642,7 +663,7 @@ export const getAnimeDetails = async (id: number): Promise<Anime> => {
             }
         }
         fragment animeFields on Media {
-            ${ANIME_FIELDS_FRAGMENT}
+            ${getAnimeFieldsFragment()}
         }
         `;
         const variables = { id };
@@ -673,7 +694,7 @@ export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
                     english
                 }
                 coverImage {
-                    extraLarge
+                    ${getImageQuality().cover}
                 }
                 }
             }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat } from './types';
-import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule } from './services/anilistService';
+import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
 import Header from './components/Header';
 import Hero from './components/Hero';
@@ -10,15 +10,14 @@ import LoadingSpinner from './components/LoadingSpinner';
 import Footer from './components/Footer';
 import BackToTopButton from './components/BackToTopButton';
 import VerticalAnimeList from './components/VerticalAnimeList';
-// FIX: Import AdminProvider to wrap the application.
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import { TitleLanguageProvider } from './contexts/TitleLanguageContext';
 import { UserDataProvider, useUserData } from './contexts/UserDataContext';
+import { DataSaverProvider, useDataSaver } from './contexts/DataSaverContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import { progressTracker } from './utils/progressTracking';
 import { PLACEHOLDER_IMAGE_URL } from './constants';
-// FIX: Import useDebounce hook to fix 'Cannot find name' error.
 import { useDebounce } from './hooks/useDebounce';
 
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
@@ -158,6 +157,11 @@ const AppContent: React.FC = () => {
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
     const { watchlist, favorites } = useUserData();
+    const { isDataSaverActive } = useDataSaver();
+
+    useEffect(() => {
+        setDataSaverMode(isDataSaverActive);
+    }, [isDataSaverActive]);
 
     const isDiscoveryView = useMemo(() => {
         return submittedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters) || isListView;
@@ -822,7 +826,7 @@ const AppContent: React.FC = () => {
                 <Suspense fallback={<FullPageSpinner />}>
                     {renderContent()}
                 </Suspense>
-                <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} />
+                <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />
                 <BackToTopButton />
 
                 <Suspense fallback={null}>
@@ -877,7 +881,9 @@ const App: React.FC = () => (
     <AdminProvider>
         <TitleLanguageProvider>
             <UserDataProvider>
-                <AppContent />
+                <DataSaverProvider>
+                    <AppContent />
+                </DataSaverProvider>
             </UserDataProvider>
         </TitleLanguageProvider>
     </AdminProvider>
