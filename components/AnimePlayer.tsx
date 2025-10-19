@@ -377,6 +377,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                             src={streamUrl}
                             title={`${anime.englishTitle} - Episode ${currentEpisode}`}
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                            sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation allow-fullscreen"
                             allowFullScreen
                             className="w-full h-full border-0"
                             ></iframe>

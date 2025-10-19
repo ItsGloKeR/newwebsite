@@ -23,6 +23,7 @@ import { TitleLanguageProvider } from './contexts/TitleLanguageContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import { progressTracker } from './utils/progressTracking';
+import LandingPage from './components/LandingPage';
 
 type View = 'home' | 'details' | 'player';
 
@@ -38,6 +39,7 @@ const initialFilters: FilterState = {
 const SESSION_STORAGE_KEY = 'aniGlokSession';
 
 const AppContent: React.FC = () => {
+    const [showLanding, setShowLanding] = useState(true);
     const [view, setView] = useState<View>('home');
     const [trending, setTrending] = useState<Anime[]>(initialTrending);
     const [popular, setPopular] = useState<Anime[]>(initialPopular);
@@ -81,6 +83,28 @@ const AppContent: React.FC = () => {
     const isDiscoveryView = useMemo(() => {
         return submittedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters);
     }, [submittedSearchTerm, filters]);
+    
+    useEffect(() => {
+        if (sessionStorage.getItem('hasVisitedAniGloK') === 'true') {
+            setShowLanding(false);
+        }
+    }, []);
+
+    const handleEnterApp = (searchTerm?: string) => {
+        sessionStorage.setItem('hasVisitedAniGloK', 'true');
+        setShowLanding(false);
+        if (searchTerm) {
+            setSubmittedSearchTerm(searchTerm);
+            addSearchTermToHistory(searchTerm);
+            setFilters(initialFilters);
+            setDiscoveryTitle(`Results for "${searchTerm}"`);
+            setView('home');
+        }
+    };
+    
+    const handleGoToLanding = () => {
+        setShowLanding(true);
+    };
 
     const applyOverrides = useCallback((anime: Anime): Anime => {
         if (!anime) return anime;
@@ -268,9 +292,11 @@ const AppContent: React.FC = () => {
             }
         };
         
-        restoreSession();
+        if (!showLanding) {
+            restoreSession();
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Run only once on mount. Dependencies are intentionally omitted.
+    }, [showLanding]); // Run only when landing page is dismissed
 
     // Save session state on change
     useEffect(() => {
@@ -327,10 +353,10 @@ const AppContent: React.FC = () => {
         };
         
         // Only fetch if we are on the homepage after initial render
-        if (view === 'home') {
+        if (view === 'home' && !showLanding) {
           fetchInitialData();
         }
-    }, [applyOverridesToList, enrichAnimeWithProgress, enrichScheduleWithProgress, view]);
+    }, [applyOverridesToList, enrichAnimeWithProgress, enrichScheduleWithProgress, view, showLanding]);
 
     // Re-apply overrides if they change
     useEffect(() => {
@@ -382,13 +408,15 @@ const AppContent: React.FC = () => {
             setContinueWatching(enrichedList);
         };
 
-        loadContinueWatching();
+        if (!showLanding) {
+            loadContinueWatching();
+        }
 
         window.addEventListener('progressUpdated', loadContinueWatching);
         return () => {
             window.removeEventListener('progressUpdated', loadContinueWatching);
         };
-    }, [applyOverridesToList, enrichAnimeWithProgress]);
+    }, [applyOverridesToList, enrichAnimeWithProgress, showLanding]);
 
 
     // Perform discovery search when submitted term or filters change
@@ -508,7 +536,7 @@ const AppContent: React.FC = () => {
         setView('home');
     };
     
-    const handleHomeClick = () => {
+    const handleGoToAppHome = () => {
         setSearchTerm('');
         setSubmittedSearchTerm('');
         setFilters(initialFilters);
@@ -739,12 +767,17 @@ const AppContent: React.FC = () => {
                 return renderHomePage();
         }
     };
+    
+    if (showLanding) {
+        return <LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} />;
+    }
 
     return (
         <div className="bg-gray-950 min-h-screen">
             <Header 
                 onSearch={handleSearchInputChange} 
-                onHomeClick={handleHomeClick} 
+                onHomeClick={handleGoToAppHome}
+                onLogoClick={handleGoToLanding} 
                 onFilterClick={() => setIsFilterModalOpen(true)}
                 onRandomAnime={handleRandomAnime}
                 onLoginClick={handleLoginClick} 
@@ -757,7 +790,7 @@ const AppContent: React.FC = () => {
                 isBannerInView={isBannerInView}
             />
             {renderContent()}
-            <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} />
+            <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} />
             <BackToTopButton />
             <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
             <FilterModal 

@@ -2,9 +2,26 @@ import React, { useState } from 'react';
 import { FilterState, MediaSort } from '../types';
 import InfoModal from './InfoModal';
 
+// Icons
+const LibraryIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>;
+const AdFreeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>;
+const ProgressIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>;
+
+const Feature: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (
+    <div>
+        <div className="flex items-center gap-3 mb-2">
+            <span className="text-cyan-400">{icon}</span>
+            <h4 className="text-md font-bold text-white">{title}</h4>
+        </div>
+        <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+    </div>
+);
+
+
 interface FooterProps {
   onAdminClick: () => void;
   onNavigate: (filters: Partial<FilterState>, title: string) => void;
+  onLogoClick: () => void;
 }
 
 const DiscordIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -13,7 +30,7 @@ const DiscordIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate }) => {
+const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick }) => {
     const [modalContent, setModalContent] = useState<{ title: string; content: React.ReactNode } | null>(null);
     const currentYear = new Date().getFullYear();
 
@@ -67,10 +84,10 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate }) => {
         <>
             <footer className="bg-gray-950 text-gray-400 mt-16 border-t border-gray-800">
                 <div className="container mx-auto px-6 py-12">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                        {/* Column 1: Brand */}
-                        <div className="sm:col-span-2 lg:col-span-1">
-                             <div className="mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+                        {/* Column 1: Brand & Features */}
+                        <div className="sm:col-span-2 lg:col-span-2">
+                             <button onClick={onLogoClick} className="mb-4 text-left">
                                 <svg width="140" height="32" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M16.6923 4.5L2.84615 27.5H30.5385L16.6923 4.5Z" stroke="#22d3ee" strokeWidth="2"/>
                                     <path d="M16.6923 15.5L11.7692 23.5H21.6154L16.6923 15.5Z" fill="white"/>
@@ -79,14 +96,31 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate }) => {
                                         <tspan fill="white">GloK</tspan>
                                     </text>
                                 </svg>
-                            </div>
-                            <p className="text-sm leading-relaxed">
+                            </button>
+                            <p className="text-sm leading-relaxed mb-8">
                             Your sleek, no-BS destination for discovering and tracking anime.
                             </p>
+                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-8">
+                                <Feature
+                                    icon={<LibraryIcon />}
+                                    title="Vast Library"
+                                    description="Explore thousands of titles."
+                                />
+                                <Feature
+                                    icon={<AdFreeIcon />}
+                                    title="Ad-Free"
+                                    description="Enjoy uninterrupted streaming."
+                                />
+                                <Feature
+                                    icon={<ProgressIcon />}
+                                    title="Track Progress"
+                                    description="Save your watch history."
+                                />
+                            </div>
                         </div>
 
                         {/* Column 2: Discover */}
-                        <div>
+                        <div className="lg:col-span-1">
                             <h3 className="font-bold text-white mb-4">Discover</h3>
                             <ul className="space-y-3">
                                 <li><button onClick={() => onNavigate({ sort: MediaSort.TRENDING_DESC }, 'Trending Anime')} className="hover:text-cyan-400 transition-colors">Trending</button></li>
@@ -97,7 +131,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate }) => {
                         </div>
 
                         {/* Column 3: Company */}
-                        <div>
+                        <div className="lg:col-span-1">
                             <h3 className="font-bold text-white mb-4">Company</h3>
                             <ul className="space-y-3">
                                 {companyLinks.map(link => (
@@ -111,7 +145,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate }) => {
                         </div>
 
                         {/* Column 4: Follow Us */}
-                        <div>
+                        <div className="lg:col-span-1">
                             <h3 className="font-bold text-white mb-4">Follow Us</h3>
                             <a href="https://discord.gg/H9TtXfCumQ" target="_blank" rel="noopener noreferrer" aria-label="Join our Discord server">
                                 <DiscordIcon className="h-8 w-8 text-gray-400 hover:text-cyan-400 transition-colors" />
