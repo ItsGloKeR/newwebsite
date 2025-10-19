@@ -6,6 +6,7 @@ import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import TrailerModal from './TrailerModal';
 import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
+import { useUserData } from '../contexts/UserDataContext';
 
 
 interface RelatedAnimeCardProps {
@@ -247,8 +248,21 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
   const { isAdmin } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
+  const { watchlist, favorites, toggleWatchlist, toggleFavorite } = useUserData();
+  const [isInList, setIsInList] = useState(false);
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
   const bannerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsInList(watchlist.includes(anime.anilistId));
+  }, [watchlist, anime.anilistId]);
+
+  const handleToggleWatchlist = () => {
+    toggleWatchlist(anime.anilistId);
+    setIsInList(true); // Optimistic update for animation
+  };
+
+  const isFavorite = favorites.includes(anime.anilistId);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -283,6 +297,19 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
     };
     fetchMappings();
   }, [anime]);
+  
+  const BackButton = () => (
+    <button 
+      onClick={onBack}
+      className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap bg-gray-800/50 hover:bg-gray-700/60 px-4 py-2 rounded-lg"
+      aria-label="Go back"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      <span>Back</span>
+    </button>
+  );
 
   return (
     <div className="animate-fade-in text-white">
@@ -298,6 +325,9 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
       </div>
 
       <div className="container mx-auto p-4 md:p-8">
+        <div className="mb-6">
+          <BackButton />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 relative z-10 -mt-32 md:-mt-48">
           <div className="md:col-span-4 lg:col-span-3">
             <div className="relative">
@@ -315,11 +345,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
             </div>
           </div>
           <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-end md:pb-8">
-            <button onClick={onBack} className="absolute top-4 left-4 text-white bg-black/50 p-2 rounded-full hover:bg-cyan-500 transition-colors z-20">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+            
             {isAdmin ? (
                 <TitleEditor anime={anime} />
             ) : (
@@ -338,25 +364,45 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
                 </svg>
                 Watch Now
               </button>
-              {anime.trailer && anime.trailer.site === 'youtube' ? (
+              <button
+                onClick={handleToggleWatchlist}
+                className={`font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full transition-all duration-300 flex items-center gap-2 relative overflow-hidden ${
+                  isInList ? 'bg-green-500 text-white' : 'bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white'
+                }`}
+              >
+                <span className={`transition-opacity duration-200 ${isInList ? 'opacity-0' : 'opacity-100'}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                  </svg>
+                </span>
+                <span className={`transition-opacity duration-200 ${isInList ? 'opacity-0' : 'opacity-100'}`}>
+                  {watchlist.includes(anime.anilistId) ? 'In List' : 'Add to List'}
+                </span>
+                {isInList && (
+                   <span className="absolute inset-0 flex items-center justify-center animate-show-check">
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                     <span className="ml-2">In List</span>
+                  </span>
+                )}
+              </button>
+              <button 
+                onClick={() => toggleFavorite(anime.anilistId)}
+                className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white p-3 rounded-full transition-colors"
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 transition-all duration-300 ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                </svg>
+              </button>
+              {anime.trailer && anime.trailer.site === 'youtube' && (
                 <button
                   onClick={() => setIsTrailerOpen(true)}
-                  className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full transition-colors flex items-center gap-2"
+                  className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold p-3 rounded-full transition-colors"
+                  aria-label="Play Trailer"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                   </svg>
-                  Play Trailer
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="bg-gray-800 text-gray-500 font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full cursor-not-allowed flex items-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                  </svg>
-                  No Trailer
                 </button>
               )}
             </div>
@@ -450,6 +496,10 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
               </div>
            </div>
         )}
+        
+        <div className="mt-16 flex justify-center">
+            <BackButton />
+        </div>
       </div>
       
       {isTrailerOpen && anime.trailer && (

@@ -1,29 +1,35 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule } from './types';
-import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime } from './services/anilistService';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat } from './types';
+import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
 import AnimeGrid from './components/AnimeGrid';
-import AnimeDetailPage from './components/AnimeDetailPage';
-import AnimePlayer from './components/AnimePlayer';
 import LoadingSpinner from './components/LoadingSpinner';
 import Footer from './components/Footer';
 import BackToTopButton from './components/BackToTopButton';
-import SchedulePage from './components/SchedulePage';
 import VerticalAnimeList from './components/VerticalAnimeList';
-import AdminModal from './components/AdminModal';
-import FilterModal from './components/FilterModal';
-import InfoModal from './components/InfoModal';
-import { useDebounce } from './hooks/useDebounce';
-import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
+// FIX: Import AdminProvider to wrap the application.
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import { TitleLanguageProvider } from './contexts/TitleLanguageContext';
+import { UserDataProvider, useUserData } from './contexts/UserDataContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import { progressTracker } from './utils/progressTracking';
-import LandingPage from './components/LandingPage';
+import SpotlightSection from './components/SpotlightSection';
+import { PLACEHOLDER_IMAGE_URL } from './constants';
+// FIX: Import useDebounce hook to fix 'Cannot find name' error.
+import { useDebounce } from './hooks/useDebounce';
+
+const LandingPage = React.lazy(() => import('./components/LandingPage'));
+const AnimeDetailPage = React.lazy(() => import('./components/AnimeDetailPage'));
+const AnimePlayer = React.lazy(() => import('./components/AnimePlayer'));
+const SchedulePage = React.lazy(() => import('./components/SchedulePage'));
+const AdminModal = React.lazy(() => import('./components/AdminModal'));
+const FilterModal = React.lazy(() => import('./components/FilterModal'));
+const InfoModal = React.lazy(() => import('./components/InfoModal'));
+
 
 type View = 'home' | 'details' | 'player';
 
@@ -38,12 +44,83 @@ const initialFilters: FilterState = {
 
 const SESSION_STORAGE_KEY = 'aniGlokSession';
 
+const SchedulePreview: React.FC<{ schedule: AiringSchedule[]; onSelectAnime: (anime: { anilistId: number }) => void; onShowMore: () => void }> = ({ schedule, onSelectAnime, onShowMore }) => {
+    const today = new Date();
+    const startOfDay = new Date(today);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const todaysSchedule = useMemo(() => {
+        return schedule
+            .filter(item => {
+                const itemDate = new Date(item.airingAt * 1000);
+                return itemDate.getTime() >= startOfDay.getTime() && itemDate.getTime() <= endOfDay.getTime();
+            })
+            .sort((a, b) => a.airingAt - b.airingAt);
+    }, [schedule, startOfDay, endOfDay]);
+
+
+    return (
+        <section className="mb-12">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
+                    <span className="text-cyan-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
+                    </span>
+                    <span>Airing Today</span>
+                </h2>
+                <button 
+                    onClick={onShowMore} 
+                    className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+                >
+                    <span>View Full Schedule</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </button>
+            </div>
+            <div className="bg-gray-900/50 rounded-lg p-4">
+                 {todaysSchedule.length > 0 ? (
+                    todaysSchedule.slice(0, 5).map(item => (
+                        <div 
+                            key={item.id}
+                            onClick={() => onSelectAnime({ anilistId: item.media.id })}
+                            className="flex items-center gap-4 py-3 border-b border-gray-800 last:border-b-0 cursor-pointer group rounded-lg"
+                        >
+                            <span className="text-cyan-400 font-mono text-sm w-16 text-center">{new Date(item.airingAt * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+                            <img src={item.media.coverImage.extraLarge} onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} alt={item.media.title.english || item.media.title.romaji} className="w-10 h-14 object-cover rounded-md flex-shrink-0" />
+                            <div className="flex-grow overflow-hidden">
+                                <p className="text-white font-semibold truncate group-hover:text-cyan-400 transition-colors">{item.media.title.english || item.media.title.romaji}</p>
+                                <p className="text-gray-400 text-xs">Episode {item.episode}</p>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 group-hover:text-white transition-colors opacity-0 group-hover:opacity-100 mr-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-8 text-gray-500">
+                        No more episodes scheduled for today.
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+};
+
+const FullPageSpinner: React.FC = () => (
+    <div className="h-screen flex items-center justify-center">
+        <LoadingSpinner />
+    </div>
+);
+
 const AppContent: React.FC = () => {
     const [showLanding, setShowLanding] = useState(true);
     const [view, setView] = useState<View>('home');
-    const [trending, setTrending] = useState<Anime[]>(initialTrending);
-    const [popular, setPopular] = useState<Anime[]>(initialPopular);
-    const [topAiring, setTopAiring] = useState<Anime[]>(initialTopAiring);
+    const [trending, setTrending] = useState<Anime[]>([]);
+    const [popular, setPopular] = useState<Anime[]>([]);
+    const [topAiring, setTopAiring] = useState<Anime[]>([]);
     const [topRated, setTopRated] = useState<Anime[]>([]);
     const [topUpcoming, setTopUpcoming] = useState<Anime[]>([]);
     const [popularThisSeason, setPopularThisSeason] = useState<Anime[]>([]);
@@ -51,6 +128,7 @@ const AppContent: React.FC = () => {
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
     const [allGenres, setAllGenres] = useState<string[]>([]);
     const [continueWatching, setContinueWatching] = useState<Anime[]>([]);
+    const [scheduleList, setScheduleList] = useState<AiringSchedule[]>([]);
     
     const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
     const [playerState, setPlayerState] = useState({
@@ -76,13 +154,15 @@ const AppContent: React.FC = () => {
     const [heroBannerUrl, setHeroBannerUrl] = useState<string | null>(null);
     const [isBannerInView, setIsBannerInView] = useState(true);
     const [isScheduleVisible, setIsScheduleVisible] = useState(false);
+    const [isListView, setIsListView] = useState(false);
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
+    const { watchlist, favorites } = useUserData();
 
     const isDiscoveryView = useMemo(() => {
-        return submittedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters);
-    }, [submittedSearchTerm, filters]);
+        return submittedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters) || isListView;
+    }, [submittedSearchTerm, filters, isListView]);
     
     useEffect(() => {
         if (sessionStorage.getItem('hasVisitedAniGloK') === 'true') {
@@ -109,7 +189,6 @@ const AppContent: React.FC = () => {
     const applyOverrides = useCallback((anime: Anime): Anime => {
         if (!anime) return anime;
         const overriddenTitle = overrides.anime[anime.anilistId]?.title;
-        // The title override is just for the english title for simplicity in admin panel
         return overriddenTitle ? { ...anime, englishTitle: overriddenTitle } : anime;
     }, [overrides.anime]);
     
@@ -166,12 +245,11 @@ const AppContent: React.FC = () => {
     
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
         setIsLoading(true);
-        setIsBannerInView(true); // Reset for new page view
+        setIsBannerInView(true);
         setView('details');
         window.scrollTo(0, 0);
         try {
             const fullDetails = await getAnimeDetails(anime.anilistId);
-            
             const allProgress = progressTracker.getAllMediaData();
 
             if (fullDetails.relations) {
@@ -192,13 +270,11 @@ const AppContent: React.FC = () => {
                     return rec;
                 });
             }
-
             setSelectedAnime(enrichAnimeWithProgress([applyOverrides(fullDetails)])[0]);
-
         } catch (error) {
             console.error("Failed to get anime details:", error);
-            setSelectedAnime(null); // Reset on error
-            setView('home'); // Go back home
+            setSelectedAnime(null);
+            setView('home');
         } finally {
             setIsLoading(false);
         }
@@ -206,8 +282,6 @@ const AppContent: React.FC = () => {
     
     const handleWatchNow = (anime: Anime, episode = 1) => {
         progressTracker.addToHistory(anime);
-        // Optimistically navigate to the player with the data we already have.
-        // This allows the user to start watching even if the fresh API call fails.
         setPlayerState({
             anime: applyOverrides(anime),
             episode,
@@ -216,16 +290,10 @@ const AppContent: React.FC = () => {
         });
         setView('player');
         window.scrollTo(0, 0);
-
-        // In the background, try to fetch the absolute latest details to enrich the page.
-        // This won't block the UI. If it fails, the user can still use the player.
         const fetchLatestDetails = async () => {
             try {
                 const fullDetails = await getAnimeDetails(anime.anilistId);
-                // If successful, silently update the state with the richer data.
-                // This ensures things like relations/recommendations are fully populated.
                 setPlayerState(prev => {
-                    // Safety check: ensure the user hasn't navigated away to another anime
                     if (prev.anime?.anilistId === fullDetails.anilistId) {
                         return { ...prev, anime: applyOverrides(fullDetails) };
                     }
@@ -236,44 +304,29 @@ const AppContent: React.FC = () => {
                     "Could not fetch full/fresh details for the player. Using existing data as a fallback.",
                     error
                 );
-                // On failure, we do nothing. The player is already functional with the initial data.
             }
         };
-
         fetchLatestDetails();
     };
 
-    // Initialize tracker and listen for progress updates
     useEffect(() => {
         progressTracker.init();
-        
-        const handleProgressUpdate = () => {
-            refreshDataWithProgress();
-        };
-
+        const handleProgressUpdate = () => refreshDataWithProgress();
         window.addEventListener('progressUpdated', handleProgressUpdate);
-        return () => {
-            window.removeEventListener('progressUpdated', handleProgressUpdate);
-        };
+        return () => window.removeEventListener('progressUpdated', handleProgressUpdate);
     }, [refreshDataWithProgress]);
 
-    // Restore session on initial load
     useEffect(() => {
         const restoreSession = async () => {
             try {
                 const savedSessionJSON = localStorage.getItem(SESSION_STORAGE_KEY);
                 if (!savedSessionJSON) return;
-
                 const savedSession = JSON.parse(savedSessionJSON);
                 const now = Date.now();
-
-                // Check if the session is recent (within 5 seconds)
                 if (savedSession.timestamp && now - savedSession.timestamp < 5000) {
                     if (savedSession.view === 'details' && savedSession.animeId) {
-                        // Restore details view
                         await handleSelectAnime({ anilistId: savedSession.animeId });
                     } else if (savedSession.view === 'player' && savedSession.animeId) {
-                        // To restore player, we need the full anime object. Fetch it first.
                         try {
                             const animeForPlayer = await getAnimeDetails(savedSession.animeId);
                             handleWatchNow(animeForPlayer, savedSession.episode || 1);
@@ -283,7 +336,6 @@ const AppContent: React.FC = () => {
                         }
                     }
                 } else {
-                    // Clean up expired session data
                     localStorage.removeItem(SESSION_STORAGE_KEY);
                 }
             } catch (error) {
@@ -291,30 +343,19 @@ const AppContent: React.FC = () => {
                 localStorage.removeItem(SESSION_STORAGE_KEY);
             }
         };
-        
         if (!showLanding) {
             restoreSession();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showLanding]); // Run only when landing page is dismissed
+    }, [showLanding]);
 
-    // Save session state on change
     useEffect(() => {
         try {
             if (view === 'details' && selectedAnime) {
-                const session = {
-                    view: 'details',
-                    animeId: selectedAnime.anilistId,
-                    timestamp: Date.now(),
-                };
+                const session = { view: 'details', animeId: selectedAnime.anilistId, timestamp: Date.now() };
                 localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
             } else if (view === 'player' && playerState.anime) {
-                const session = {
-                    view: 'player',
-                    animeId: playerState.anime.anilistId,
-                    episode: playerState.episode,
-                    timestamp: Date.now(),
-                };
+                const session = { view: 'player', animeId: playerState.anime.anilistId, episode: playerState.episode, timestamp: Date.now() };
                 localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
             } else if (view === 'home') {
                 localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -324,16 +365,15 @@ const AppContent: React.FC = () => {
         }
     }, [view, selectedAnime, playerState.anime, playerState.episode]);
 
-
-    // Fetch initial data for the home page (only if not restoring a session)
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const [{ trending, popular, topAiring, topRated, topUpcoming, popularThisSeason, currentSeason, currentYear }, genres, latest] = await Promise.all([
+                const [{ trending, popular, topAiring, topRated, topUpcoming, popularThisSeason, currentSeason, currentYear }, genres, latest, schedules] = await Promise.all([
                     getHomePageData(),
                     getGenreCollection(),
                     getLatestEpisodes(),
+                    getAiringSchedule()
                 ]);
                 setTrending(enrichAnimeWithProgress(applyOverridesToList(trending)));
                 setPopular(enrichAnimeWithProgress(applyOverridesToList(popular)));
@@ -343,6 +383,7 @@ const AppContent: React.FC = () => {
                 setPopularThisSeason(enrichAnimeWithProgress(applyOverridesToList(popularThisSeason)));
                 setAllGenres(genres);
                 setLatestEpisodes(enrichScheduleWithProgress(latest));
+                setScheduleList(schedules);
                 setCurrentSeason(currentSeason);
                 setCurrentYear(currentYear);
             } catch (error) {
@@ -351,14 +392,11 @@ const AppContent: React.FC = () => {
                 setIsLoading(false);
             }
         };
-        
-        // Only fetch if we are on the homepage after initial render
         if (view === 'home' && !showLanding) {
           fetchInitialData();
         }
     }, [applyOverridesToList, enrichAnimeWithProgress, enrichScheduleWithProgress, view, showLanding]);
 
-    // Re-apply overrides if they change
     useEffect(() => {
         setTrending(applyOverridesToList);
         setPopular(applyOverridesToList);
@@ -372,60 +410,43 @@ const AppContent: React.FC = () => {
         }
     }, [overrides, applyOverridesToList, applyOverrides, selectedAnime]);
 
-    // Load Continue Watching list
     useEffect(() => {
         const loadContinueWatching = async () => {
             const progressData = progressTracker.getAllMediaData();
-            
             const inProgress = Object.values(progressData)
                 .filter(p => {
                     if (p.progress?.duration > 0) {
                         const percentage = (p.progress.watched / p.progress.duration) * 100;
-                        return percentage < 95; // Only show items that are not completed
+                        return percentage < 95;
                     }
-                    return true; // Show items that haven't started playing yet
+                    return true;
                 })
                 .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
-
             if (inProgress.length === 0) {
                 setContinueWatching([]);
                 return;
             }
-
             const ids = inProgress.map(p => p.id);
             const animeDetails = await getMultipleAnimeDetails(ids);
-            
-            // Create a map for quick lookup
             const animeDetailsMap = new Map(animeDetails.map(a => [a.anilistId, a]));
-
-            // Re-sort based on the sorted `inProgress` list and enrich data
             const sortedAnimeDetails = inProgress
                 .map(p => animeDetailsMap.get(p.id))
-                .filter((a): a is Anime => !!a); // Filter out any anime that failed to fetch
-
+                .filter((a): a is Anime => !!a);
             const enrichedList = enrichAnimeWithProgress(applyOverridesToList(sortedAnimeDetails));
-            
             setContinueWatching(enrichedList);
         };
-
         if (!showLanding) {
             loadContinueWatching();
         }
-
         window.addEventListener('progressUpdated', loadContinueWatching);
-        return () => {
-            window.removeEventListener('progressUpdated', loadContinueWatching);
-        };
+        return () => window.removeEventListener('progressUpdated', loadContinueWatching);
     }, [applyOverridesToList, enrichAnimeWithProgress, showLanding]);
 
-
-    // Perform discovery search when submitted term or filters change
     useEffect(() => {
         if (!isDiscoveryView) {
             setSearchResults([]);
             return;
         }
-
         const performSearch = async () => {
             setIsDiscoverLoading(true);
             const termToSearch = submittedSearchTerm.trim() ? submittedSearchTerm : '';
@@ -441,13 +462,11 @@ const AppContent: React.FC = () => {
         performSearch();
     }, [submittedSearchTerm, filters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress]);
     
-    // Perform search for suggestions
     useEffect(() => {
         if (debouncedSuggestionsTerm.trim() === '') {
             setSearchSuggestions([]);
             return;
         }
-
         const fetchSuggestions = async () => {
             setIsSuggestionsLoading(true);
             try {
@@ -462,14 +481,11 @@ const AppContent: React.FC = () => {
         fetchSuggestions();
     }, [debouncedSuggestionsTerm]);
 
-    // Handlers
     const handleRandomAnime = async () => {
         setIsLoading(true);
         try {
             const randomAnime = await getRandomAnime();
-            if (randomAnime) {
-                handleSelectAnime(randomAnime);
-            }
+            if (randomAnime) handleSelectAnime(randomAnime);
         } catch (error) {
             console.error("Failed to get random anime:", error);
         } finally {
@@ -477,26 +493,21 @@ const AppContent: React.FC = () => {
         }
     }
     
-    const handleSearchInputChange = (term: string) => {
-        setSearchTerm(term);
-    };
+    const handleSearchInputChange = (term: string) => setSearchTerm(term);
 
     const handleSearchSubmit = () => {
         const termToSubmit = searchTerm.trim();
         if (termToSubmit === '') return;
-        
         addSearchTermToHistory(termToSubmit);
         setSubmittedSearchTerm(termToSubmit);
-        setFilters(initialFilters); // Reset filters on a new search
+        setFilters(initialFilters);
         setDiscoveryTitle(`Results for "${termToSubmit}"`);
+        setIsListView(false);
         setView('home');
-        setSearchTerm(''); // Clear input to hide suggestions
-        setSearchSuggestions([]); // Clear suggestions data
-        
+        setSearchTerm('');
+        setSearchSuggestions([]);
         const activeElement = document.activeElement as HTMLElement;
-        if (activeElement) {
-            activeElement.blur();
-        }
+        if (activeElement) activeElement.blur();
     };
 
     const handleSuggestionClick = (anime: { anilistId: number }) => {
@@ -509,30 +520,28 @@ const AppContent: React.FC = () => {
     const handleContinueWatching = (anime: Anime) => {
         const progressData = progressTracker.getMediaData(anime.anilistId);
         if (!progressData) {
-            handleWatchNow(anime, 1); // Fallback to ep 1
+            handleWatchNow(anime, 1);
             return;
         }
         const lastEpisode = parseInt(progressData.last_episode_watched, 10) || 1;
         handleWatchNow(anime, lastEpisode);
     };
 
-    const handleRemoveFromContinueWatching = (animeId: number) => {
-        progressTracker.removeFromHistory(animeId);
-    };
+    const handleRemoveFromContinueWatching = (animeId: number) => progressTracker.removeFromHistory(animeId);
 
     const handleBackToDetails = () => {
         if (playerState.anime) {
-            setSelectedAnime(playerState.anime); // We already have full details
-            setIsBannerInView(true); // Reset banner state for details page
+            setSelectedAnime(playerState.anime);
+            setIsBannerInView(true);
             setView('details');
         } else {
-            setView('home'); // Fallback
+            setView('home');
         }
     };
     
     const handleBackFromDetails = () => {
         setSelectedAnime(null);
-        setIsBannerInView(true); // Reset for new page view
+        setIsBannerInView(true);
         setView('home');
     };
     
@@ -542,30 +551,51 @@ const AppContent: React.FC = () => {
         setFilters(initialFilters);
         setSearchResults([]);
         setSelectedAnime(null);
-        setIsBannerInView(true); // Reset for new page view
+        setIsBannerInView(true);
+        setIsListView(false);
         setView('home');
     };
 
-    const handleLoginClick = () => {
-        setIsLoginModalOpen(true);
-    };
+    const handleLoginClick = () => setIsLoginModalOpen(true);
 
     const handleApplyFilters = (newFilters: FilterState) => {
         setIsFilterModalOpen(false);
-        setSubmittedSearchTerm(''); // Clear search term when applying filters
+        setSubmittedSearchTerm('');
         setFilters(newFilters);
         setDiscoveryTitle("Filtered Results");
+        setIsListView(false);
         setView('home');
     };
 
-    const handleViewMore = (partialFilters: Partial<FilterState>, title: string) => {
-        setSearchTerm('');
-        setSubmittedSearchTerm('');
-        setFilters({ ...initialFilters, ...partialFilters });
-        setDiscoveryTitle(title);
-        setView('home');
-        window.scrollTo(0, 0);
+    const handleViewMore = async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' }, title: string) => {
+        if (partialFilters.list) {
+            setIsDiscoverLoading(true);
+            setDiscoveryTitle(title);
+            setSubmittedSearchTerm('');
+            setFilters(initialFilters);
+            setIsListView(true); // Set to true here
+            setView('home');
+            window.scrollTo(0, 0);
+
+            const ids = partialFilters.list === 'watchlist' ? watchlist : favorites;
+            if (ids.length > 0) {
+                const results = await getMultipleAnimeDetails(ids);
+                setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
+            } else {
+                setSearchResults([]);
+            }
+            setIsDiscoverLoading(false);
+        } else {
+            setSearchTerm('');
+            setSubmittedSearchTerm('');
+            setFilters({ ...initialFilters, ...partialFilters });
+            setDiscoveryTitle(title);
+            setIsListView(false);
+            setView('home');
+            window.scrollTo(0, 0);
+        }
     };
+
 
     const generateDiscoveryTitle = () => {
         if (submittedSearchTerm.trim()) {
@@ -573,13 +603,25 @@ const AppContent: React.FC = () => {
         }
         return discoveryTitle;
     };
+    
+    const spotlightMovie = useMemo(() => popular.find(anime => anime.format === MediaFormat.MOVIE.replace('_', ' ')), [popular]);
 
+    const latestEpisodesAsAnime = useMemo(() => latestEpisodes.map(schedule => ({
+        anilistId: schedule.media.id,
+        englishTitle: schedule.media.title.english || schedule.media.title.romaji,
+        romajiTitle: schedule.media.title.romaji || schedule.media.title.english,
+        coverImage: schedule.media.coverImage.extraLarge,
+        isAdult: schedule.media.isAdult,
+        episodes: schedule.episode,
+        description: '', bannerImage: '', genres: [], duration: null, year: 0, rating: 0, status: '', format: '', studios: [], staff: [], relations: [], recommendations: [],
+    })), [latestEpisodes]);
+    
     const iconProps = { className: "h-7 w-7" };
     const smallIconProps = { className: "h-5 w-5 text-cyan-400" };
 
     const ContinueWatchingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>;
     const TrendingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.84 3.49a1 1 0 011.118 1.666l-2.863 4.312a1 1 0 00.325 1.488l4.463 2.231a1 1 0 01.554 1.326l-2.04 4.081a1 1 0 01-1.78-.9l1.297-2.592-3.125-1.562a3 3 0 01-.975-4.464L12.84 3.49zM6.86 3.49a1 1 0 011.118 1.666l-2.863 4.312a1 1 0 00.325 1.488l4.463 2.231a1 1 0 01.554 1.326l-2.04 4.081a1 1 0 01-1.78-.9l1.297-2.592-3.125-1.562a3 3 0 01-.975-4.464L6.86 3.49z" clipRule="evenodd" /></svg>;
-    const LatestIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 4a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm10 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
+    const LatestEpisodeIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 4a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm10 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
     const PopularIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M11 2a1 1 0 10-2 0v1a1 1 0 102 0V2zM5 5a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm3 8a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm-3 4a1 1 0 100 2h8a1 1 0 100-2H5z" /><path fillRule="evenodd" d="M3 5a3 3 0 013-3h8a3 3 0 013 3v12a1 1 0 11-2 0V5a1 1 0 00-1-1H6a1 1 0 00-1 1v12a1 1 0 11-2 0V5z" clipRule="evenodd" /></svg>;
     const UpcomingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
     const SeasonIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 001 1h12a1 1 0 001-1V6h1a1 1 0 100-2h-1V3a1 1 0 00-1-1H5zM4 9a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zm2 3a1 1 0 100 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
@@ -597,6 +639,7 @@ const AppContent: React.FC = () => {
                         animeList={searchResults}
                         onSelectAnime={handleSelectAnime}
                         isLoading={isDiscoverLoading}
+                        onBackClick={handleGoToAppHome}
                     />
                 </main>
             );
@@ -606,7 +649,6 @@ const AppContent: React.FC = () => {
             <main>
                 <Hero animes={trending} onWatchNow={handleWatchNow} onDetails={handleSelectAnime} onBannerChange={setHeroBannerUrl} setInView={setIsBannerInView} />
                 <div className="container mx-auto p-4 md:p-8">
-                    {/* Full-width sections */}
                     {continueWatching.length > 0 && (
                         <div className="mb-12">
                             <AnimeCarousel 
@@ -628,46 +670,34 @@ const AppContent: React.FC = () => {
                             onViewMore={() => handleViewMore({ sort: MediaSort.TRENDING_DESC }, "Trending Anime")}
                         />
                     </div>
+                </div>
 
-                    {/* Left/Right Column Section */}
-                    <div className="mb-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {spotlightMovie && (
+                    <SpotlightSection
+                        anime={spotlightMovie}
+                        onWatchNow={handleWatchNow}
+                        onDetails={handleSelectAnime}
+                    />
+                )}
+                
+                <div className="container mx-auto p-4 md:p-8">
+                    <div className="mt-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
                         <div className="lg:col-span-3 flex flex-col gap-12">
-                            <AnimeCarousel
+                             <AnimeCarousel
                                 title="Latest Episodes"
-                                icon={LatestIcon}
-                                animeList={latestEpisodes.map(schedule => ({
-                                    anilistId: schedule.media.id,
-                                    englishTitle: schedule.media.title.english || schedule.media.title.romaji,
-                                    romajiTitle: schedule.media.title.romaji || schedule.media.title.english,
-                                    coverImage: schedule.media.coverImage.extraLarge,
-                                    episodes: schedule.episode,
-                                    isAdult: schedule.media.isAdult,
-                                    progress: schedule.progress || 0,
-                                    description: '',
-                                    bannerImage: '',
-                                    genres: [],
-                                    year: 0,
-                                    rating: 0,
-                                    duration: null,
-                                    status: '',
-                                    studios: [],
-                                    staff: [],
-                                    relations: [],
-                                    format: '',
-                                } as Anime))}
+                                icon={LatestEpisodeIcon}
+                                animeList={latestEpisodesAsAnime}
                                 onSelectAnime={handleSelectAnime}
-                                showRank={false}
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.TRENDING_DESC }, "Recently Released Anime")}
+                                showRank={false}
                                 cardSize="small"
                             />
                             <AnimeCarousel 
-                                title="All Time Popular" 
+                                title="All Time Popular"
                                 icon={PopularIcon}
-                                animeList={popular} 
+                                animeList={popular}
                                 onSelectAnime={handleSelectAnime}
                                 onViewMore={() => handleViewMore({ sort: MediaSort.POPULARITY_DESC }, "All Time Popular Anime")}
-                                showRank={false}
-                                cardSize="small"
                             />
                             <AnimeCarousel 
                                 title="Top Upcoming" 
@@ -696,6 +726,7 @@ const AppContent: React.FC = () => {
                                     onSelectAnime={handleSelectAnime}
                                     onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.POPULARITY_DESC }, "Top Airing Anime")}
                                     icon={AiringIcon}
+                                    showRank={true}
                                 />
                                 <VerticalAnimeList 
                                     title="Top Rated" 
@@ -703,26 +734,26 @@ const AppContent: React.FC = () => {
                                     onSelectAnime={handleSelectAnime}
                                     onViewMore={() => handleViewMore({ sort: MediaSort.SCORE_DESC }, "Top Rated Anime")}
                                     icon={RatedIcon}
+                                    showRank={true}
                                 />
                             </div>
                         </div>
                     </div>
                                         
-                    {!isScheduleVisible ? (
-                        <div className="mb-12">
-                            <button
-                                onClick={() => setIsScheduleVisible(true)}
-                                className="w-full bg-gray-800/50 hover:bg-gray-800 text-white font-bold py-6 px-8 rounded-lg transition-all duration-300 transform hover:scale-[1.02] flex flex-col items-center justify-center gap-3 shadow-lg border-2 border-dashed border-gray-700 hover:border-cyan-500"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-cyan-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                                </svg>
-                                <span className="text-xl">View Full Airing Schedule</span>
-                                <span className="text-sm text-gray-400">See what's airing in the next 7 days</span>
-                            </button>
-                        </div>
+                    {isScheduleVisible ? (
+                        <Suspense fallback={<FullPageSpinner />}>
+                            <SchedulePage 
+                                schedule={scheduleList}
+                                onSelectAnime={handleSelectAnime} 
+                                onClose={() => setIsScheduleVisible(false)}
+                            />
+                        </Suspense>
                     ) : (
-                        <SchedulePage onSelectAnime={handleSelectAnime} />
+                        <SchedulePreview 
+                            schedule={scheduleList}
+                            onSelectAnime={handleSelectAnime}
+                            onShowMore={() => setIsScheduleVisible(true)}
+                        />
                     )}
                 </div>
             </main>
@@ -730,13 +761,11 @@ const AppContent: React.FC = () => {
     };
 
     const renderContent = () => {
+        let content;
         switch(view) {
             case 'player':
-                 if (isLoading || !playerState.anime) {
-                    return <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>;
-                }
-                return <AnimePlayer
-                    anime={playerState.anime}
+                content = <AnimePlayer
+                    anime={playerState.anime!}
                     currentEpisode={playerState.episode}
                     currentSource={playerState.source}
                     currentLanguage={playerState.language}
@@ -747,92 +776,104 @@ const AppContent: React.FC = () => {
                     onSelectRecommended={handleSelectAnime}
                     onSelectRelated={handleSelectAnime}
                 />;
-            
+                break;
             case 'details':
-                return isLoading 
-                    ? <div className="h-screen flex items-center justify-center"><LoadingSpinner /></div>
-                    : selectedAnime && <AnimeDetailPage 
-                        anime={selectedAnime}
-                        onWatchNow={handleWatchNow}
-                        onBack={handleBackFromDetails}
-                        onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
-                        setInView={setIsBannerInView}
-                    />;
-            
+                content = selectedAnime && <AnimeDetailPage 
+                    anime={selectedAnime}
+                    onWatchNow={handleWatchNow}
+                    onBack={handleBackFromDetails}
+                    onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
+                    setInView={setIsBannerInView}
+                />;
+                break;
             case 'home':
             default:
                 if (isLoading && trending.length === 0) {
-                    return <HomePageSkeleton />;
+                    content = <HomePageSkeleton />;
+                } else {
+                    content = renderHomePage();
                 }
-                return renderHomePage();
+                break;
         }
+        return <div key={view} className="animate-page-fade-in">{content}</div>;
     };
     
     if (showLanding) {
-        return <LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} />;
+        return <Suspense fallback={<FullPageSpinner />}><LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} /></Suspense>;
     }
 
     return (
         <div className="bg-gray-950 min-h-screen">
-            <Header 
-                onSearch={handleSearchInputChange} 
-                onHomeClick={handleGoToAppHome}
-                onLogoClick={handleGoToLanding} 
-                onFilterClick={() => setIsFilterModalOpen(true)}
-                onRandomAnime={handleRandomAnime}
-                onLoginClick={handleLoginClick} 
-                onSearchSubmit={handleSearchSubmit}
-                searchTerm={searchTerm} 
-                suggestions={searchSuggestions}
-                onSuggestionClick={handleSuggestionClick}
-                isSuggestionsLoading={isSuggestionsLoading}
-                onNavigate={handleViewMore}
-                isBannerInView={isBannerInView}
-            />
-            {renderContent()}
-            <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} />
-            <BackToTopButton />
-            <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
-            <FilterModal 
-                isOpen={isFilterModalOpen} 
-                onClose={() => setIsFilterModalOpen(false)} 
-                allGenres={allGenres} 
-                onApply={handleApplyFilters}
-                currentFilters={filters}
-                initialFilters={initialFilters}
-            />
-            <InfoModal 
-                isOpen={isLoginModalOpen}
-                onClose={() => setIsLoginModalOpen(false)}
-                title="Login"
-            >
-                <div className="space-y-4">
-                    <p className="text-center text-sm bg-yellow-900/50 text-yellow-300 p-2 rounded-md">
-                        This is a demonstration UI. The login feature is not implemented yet but will be available soon.
-                    </p>
-                    <div>
-                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="username">Username</label>
-                        <input
-                            id="username"
-                            type="text"
-                            placeholder="demouser"
-                            className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="password">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            placeholder="••••••••"
-                            className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                        />
-                    </div>
-                     <button type="submit" disabled className="w-full bg-cyan-700 text-white/50 font-bold py-2 px-4 rounded cursor-not-allowed">
-                        Login
-                    </button>
-                </div>
-            </InfoModal>
+            {/* Background Elements */}
+            <div aria-hidden="true" className="fixed inset-0 z-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at top right, rgba(34, 211, 238, 0.3), transparent 60%), radial-gradient(circle at bottom left, rgba(8, 145, 178, 0.3), transparent 60%)' }}></div>
+            <div aria-hidden="true" className="fixed inset-0 z-0" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+            
+            <div className="relative z-10">
+                <Header 
+                    onSearch={handleSearchInputChange} 
+                    onHomeClick={handleGoToAppHome}
+                    onLogoClick={handleGoToLanding} 
+                    onFilterClick={() => setIsFilterModalOpen(true)}
+                    onRandomAnime={handleRandomAnime}
+                    onLoginClick={handleLoginClick} 
+                    onSearchSubmit={handleSearchSubmit}
+                    searchTerm={searchTerm} 
+                    suggestions={searchSuggestions}
+                    onSuggestionClick={handleSuggestionClick}
+                    isSuggestionsLoading={isSuggestionsLoading}
+                    onNavigate={handleViewMore}
+                    isBannerInView={isBannerInView}
+                />
+                <Suspense fallback={<FullPageSpinner />}>
+                    {renderContent()}
+                </Suspense>
+                <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} />
+                <BackToTopButton />
+
+                <Suspense fallback={null}>
+                    {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
+                    {isFilterModalOpen && <FilterModal 
+                        isOpen={isFilterModalOpen} 
+                        onClose={() => setIsFilterModalOpen(false)} 
+                        allGenres={allGenres} 
+                        onApply={handleApplyFilters}
+                        currentFilters={filters}
+                        initialFilters={initialFilters}
+                    />}
+                    {isLoginModalOpen && <InfoModal 
+                        isOpen={isLoginModalOpen}
+                        onClose={() => setIsLoginModalOpen(false)}
+                        title="Login"
+                    >
+                        <div className="space-y-4">
+                            <p className="text-center text-sm bg-yellow-900/50 text-yellow-300 p-2 rounded-md">
+                                This is a demonstration UI. The login feature is not implemented yet but will be available soon.
+                            </p>
+                            <div>
+                                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="username">Username</label>
+                                <input
+                                    id="username"
+                                    type="text"
+                                    placeholder="demouser"
+                                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="password">Password</label>
+                                <input
+                                    id="password"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                />
+                            </div>
+                            <button type="submit" disabled className="w-full bg-cyan-700 text-white/50 font-bold py-2 px-4 rounded cursor-not-allowed">
+                                Login
+                            </button>
+                        </div>
+                    </InfoModal>}
+                </Suspense>
+            </div>
         </div>
     );
 };
@@ -840,7 +881,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => (
     <AdminProvider>
         <TitleLanguageProvider>
-           <AppContent />
+            <UserDataProvider>
+                <AppContent />
+            </UserDataProvider>
         </TitleLanguageProvider>
     </AdminProvider>
 );

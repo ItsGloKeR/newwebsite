@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAdmin } from '../contexts/AdminContext';
 import { StreamSource } from '../types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -18,6 +19,9 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const [vidlinkUrl, setVidlinkUrl] = useState(overrides.globalStreamUrlTemplates.vidlink || '');
   const [externalPlayerUrl, setExternalPlayerUrl] = useState(overrides.globalStreamUrlTemplates.externalplayer || '');
   const [copyButtonText, setCopyButtonText] = useState('Generate & Copy Code');
+  
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -27,6 +31,20 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         setExternalPlayerUrl(overrides.globalStreamUrlTemplates.externalplayer || '');
     }
   }, [overrides, isOpen]);
+  
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,11 +99,11 @@ const handleCopy = () => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center animate-fade-in" onClick={onClose}>
-      <div className="bg-gray-900 text-white rounded-lg shadow-xl p-8 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center animate-fade-in" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+      <div ref={modalRef} className="bg-gray-900 text-white rounded-lg shadow-xl p-8 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-cyan-400">Admin Panel</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+          <h2 id="admin-modal-title" className="text-2xl font-bold text-cyan-400">Admin Panel</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl leading-none" aria-label="Close admin panel">&times;</button>
         </div>
         
         {!isAdmin ? (
@@ -97,7 +115,7 @@ const handleCopy = () => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus-ring-2 focus:ring-cyan-500"
                 required
               />
             </div>
@@ -108,7 +126,7 @@ const handleCopy = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus-ring-2 focus:ring-cyan-500"
                 required
               />
             </div>
@@ -153,31 +171,6 @@ const handleCopy = () => {
                     className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
                 </div>
-                {/*
-                <div className="mb-4">
-                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source3">Global Source 3 Template (Vidlink)</label>
-                <input
-                    id="source3"
-                    type="text"
-                    value={vidlinkUrl}
-                    onChange={(e) => handleUrlChange(StreamSource.Vidlink, e.target.value)}
-                    placeholder="e.g., https://vidlink.pro/anime/{malId}/{episode}/{language}"
-                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                />
-                </div>
-                <div>
-                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source4">Global Source 4 Template (External Player)</label>
-                <input
-                    id="source4"
-                    type="text"
-                    value={externalPlayerUrl}
-                    onChange={(e) => handleUrlChange(StreamSource.ExternalPlayer, e.target.value)}
-                    placeholder="This is handled automatically. Overrides are per-episode."
-                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    disabled
-                />
-                </div>
-                */}
             </div>
 
             <div className="mt-8 pt-6 border-t border-gray-700">

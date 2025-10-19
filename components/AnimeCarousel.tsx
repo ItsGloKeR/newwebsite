@@ -48,7 +48,7 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, icon, o
   return (
     <section className="relative">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
           {icon && <span className="text-cyan-400">{icon}</span>}
           <span>{title}</span>
         </h2>

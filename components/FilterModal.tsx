@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FilterState, MediaSeason, MediaFormat, MediaStatus, MediaSort } from '../types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface FilterModalProps {
   isOpen: boolean;
@@ -37,6 +38,22 @@ const OptionButton: React.FC<{
 
 const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, allGenres, onApply, currentFilters, initialFilters }) => {
     const [filters, setFilters] = useState<FilterState>(currentFilters);
+    const modalRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(modalRef, isOpen);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+        if (isOpen) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 
@@ -74,11 +91,11 @@ const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, allGenres, o
     );
     
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center animate-fade-in" onClick={onClose}>
-            <div className="bg-gray-900 text-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center animate-fade-in" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="filter-modal-title">
+            <div ref={modalRef} className="bg-gray-900 text-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold">Filters & Sort</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+                    <h2 id="filter-modal-title" className="text-2xl font-bold">Filters & Sort</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl leading-none" aria-label="Close filters">&times;</button>
                 </div>
                 
                 <div className="flex-grow overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-x-8">

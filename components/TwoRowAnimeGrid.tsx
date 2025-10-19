@@ -23,7 +23,7 @@ const TwoRowAnimeGrid: React.FC<TwoRowAnimeGridProps> = ({ title, animeList, onS
       }
     };
     
-    const timer = setTimeout(checkOverflow, 100);
+    const timer = setTimeout(checkOverflow, 150);
     window.addEventListener('resize', checkOverflow);
 
     return () => {
@@ -42,18 +42,25 @@ const TwoRowAnimeGrid: React.FC<TwoRowAnimeGridProps> = ({ title, animeList, onS
     }
   };
 
+  const icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor"><path d="M11 2a1 1 0 10-2 0v1a1 1 0 102 0V2zM5 5a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm3 8a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm-3 4a1 1 0 100 2h8a1 1 0 100-2H5z" /><path fillRule="evenodd" d="M3 5a3 3 0 013-3h8a3 3 0 013 3v12a1 1 0 11-2 0V5a1 1 0 00-1-1H6a1 1 0 00-1 1v12a1 1 0 11-2 0V5z" clipRule="evenodd" /></svg>;
   const skeletonCount = 12;
 
   return (
-    <section className="mb-12">
+    <section>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
+        <h2 className="text-3xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
+          <span className="text-cyan-400">{icon}</span>
+          <span>{title}</span>
+        </h2>
         {onViewMore && (
           <button 
             onClick={onViewMore} 
-            className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+            className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
           >
-            View More &gt;
+            <span>View All</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
           </button>
         )}
       </div>
@@ -79,7 +86,7 @@ const TwoRowAnimeGrid: React.FC<TwoRowAnimeGridProps> = ({ title, animeList, onS
         )}
 
         <div ref={scrollContainerRef} className="overflow-x-auto pb-4 carousel-scrollbar">
-          <div className="grid grid-rows-2 grid-flow-col gap-4 md:gap-6">
+          <div className="grid grid-rows-2 grid-flow-col gap-4 md:gap-6" style={{ width: 'max-content' }}>
             {isLoading ? (
               Array.from({ length: skeletonCount }).map((_, index) => (
                 <div key={index} className="w-40 sm:w-48 md:w-56">
@@ -92,6 +99,9 @@ const TwoRowAnimeGrid: React.FC<TwoRowAnimeGridProps> = ({ title, animeList, onS
                   <AnimeCard anime={anime} onSelect={onSelectAnime} />
                 </div>
               ))
+            )}
+            {!isLoading && animeList.length === 0 && (
+              <p className="text-gray-400 row-span-2 flex items-center justify-center">No anime found.</p>
             )}
           </div>
         </div>

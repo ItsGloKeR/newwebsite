@@ -13,9 +13,10 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
   
   return (
-    <div 
-      className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/30"
+    <button 
+      className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/30 text-left w-full h-full bg-transparent border-none p-0"
       onClick={() => onSelect(anime)}
+      aria-label={`Watch ${title}`}
     >
       <img
         src={anime.coverImage}
@@ -35,11 +36,11 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
-      <div className="absolute bottom-0 left-0 p-4 z-20">
+      <div className="absolute bottom-0 left-0 p-4 z-20 w-full">
         <h3 className="text-white text-lg font-bold truncate group-hover:whitespace-normal">{title}</h3>
         <p className="text-gray-300 text-sm">{anime.year}</p>
       </div>
-      <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+      <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-white" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
         </svg>
@@ -53,7 +54,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
               ></div>
           </div>
       )}
-    </div>
+    </button>
   );
 };
 

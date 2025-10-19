@@ -76,6 +76,17 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ isOpen, onClose, onFilterCl
       className="absolute top-full left-4 mt-2 w-64 bg-gray-800/95 backdrop-blur-sm rounded-lg shadow-2xl p-4 animate-fade-in-fast z-50"
     >
       <ul className="space-y-4">
+        <li>
+          <button onClick={() => handleLinkClick({ list: 'watchlist' }, 'My Watchlist')} className="text-white font-bold text-lg w-full text-left hover:text-cyan-400 transition-colors">
+            MY LIST
+          </button>
+        </li>
+        <li>
+          <button onClick={() => handleLinkClick({ list: 'favorites' }, 'My Favorites')} className="text-white font-bold text-lg w-full text-left hover:text-cyan-400 transition-colors">
+            FAVORITES
+          </button>
+        </li>
+        <hr className="border-gray-700" />
         {renderAccordionItem('GENRES', isGenresOpen, () => setIsGenresOpen(!isGenresOpen), genreItems)}
         {renderAccordionItem('TYPES', isTypesOpen, () => setIsTypesOpen(!isTypesOpen), typeItems)}
          <li>

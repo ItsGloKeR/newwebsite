@@ -23,7 +23,7 @@ const TwoRowLatestEpisodeGrid: React.FC<TwoRowLatestEpisodeGridProps> = ({ title
       }
     };
     
-    const timer = setTimeout(checkOverflow, 100);
+    const timer = setTimeout(checkOverflow, 150); // Give a bit more time for rendering
     window.addEventListener('resize', checkOverflow);
 
     return () => {
@@ -42,18 +42,25 @@ const TwoRowLatestEpisodeGrid: React.FC<TwoRowLatestEpisodeGridProps> = ({ title
     }
   };
 
+  const icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 4a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm10 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
   const skeletonCount = 12;
 
   return (
-    <section className="mb-12">
+    <section>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-white border-l-4 border-cyan-400 pl-4">{title}</h2>
+        <h2 className="text-3xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
+          <span className="text-cyan-400">{icon}</span>
+          <span>{title}</span>
+        </h2>
         {onViewMore && (
-          <button 
+           <button 
             onClick={onViewMore} 
-            className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+            className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
           >
-            View More &gt;
+            <span>View All</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
           </button>
         )}
       </div>
@@ -79,7 +86,7 @@ const TwoRowLatestEpisodeGrid: React.FC<TwoRowLatestEpisodeGridProps> = ({ title
         )}
 
         <div ref={scrollContainerRef} className="overflow-x-auto pb-4 carousel-scrollbar">
-          <div className="grid grid-rows-2 grid-flow-col gap-4 md:gap-6">
+          <div className="grid grid-rows-2 grid-flow-col gap-4 md:gap-6" style={{ width: 'max-content' }}>
             {isLoading ? (
               Array.from({ length: skeletonCount }).map((_, index) => (
                 <div key={index} className="w-40 sm:w-48 md:w-56">

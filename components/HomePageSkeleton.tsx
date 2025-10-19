@@ -2,7 +2,7 @@ import React from 'react';
 import SkeletonCard from './SkeletonCard';
 
 const SkeletonTitle: React.FC = () => (
-  <div className="h-9 w-64 bg-gray-800 rounded-md mb-6 animate-pulse"></div>
+  <div className="h-10 w-72 bg-gray-800 rounded-md mb-6 animate-pulse"></div>
 );
 
 const VerticalSkeletonItem: React.FC = () => (
