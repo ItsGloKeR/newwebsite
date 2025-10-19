@@ -3,6 +3,8 @@ import { SearchSuggestion, FilterState } from '../types';
 import SearchSuggestions from './SearchSuggestions';
 import DropdownMenu from './DropdownMenu';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
+import { getSearchHistory, removeSearchTermFromHistory, clearSearchHistory } from '../services/cacheService';
+
 
 interface HeaderProps {
   onSearch: (term: string) => void;
@@ -44,8 +46,11 @@ const Header: React.FC<HeaderProps> = ({
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const { titleLanguage, setTitleLanguage } = useTitleLanguage();
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   
   const showSuggestions = isSearchFocused && searchTerm.trim() !== '';
+  const showHistory = isSearchFocused && searchTerm.trim() === '' && searchHistory.length > 0;
+  const showDropdown = showSuggestions || showHistory;
 
   // Handle click outside to close suggestions and menu
   useEffect(() => {
@@ -66,6 +71,28 @@ const Header: React.FC<HeaderProps> = ({
         e.preventDefault();
         onSearchSubmit();
     }
+  };
+  
+  const handleSearchFocus = () => {
+    setIsSearchFocused(true);
+    setSearchHistory(getSearchHistory());
+  };
+
+  const handleHistoryClick = (term: string) => {
+    onSearch(term);
+    setTimeout(() => {
+        onSearchSubmit();
+    }, 0);
+  };
+  
+  const handleRemoveHistoryItem = (term: string) => {
+    removeSearchTermFromHistory(term);
+    setSearchHistory(prev => prev.filter(t => t !== term)); // Update state instantly
+  };
+
+  const handleClearHistory = () => {
+    clearSearchHistory();
+    setSearchHistory([]);
   };
 
   return (
@@ -102,7 +129,7 @@ const Header: React.FC<HeaderProps> = ({
                 value={searchTerm}
                 onChange={(e) => onSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
-                onFocus={() => setIsSearchFocused(true)}
+                onFocus={handleSearchFocus}
                 className="bg-gray-900/80 text-white rounded-full py-2 pl-10 pr-24 w-full focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all border border-transparent focus:border-cyan-500"
               />
               <button 
@@ -112,12 +139,16 @@ const Header: React.FC<HeaderProps> = ({
               >
                 <span className="font-semibold text-sm">Filter</span>
               </button>
-              {showSuggestions && (
+              {showDropdown && (
                   <SearchSuggestions 
-                      suggestions={suggestions} 
+                      suggestions={showSuggestions ? suggestions : undefined} 
+                      history={showHistory ? searchHistory : undefined}
                       onSuggestionClick={onSuggestionClick} 
                       isLoading={isSuggestionsLoading}
                       onViewAllClick={onSearchSubmit}
+                      onHistoryClick={handleHistoryClick}
+                      onRemoveHistoryItem={handleRemoveHistoryItem}
+                      onClearHistory={handleClearHistory}
                   />
               )}
             </div>

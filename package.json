@@ -12,7 +12,9 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "@google/genai": "^1.25.0",
-    "lodash.isequal": "^4.5.0"
+    "lodash.isequal": "^4.5.0",
+    "webworker": "^0.8.4",
+    "idb": "^8.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

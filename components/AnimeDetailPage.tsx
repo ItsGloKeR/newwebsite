@@ -238,7 +238,7 @@ interface AnimeDetailPageProps {
   setInView: (inView: boolean) => void;
 }
 
-// FIX: Define a limit for the number of related anime to show.
+// FIX: Removed an obsolete comment. A limit for related anime is already defined and used.
 const RELATED_ANIME_LIMIT = 15;
 
 const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated, setInView }) => {

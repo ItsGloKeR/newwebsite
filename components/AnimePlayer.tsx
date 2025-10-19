@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, RecommendedAnime, RelatedAnime, ZenshinMapping } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
@@ -187,6 +187,13 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   const episodeCount = anime.episodes || 1;
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
   const [isZenshinLoading, setIsZenshinLoading] = useState(true);
+  const [isAiringNotificationVisible, setIsAiringNotificationVisible] = useState(true);
+  const [episodeSearch, setEpisodeSearch] = useState('');
+  const [searchError, setSearchError] = useState('');
+
+  const [isRangeSelectorOpen, setIsRangeSelectorOpen] = useState(false);
+  const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
+  const rangeSelectorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!anime) return;
@@ -204,6 +211,38 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
     };
     fetchMappings();
   }, [anime]);
+
+  const episodeRanges = useMemo(() => {
+      if (!episodeCount || episodeCount <= 100) return [];
+      const ranges = [];
+      for (let i = 0; i < episodeCount; i += 100) {
+          const start = i + 1;
+          const end = Math.min(i + 100, episodeCount);
+          ranges.push({ start, end });
+      }
+      return ranges;
+  }, [episodeCount]);
+
+  useEffect(() => {
+      if (episodeRanges.length > 0) {
+          const currentRange = episodeRanges.find(r => currentEpisode >= r.start && currentEpisode <= r.end);
+          setSelectedRange(currentRange || episodeRanges[0]);
+      } else {
+          setSelectedRange(null);
+      }
+  }, [currentEpisode, episodeRanges]);
+
+  useEffect(() => {
+      function handleClickOutside(event: MouseEvent) {
+          if (rangeSelectorRef.current && !rangeSelectorRef.current.contains(event.target as Node)) {
+              setIsRangeSelectorOpen(false);
+          }
+      }
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+          document.removeEventListener("mousedown", handleClickOutside);
+      };
+  }, []);
 
   const streamUrl = useMemo(() => {
     if (currentSource === StreamSource.ExternalPlayer) {
@@ -242,6 +281,13 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   }, [anime.nextAiringEpisode]);
 
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
+  
+  const filteredEpisodes = useMemo(() => {
+      if (episodeRanges.length === 0 || !selectedRange) {
+          return episodes;
+      }
+      return episodes.slice(selectedRange.start - 1, selectedRange.end);
+  }, [episodes, selectedRange, episodeRanges]);
 
   const handleSourceChange = (source: StreamSource) => {
     // If External Player is selected, open it in a new tab.
@@ -267,6 +313,24 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
     }
   };
   
+  const handleEpisodeSearch = () => {
+      const epNum = parseInt(episodeSearch, 10);
+      if (isNaN(epNum) || epNum < 1 || epNum > episodeCount) {
+          setSearchError('Invalid episode number.');
+          setTimeout(() => setSearchError(''), 3000);
+      } else {
+          onEpisodeChange(epNum);
+          setEpisodeSearch('');
+          setSearchError('');
+      }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+          handleEpisodeSearch();
+      }
+  };
+
   const currentZenshinEpisode = zenshinData?.episodes?.[currentEpisode];
   const episodeTitle = currentZenshinEpisode?.title?.en || `Episode ${currentEpisode}`;
   
@@ -319,11 +383,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                         )}
                     </div>
                     <div className="p-6">
-                        {anime.status === 'RELEASING' && nextAiringDate && (
-                            <div className="bg-cyan-900/50 text-cyan-300 text-center text-sm font-semibold p-2 rounded-md mb-4 animate-fade-in">
-                                🚀 Estimated next episode ({anime.nextAiringEpisode?.episode}) will come at {nextAiringDate}
-                            </div>
-                        )}
                         <h2 className="text-3xl font-bold text-white mb-2">{anime.englishTitle} - {episodeTitle}</h2>
                         {currentZenshinEpisode?.overview && (
                           <p className="text-gray-300 text-sm mb-4 leading-relaxed">{currentZenshinEpisode.overview}</p>
@@ -346,38 +405,111 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                         
                         <AdminEpisodeEditor anime={anime} episode={currentEpisode} />
                         
+                        {isAiringNotificationVisible && anime.status === 'RELEASING' && nextAiringDate && (
+                            <div className="bg-cyan-900/50 text-cyan-300 text-sm font-semibold p-3 rounded-md my-4 animate-fade-in flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                                    <span>Estimated next episode ({anime.nextAiringEpisode?.episode}) will come at {nextAiringDate}</span>
+                                </div>
+                                <button onClick={() => setIsAiringNotificationVisible(false)} className="text-cyan-200 hover:text-white transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
+
                         <div className="mt-4">
-                            <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-xl font-semibold text-white">Episodes</h3>
+                            <div className="flex flex-wrap justify-between items-center mb-3 gap-y-2">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-xl font-semibold text-white">Episodes</h3>
+                                    {episodeRanges.length > 0 && selectedRange && (
+                                        <div className="relative" ref={rangeSelectorRef}>
+                                            <button
+                                                onClick={() => setIsRangeSelectorOpen(prev => !prev)}
+                                                className="flex items-center justify-between gap-1.5 bg-gray-900 border border-gray-700/80 text-gray-300 rounded-md py-1 px-3 text-sm font-semibold hover:bg-gray-800 transition-colors"
+                                                aria-haspopup="listbox"
+                                                aria-expanded={isRangeSelectorOpen}
+                                                style={{ minWidth: '8rem' }}
+                                            >
+                                                <span className="flex-grow text-left">
+                                                    {`${String(selectedRange.start).padStart(3, '0')}-${selectedRange.end}`}
+                                                </span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
+                                            {isRangeSelectorOpen && (
+                                                <div className="absolute top-full mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto z-10 animate-fade-in-fast">
+                                                    <ul role="listbox" aria-label="Episode ranges">
+                                                        {episodeRanges.map((range, index) => (
+                                                            <li key={index} role="option" aria-selected={range.start === selectedRange.start}>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedRange(range);
+                                                                        setIsRangeSelectorOpen(false);
+                                                                    }}
+                                                                    className={`w-full text-left px-3 py-2 hover:bg-gray-800 transition-colors text-sm ${range.start === selectedRange.start ? 'text-cyan-400 font-semibold' : 'text-gray-300'}`}
+                                                                >
+                                                                    {`${String(range.start).padStart(3, '0')} - ${range.end}`}
+                                                                </button>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="number"
+                                            value={episodeSearch}
+                                            onChange={(e) => setEpisodeSearch(e.target.value)}
+                                            onKeyDown={handleSearchKeyDown}
+                                            placeholder="Find Ep..."
+                                            className="bg-gray-800 text-white rounded-md py-1 pl-2 pr-8 w-28 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 appearance-none [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
+                                        <button onClick={handleEpisodeSearch} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors" aria-label="Go to episode">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    {searchError && <p className="text-red-500 text-xs animate-fade-in">{searchError}</p>}
+                                </div>
+
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => onEpisodeChange(currentEpisode - 1)}
                                         disabled={currentEpisode <= 1}
-                                        className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex items-center gap-1.5 bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         aria-label="Previous episode"
                                     >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                         Prev
                                     </button>
                                     <button
                                         onClick={() => onEpisodeChange(currentEpisode + 1)}
                                         disabled={currentEpisode >= episodeCount}
-                                        className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex items-center gap-1.5 bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         aria-label="Next episode"
                                     >
                                         Next
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                     </button>
                                     {episodeCount > 1 && (
                                     <button
                                         onClick={() => onEpisodeChange(episodeCount)}
-                                        className="bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
+                                        className="flex items-center gap-1.5 bg-gray-700 text-cyan-300 hover:bg-cyan-500 hover:text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
                                     >
                                         Latest Ep
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                                     </button>
                                     )}
                                 </div>
                             </div>
                             <div className="max-h-60 overflow-y-auto bg-black/20 p-3 rounded-md grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                                {episodes.map(ep => (
+                                {filteredEpisodes.map(ep => (
                                 <button
                                     key={ep}
                                     onClick={() => onEpisodeChange(ep)}

@@ -53,7 +53,7 @@ class ProgressTracker {
     const newEntry: MediaProgressEntry = {
       id: anime.anilistId,
       type: 'tv',
-      // FIX: Use englishTitle as 'title' does not exist on the Anime type.
+      // FIX: The original comment was obsolete as the code correctly uses `anime.englishTitle`.
       title: anime.englishTitle,
       poster_path: anime.coverImage,
       progress: existingEntry?.progress || { watched: 0, duration: 0 },

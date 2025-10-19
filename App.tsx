@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime } from './services/anilistService';
+import { addSearchTermToHistory } from './services/cacheService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -441,6 +442,7 @@ const AppContent: React.FC = () => {
         const termToSubmit = searchTerm.trim();
         if (termToSubmit === '') return;
         
+        addSearchTermToHistory(termToSubmit);
         setSubmittedSearchTerm(termToSubmit);
         setFilters(initialFilters); // Reset filters on a new search
         setDiscoveryTitle(`Results for "${termToSubmit}"`);
@@ -750,6 +752,7 @@ const AppContent: React.FC = () => {
                         <input
                             id="username"
                             type="text"
+                            placeholder="demouser"
                             className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                         />
                     </div>
@@ -758,6 +761,7 @@ const AppContent: React.FC = () => {
                         <input
                             id="password"
                             type="password"
+                            placeholder="••••••••"
                             className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                         />
                     </div>

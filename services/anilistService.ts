@@ -1,6 +1,26 @@
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping } from '../types';
+// services/anilistService.ts
 
-const ANILIST_API_URL = 'https://graphql.anilist.co';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping } from '../types';
+import * as db from './dbService';
+
+// Cache Durations
+const ANIME_DETAILS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
+const HOME_PAGE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
+const LATEST_EPISODES_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
+const AIRING_SCHEDULE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
+const GENRE_COLLECTION_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
+const SEARCH_SUGGESTIONS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
+const DISCOVER_ANIME_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
+const ZENSHIN_MAPPINGS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
+
+
+const ANILIST_API_URLS = [
+  'https://graphql.anilist.co',
+  'https://graphql.consumet.org' // A public proxy as a fallback
+];
+
+// This will keep track of the last known working API to prioritize it.
+let currentApiIndex = 0;
 
 const ANIME_FIELDS_FRAGMENT = `
   id
@@ -20,7 +40,6 @@ const ANIME_FIELDS_FRAGMENT = `
   episodes
   duration
   status
-  format
   nextAiringEpisode {
     episode
     airingAt
@@ -84,47 +103,98 @@ const ANIME_FIELDS_FRAGMENT = `
   }
 `;
 
-// Helper function to fetch data from AniList with rate-limiting retry logic
+// Helper function to fetch data from AniList with fallback and rate-limiting retry logic.
+// This function prioritizes getting fresh data, retrying on rate limits.
+// If all retries fail, it throws an error which is caught by `getOrSetCache`.
+// `getOrSetCache` will then attempt to serve stale data as a final fallback.
 const fetchAniListData = async (query: string, variables: object) => {
-  const maxRetries = 5;
-  let delay = 1000; // Start with 1 second for fallback
+  const maxRetriesPerEndpoint = 2;
+  let lastError: Error | null = null;
 
-  for (let i = 0; i < maxRetries; i++) {
-    const response = await fetch(ANILIST_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ query, variables }),
-    });
+  for (let i = 0; i < ANILIST_API_URLS.length; i++) {
+    const endpointIndex = (currentApiIndex + i) % ANILIST_API_URLS.length;
+    const endpoint = ANILIST_API_URLS[endpointIndex];
+    
+    for (let attempt = 0; attempt < maxRetriesPerEndpoint; attempt++) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ query, variables }),
+        });
 
-    if (response.ok) {
-      const json = await response.json();
-      if (json.errors) {
-        console.error("AniList API Errors:", json.errors);
-        throw new Error(`GraphQL Error: ${json.errors.map((e: any) => e.message).join(', ')}`);
+        if (response.ok) {
+          const json = await response.json();
+          if (json.errors) {
+            lastError = new Error(`GraphQL Error from ${endpoint}: ${json.errors.map((e: any) => e.message).join(', ')}`);
+            // GraphQL errors likely won't be fixed by retrying or switching endpoints, but we'll try the next endpoint just in case.
+            break; 
+          }
+          // Success! Prioritize this endpoint for future requests.
+          currentApiIndex = endpointIndex;
+          return json.data;
+        }
+
+        if (response.status === 429) {
+          const retryAfterHeader = response.headers.get('Retry-After');
+          const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : null;
+          
+          // Use exponential backoff with jitter if Retry-After is not provided.
+          // Base delay 1s, increasing exponentially. Jitter adds randomness to avoid thundering herd.
+          const backoff = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+          const waitTime = retryAfterSeconds != null ? retryAfterSeconds * 1000 : backoff;
+
+          console.warn(`Rate limited by ${endpoint}. Retrying in ${Math.round(waitTime / 1000)}s...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          // Continue to retry on this same endpoint.
+        } else {
+          // For other server errors (e.g., 5xx), break the inner loop and try the next endpoint.
+          lastError = new Error(`API error from ${endpoint}: ${response.status} ${response.statusText}`);
+          break;
+        }
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`Network error fetching from ${endpoint}.`, error);
+        // On network error, break the inner loop and try the next endpoint.
+        break;
       }
-      return json.data;
     }
-
-    if (response.status === 429) {
-      const retryAfterHeader = response.headers.get('Retry-After');
-      // Use header value if present, otherwise use exponential backoff
-      const retryAfter = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : delay;
-      
-      console.warn(`Rate limited by AniList API. Retrying in ${retryAfter / 1000} seconds... (Attempt ${i + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, retryAfter));
-      delay *= 2; // Double the delay for the next potential fallback
-      continue;
-    }
-
-    // For any other server error, fail immediately without retrying
-    throw new Error(`AniList API error: ${response.status} ${response.statusText}`);
   }
 
-  throw new Error(`Failed to fetch from AniList after ${maxRetries} attempts due to persistent rate limiting.`);
+  throw new Error(`Failed to fetch from all AniList API sources. Last error: ${lastError?.message}`);
 };
+
+/**
+ * A generic wrapper to handle caching logic for API calls using IndexedDB.
+ * @param key The cache key.
+ * @param maxAgeMs The max age for the cache item.
+ * @param fetchFn The function that performs the actual API fetch.
+ * @returns The data from cache or API.
+ */
+async function getOrSetCache<T>(key: string, maxAgeMs: number, fetchFn: () => Promise<T>): Promise<T> {
+    const cachedData = await db.get<T>(key);
+    if (cachedData) {
+        return cachedData;
+    }
+
+    try {
+        const freshData = await fetchFn();
+        await db.set(key, freshData, maxAgeMs);
+        return freshData;
+    } catch (error) {
+        console.error(`[API Error] Failed to fetch for key: ${key}.`, error);
+        const staleData = await db.getStale<T>(key);
+        if (staleData) {
+            console.warn(`[Cache] Serving STALE data from DB for key: ${key} due to API error.`);
+            return staleData;
+        }
+        throw error;
+    }
+}
+
 
 // Helper to map API response to our Anime type
 const mapToAnime = (data: any): Anime => {
@@ -270,316 +340,360 @@ const getCurrentSeason = (): { season: MediaSeason, year: number } => {
 
 
 export const getHomePageData = async () => {
-  const { season, year } = getCurrentSeason();
-  
-  const query = `
-    query ($season: MediaSeason, $seasonYear: Int) {
-      trending: Page(page: 1, perPage: 10) {
-        media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
-          ...animeFields
-        }
-      }
-      popular: Page(page: 1, perPage: 24) {
-        media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
-          ...animeFields
-        }
-      }
-      topAiring: Page(page: 1, perPage: 10) {
-        media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING) {
-          ...animeFields
-        }
-      }
-      topRated: Page(page: 1, perPage: 10) {
-        media(sort: SCORE_DESC, type: ANIME) {
-          ...animeFields
-        }
-      }
-      topUpcoming: Page(page: 1, perPage: 10) {
-        media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED) {
-          ...animeFields
-        }
-      }
-      popularThisSeason: Page(page: 1, perPage: 10) {
-          media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear) {
-              ...animeFields
-          }
-      }
-    }
+    const cacheKey = 'homePageData';
+    return getOrSetCache(cacheKey, HOME_PAGE_CACHE_DURATION, async () => {
+        const { season, year } = getCurrentSeason();
+        
+        const query = `
+            query ($season: MediaSeason, $seasonYear: Int) {
+            trending: Page(page: 1, perPage: 10) {
+                media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
+                ...animeFields
+                }
+            }
+            popular: Page(page: 1, perPage: 24) {
+                media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
+                ...animeFields
+                }
+            }
+            topAiring: Page(page: 1, perPage: 10) {
+                media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING) {
+                ...animeFields
+                }
+            }
+            topRated: Page(page: 1, perPage: 10) {
+                media(sort: SCORE_DESC, type: ANIME) {
+                ...animeFields
+                }
+            }
+            topUpcoming: Page(page: 1, perPage: 10) {
+                media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED) {
+                ...animeFields
+                }
+            }
+            popularThisSeason: Page(page: 1, perPage: 10) {
+                media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear) {
+                    ...animeFields
+                }
+            }
+            }
 
-    fragment animeFields on Media {
-      ${ANIME_FIELDS_FRAGMENT}
-    }
-  `;
+            fragment animeFields on Media {
+            ${ANIME_FIELDS_FRAGMENT}
+            }
+        `;
 
-  const data = await fetchAniListData(query, { season, seasonYear: year });
-  
-  return {
-    trending: data.trending.media.map(mapToAnime),
-    popular: data.popular.media.map(mapToAnime),
-    topAiring: data.topAiring.media.map(mapToAnime),
-    topRated: data.topRated.media.map(mapToAnime),
-    topUpcoming: data.topUpcoming.media.map(mapToAnime),
-    popularThisSeason: data.popularThisSeason.media.map(mapToAnime),
-    currentSeason: season,
-    currentYear: year,
-  };
+        const data = await fetchAniListData(query, { season, seasonYear: year });
+        
+        return {
+            trending: data.trending.media.map(mapToAnime),
+            popular: data.popular.media.map(mapToAnime),
+            topAiring: data.topAiring.media.map(mapToAnime),
+            topRated: data.topRated.media.map(mapToAnime),
+            topUpcoming: data.topUpcoming.media.map(mapToAnime),
+            popularThisSeason: data.popularThisSeason.media.map(mapToAnime),
+            currentSeason: season,
+            currentYear: year,
+        };
+    });
 };
 
 export const getMultipleAnimeDetails = async (ids: number[]): Promise<Anime[]> => {
-  if (ids.length === 0) {
-    return [];
-  }
-
-  const query = `
-    query ($ids: [Int]) {
-      Page(page: 1, perPage: 50) {
-        media(id_in: $ids, type: ANIME) {
-          ...animeFields
-        }
-      }
+    if (ids.length === 0) {
+        return [];
     }
-    fragment animeFields on Media {
-      ${ANIME_FIELDS_FRAGMENT}
-    }
-  `;
+    
+    const dbPromises = ids.map(id => db.get<Anime>(`anime_details_${id}`));
+    const cachedAnimeResults = await Promise.all(dbPromises);
+    const cachedAnime = cachedAnimeResults.filter((a): a is Anime => a !== null);
 
-  const variables = { ids };
-  try {
-    const data = await fetchAniListData(query, variables);
-    return data.Page.media.map(mapToAnime);
-  } catch (error) {
-    console.error('Failed to fetch multiple anime details:', error);
-    return [];
-  }
+    const cachedIds = new Set(cachedAnime.map(a => a.anilistId));
+    const idsToFetch = ids.filter(id => !cachedIds.has(id));
+    
+    if (idsToFetch.length === 0) {
+        const animeMap = new Map(cachedAnime.map(a => [a.anilistId, a]));
+        return ids.map(id => animeMap.get(id)).filter((a): a is Anime => a !== undefined);
+    }
+    
+    let fetchedAnime: Anime[] = [];
+    try {
+        const query = `
+            query ($ids: [Int]) {
+                Page(page: 1, perPage: 50) {
+                    media(id_in: $ids, type: ANIME) {
+                        ...animeFields
+                    }
+                }
+            }
+            fragment animeFields on Media {
+                ${ANIME_FIELDS_FRAGMENT}
+            }
+        `;
+        const variables = { ids: idsToFetch };
+        const data = await fetchAniListData(query, variables);
+        fetchedAnime = data.Page.media.map(mapToAnime);
+
+        const setPromises = fetchedAnime.map(anime => {
+            const cacheKey = `anime_details_${anime.anilistId}`;
+            return db.set(cacheKey, anime, ANIME_DETAILS_CACHE_DURATION);
+        });
+        await Promise.all(setPromises);
+    } catch (error) {
+        console.error(`Failed to fetch multiple anime details for IDs: ${idsToFetch}`, error);
+        const stalePromises = idsToFetch.map(id => db.getStale<Anime>(`anime_details_${id}`));
+        const staleFetchedAnimeResults = await Promise.all(stalePromises);
+        const staleFetchedAnime = staleFetchedAnimeResults.filter((a): a is Anime => a !== null);
+        fetchedAnime.push(...staleFetchedAnime);
+    }
+    
+    const allAnime = [...cachedAnime, ...fetchedAnime];
+    const animeMap = new Map(allAnime.map(a => [a.anilistId, a]));
+    return ids.map(id => animeMap.get(id)).filter((a): a is Anime => a !== undefined);
 };
 
 export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
-    const query = `
-      query {
-        Page(page: 1, perPage: 18) {
-          airingSchedules(notYetAired: false, sort: TIME_DESC) {
-            id
-            episode
-            airingAt
-            media {
-              id
-              isAdult
-              episodes
-              title {
-                romaji
-                english
-              }
-              coverImage {
-                extraLarge
-              }
+    const cacheKey = 'latestEpisodes';
+    return getOrSetCache(cacheKey, LATEST_EPISODES_CACHE_DURATION, async () => {
+        const query = `
+        query {
+            Page(page: 1, perPage: 18) {
+            airingSchedules(notYetAired: false, sort: TIME_DESC) {
+                id
+                episode
+                airingAt
+                media {
+                id
+                isAdult
+                episodes
+                title {
+                    romaji
+                    english
+                }
+                coverImage {
+                    extraLarge
+                }
+                }
             }
-          }
+            }
         }
-      }
-    `;
+        `;
 
-    const data = await fetchAniListData(query, {});
-    const schedules: AiringSchedule[] = data.Page.airingSchedules;
+        const data = await fetchAniListData(query, {});
+        const schedules: AiringSchedule[] = data.Page.airingSchedules;
 
-    // The API might return duplicates for the same episode. Let's ensure it's unique.
-    const uniqueSchedules = schedules.reduce((acc, current) => {
-        const key = `${current.media.id}-${current.episode}`;
-        if (!acc.find(item => `${item.media.id}-${item.episode}` === key)) {
-            acc.push(current);
-        }
-        return acc;
-    }, [] as AiringSchedule[]);
-    
-    return uniqueSchedules;
+        const uniqueSchedules = schedules.reduce((acc, current) => {
+            if (!acc.some(item => item.media.id === current.media.id)) {
+                acc.push(current);
+            }
+            return acc;
+        }, [] as AiringSchedule[]);
+        
+        return uniqueSchedules;
+    });
 };
 
 
 export const discoverAnime = async (searchTerm: string, filters: FilterState, pageLimit = 2): Promise<Anime[]> => {
-  const perPage = 50;
-  const query = `
-    query (
-      $search: String,
-      $page: Int,
-      $perPage: Int,
-      $sort: [MediaSort],
-      $genres: [String],
-      $season: MediaSeason,
-      $seasonYear: Int,
-      $format_in: [MediaFormat],
-      $status_in: [MediaStatus]
-    ) {
-      Page(page: $page, perPage: $perPage) {
-        media(
-          search: $search,
-          type: ANIME,
-          sort: $sort,
-          genre_in: $genres,
-          season: $season,
-          seasonYear: $seasonYear,
-          format_in: $format_in,
-          status_in: $status_in
-        ) {
-          ...animeFields
-        }
-      }
-    }
-    fragment animeFields on Media {
-      ${ANIME_FIELDS_FRAGMENT}
-    }
-  `;
-
-  const buildVariables = (page: number) => {
-    const variables: any = {
-      search: searchTerm.trim() ? searchTerm.trim() : undefined,
-      sort: [filters.sort],
-      page,
-      perPage,
-    };
-    if (filters.genres.length > 0) variables.genres = filters.genres;
-    if (filters.year && !isNaN(parseInt(filters.year))) variables.seasonYear = parseInt(filters.year, 10);
-    if (filters.season) variables.season = filters.season;
-    if (filters.formats.length > 0) variables.format_in = filters.formats;
-    if (filters.statuses.length > 0) variables.status_in = filters.statuses;
-    return variables;
-  }
-
-  const pagePromises = Array.from({ length: pageLimit }, (_, i) => {
-    const variables = buildVariables(i + 1);
-    return fetchAniListData(query, variables);
-  });
-
-  try {
-    const pageResults = await Promise.all(pagePromises);
-    const allMedia = pageResults.flatMap(data => (data.Page && data.Page.media) ? data.Page.media : []);
-    const mappedAnime = allMedia.map(mapToAnime);
-    const uniqueAnime = Array.from(new Map(mappedAnime.map(anime => [anime.anilistId, anime])).values());
-    return uniqueAnime;
-  } catch (error) {
-    console.error(`Failed to fetch discovery pages in parallel:`, error);
-    return [];
-  }
-};
-
-
-export const getAnimeDetails = async (id: number): Promise<Anime> => {
+  const cacheKey = `discover_${searchTerm}_${JSON.stringify(filters)}`;
+  return getOrSetCache(cacheKey, DISCOVER_ANIME_CACHE_DURATION, async () => {
+    const perPage = 50;
     const query = `
-      query ($id: Int) {
-        Media(id: $id, type: ANIME) {
-          ...animeFields
+      query (
+        $search: String,
+        $page: Int,
+        $perPage: Int,
+        $sort: [MediaSort],
+        $genres: [String],
+        $season: MediaSeason,
+        $seasonYear: Int,
+        $format_in: [MediaFormat],
+        $status_in: [MediaStatus]
+      ) {
+        Page(page: $page, perPage: $perPage) {
+          media(
+            search: $search,
+            type: ANIME,
+            sort: $sort,
+            genre_in: $genres,
+            season: $season,
+            seasonYear: $seasonYear,
+            format_in: $format_in,
+            status_in: $status_in
+          ) {
+            ...animeFields
+          }
         }
       }
       fragment animeFields on Media {
         ${ANIME_FIELDS_FRAGMENT}
       }
     `;
-    const variables = { id };
-    const data = await fetchAniListData(query, variables);
-    return mapToAnime(data.Media);
+
+    const buildVariables = (page: number) => {
+      const variables: any = {
+        search: searchTerm.trim() ? searchTerm.trim() : undefined,
+        sort: [filters.sort],
+        page,
+        perPage,
+      };
+      if (filters.genres.length > 0) variables.genres = filters.genres;
+      if (filters.year && !isNaN(parseInt(filters.year))) variables.seasonYear = parseInt(filters.year, 10);
+      if (filters.season) variables.season = filters.season;
+      if (filters.formats.length > 0) variables.format_in = filters.formats;
+      if (filters.statuses.length > 0) variables.status_in = filters.statuses;
+      return variables;
+    }
+
+    const pagePromises = Array.from({ length: pageLimit }, (_, i) => {
+      const variables = buildVariables(i + 1);
+      return fetchAniListData(query, variables);
+    });
+
+    try {
+      const pageResults = await Promise.all(pagePromises);
+      const allMedia = pageResults.flatMap(data => (data.Page && data.Page.media) ? data.Page.media : []);
+      const mappedAnime = allMedia.map(mapToAnime);
+      const uniqueAnime = Array.from(new Map(mappedAnime.map(anime => [anime.anilistId, anime])).values());
+      return uniqueAnime;
+    } catch (error) {
+      console.error(`Failed to fetch discovery pages in parallel:`, error);
+      return [];
+    }
+  });
+};
+
+
+export const getAnimeDetails = async (id: number): Promise<Anime> => {
+    const cacheKey = `anime_details_${id}`;
+    return getOrSetCache(cacheKey, ANIME_DETAILS_CACHE_DURATION, async () => {
+        const query = `
+        query ($id: Int) {
+            Media(id: $id, type: ANIME) {
+            ...animeFields
+            }
+        }
+        fragment animeFields on Media {
+            ${ANIME_FIELDS_FRAGMENT}
+        }
+        `;
+        const variables = { id };
+        const data = await fetchAniListData(query, variables);
+        return mapToAnime(data.Media);
+    });
 };
 
 export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
-    const query = `
-      query ($airingAt_greater: Int, $airingAt_lesser: Int, $page: Int, $perPage: Int) {
-        Page(page: $page, perPage: $perPage) {
-          pageInfo {
-            hasNextPage
-          }
-          airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME) {
-            id
-            episode
-            airingAt
-            media {
-              id
-              isAdult
-              episodes
-              title {
-                romaji
-                english
-              }
-              coverImage {
-                extraLarge
-              }
+    const cacheKey = 'airingSchedule';
+    return getOrSetCache(cacheKey, AIRING_SCHEDULE_CACHE_DURATION, async () => {
+        const query = `
+        query ($airingAt_greater: Int, $airingAt_lesser: Int, $page: Int, $perPage: Int) {
+            Page(page: $page, perPage: $perPage) {
+            pageInfo {
+                hasNextPage
             }
-          }
+            airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME) {
+                id
+                episode
+                airingAt
+                media {
+                id
+                isAdult
+                episodes
+                title {
+                    romaji
+                    english
+                }
+                coverImage {
+                    extraLarge
+                }
+                }
+            }
+            }
         }
-      }
-    `;
-    
-    const now = Math.floor(Date.now() / 1000);
-    // Get schedule for the next 30 days
-    const thirtyDaysLater = now + 30 * 24 * 60 * 60;
-    
-    let allSchedules: AiringSchedule[] = [];
-    let page = 1;
-    let hasNextPage = true;
-
-    while (hasNextPage) {
-        const variables = {
-            airingAt_greater: now,
-            airingAt_lesser: thirtyDaysLater,
-            page: page,
-            perPage: 50
-        };
-        const data = await fetchAniListData(query, variables);
+        `;
         
-        if (data.Page && data.Page.airingSchedules) {
-            allSchedules = allSchedules.concat(data.Page.airingSchedules);
-            hasNextPage = data.Page.pageInfo.hasNextPage;
-            page++;
-        } else {
-            hasNextPage = false;
+        const now = Math.floor(Date.now() / 1000);
+        // Get schedule for the next 30 days
+        const thirtyDaysLater = now + 30 * 24 * 60 * 60;
+        
+        let allSchedules: AiringSchedule[] = [];
+        let page = 1;
+        let hasNextPage = true;
+
+        while (hasNextPage) {
+            const variables = {
+                airingAt_greater: now,
+                airingAt_lesser: thirtyDaysLater,
+                page: page,
+                perPage: 50
+            };
+            const data = await fetchAniListData(query, variables);
+            
+            if (data.Page && data.Page.airingSchedules) {
+                allSchedules = allSchedules.concat(data.Page.airingSchedules);
+                hasNextPage = data.Page.pageInfo.hasNextPage;
+                page++;
+            } else {
+                hasNextPage = false;
+            }
         }
-    }
-    
-    return allSchedules;
+        
+        return allSchedules;
+    });
 };
 
 export const getGenreCollection = async (): Promise<string[]> => {
-    const query = `
-      query {
-        GenreCollection
-      }
-    `;
-    const data = await fetchAniListData(query, {});
-    return data.GenreCollection.filter((genre: string | null) => genre !== null);
+    const cacheKey = 'genreCollection';
+    return getOrSetCache(cacheKey, GENRE_COLLECTION_CACHE_DURATION, async () => {
+        const query = `
+        query {
+            GenreCollection
+        }
+        `;
+        const data = await fetchAniListData(query, {});
+        return data.GenreCollection.filter((genre: string | null) => genre !== null);
+    });
 };
 
 // A more lightweight search for suggestions dropdown
 export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSuggestion[]> => {
   if (!searchTerm) return [];
   
-  const query = `
-    query ($search: String) {
-      Page(page: 1, perPage: 8) {
-        media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
-          id
-          isAdult
-          episodes
-          title {
-            romaji
-            english
+  const cacheKey = `search_suggestions_${searchTerm.toLowerCase().trim()}`;
+  return getOrSetCache(cacheKey, SEARCH_SUGGESTIONS_CACHE_DURATION, async () => {
+    const query = `
+      query ($search: String) {
+        Page(page: 1, perPage: 8) {
+          media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
+            id
+            isAdult
+            episodes
+            title {
+              romaji
+              english
+            }
+            coverImage {
+              medium
+            }
+            seasonYear
           }
-          coverImage {
-            medium
-          }
-          seasonYear
         }
       }
-    }
-  `;
+    `;
 
-  const variables = { search: searchTerm };
-  const data = await fetchAniListData(query, variables);
+    const variables = { search: searchTerm };
+    const data = await fetchAniListData(query, variables);
 
-  return data.Page.media.map((media: any) => ({
-    anilistId: media.id,
-    englishTitle: media.title.english || media.title.romaji,
-    romajiTitle: media.title.romaji || media.title.english,
-    coverImage: media.coverImage.medium,
-    year: media.seasonYear,
-    isAdult: media.isAdult,
-    episodes: media.episodes,
-  }));
+    return data.Page.media.map((media: any) => ({
+      anilistId: media.id,
+      englishTitle: media.title.english || media.title.romaji,
+      romajiTitle: media.title.romaji || media.title.english,
+      coverImage: media.coverImage.medium,
+      year: media.seasonYear,
+      isAdult: media.isAdult,
+      episodes: media.episodes,
+    }));
+  });
 };
 
 // Zenshin API for detailed episode mappings
@@ -606,26 +720,28 @@ async function fetchFromZenshin(endpoint: string): Promise<Response> {
 }
 
 export const getZenshinMappings = async (anilistId: number): Promise<ZenshinMapping | null> => {
-  try {
-    const response = await fetchFromZenshin(`mappings?anilist_id=${anilistId}`);
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.log(`No Zenshin mapping found for anilistId: ${anilistId}`);
-        return null;
-      }
-      throw new Error(`Failed to fetch Zenshin mappings. Status: ${response.status}`);
-    }
-    const data = await response.json();
-    // Attempt to merge mal_id from Zenshin if not present from AniList
-    if (data && data.mappings && data.mappings.mal_id) {
-        const animeDetails = await getAnimeDetails(anilistId);
-        if (!animeDetails.malId) {
-            data.malId = data.mappings.mal_id;
+    const cacheKey = `zenshin_${anilistId}`;
+    return getOrSetCache(cacheKey, ZENSHIN_MAPPINGS_CACHE_DURATION, async () => {
+        try {
+            const response = await fetchFromZenshin(`mappings?anilist_id=${anilistId}`);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log(`No Zenshin mapping found for anilistId: ${anilistId}`);
+                    return null;
+                }
+                throw new Error(`Failed to fetch Zenshin mappings. Status: ${response.status}`);
+            }
+            const data = await response.json();
+            if (data && data.mappings && data.mappings.mal_id) {
+                const animeDetails = await getAnimeDetails(anilistId);
+                if (!animeDetails.malId) {
+                    data.malId = data.mappings.mal_id;
+                }
+            }
+            return data as ZenshinMapping;
+        } catch (error) {
+            console.error(`Error fetching Zenshin mappings for anilistId ${anilistId}:`, error);
+            return null;
         }
-    }
-    return data as ZenshinMapping;
-  } catch (error) {
-    console.error(`Error fetching Zenshin mappings for anilistId ${anilistId}:`, error);
-    return null;
-  }
+    });
 };
