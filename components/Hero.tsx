@@ -100,7 +100,7 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
             className="hidden sm:block w-36 md:w-48 lg:w-56 h-auto object-cover rounded-lg shadow-2xl aspect-[2/3]"
             onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
           />
-          <div className="max-w-xl">
+          <div className="max-w-xl pb-24 sm:pb-0">
             <div className="flex items-center gap-2 text-cyan-400 font-semibold text-sm md:text-lg mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 10a1 1 0 112 0 1 1 0 01-2 0zm-5 0a5 5 0 1110 0 5 5 0 01-10 0z" clipRule="evenodd" />
@@ -117,7 +117,7 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
 
             <p className="text-gray-200 leading-relaxed text-sm my-4">{description}</p>
             
-            <div className="mt-6 flex gap-4 pb-12">
+            <div className="mt-6 flex gap-4">
                 <button
                     onClick={() => onWatchNow(currentAnime)}
                     className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 md:py-3 md:px-6 rounded-md transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2"

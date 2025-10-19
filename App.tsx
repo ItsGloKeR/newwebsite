@@ -34,6 +34,8 @@ const initialFilters: FilterState = {
     sort: MediaSort.POPULARITY_DESC,
 };
 
+const SESSION_STORAGE_KEY = 'aniGlokSession';
+
 const AppContent: React.FC = () => {
     const [view, setView] = useState<View>('home');
     const [trending, setTrending] = useState<Anime[]>(initialTrending);
@@ -58,6 +60,7 @@ const AppContent: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [submittedSearchTerm, setSubmittedSearchTerm] = useState('');
     const [filters, setFilters] = useState<FilterState>(initialFilters);
     const [discoveryTitle, setDiscoveryTitle] = useState('Filtered Results');
     const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
@@ -70,13 +73,12 @@ const AppContent: React.FC = () => {
     const [heroBannerUrl, setHeroBannerUrl] = useState<string | null>(null);
     const [isBannerInView, setIsBannerInView] = useState(true);
 
-    const debouncedSearchTerm = useDebounce(searchTerm, 500);
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
 
     const isDiscoveryView = useMemo(() => {
-        return debouncedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters);
-    }, [debouncedSearchTerm, filters]);
+        return submittedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters);
+    }, [submittedSearchTerm, filters]);
 
     const applyOverrides = useCallback((anime: Anime): Anime => {
         if (!anime) return anime;
@@ -136,6 +138,71 @@ const AppContent: React.FC = () => {
         }
     }, [enrichAnimeWithProgress, enrichScheduleWithProgress, selectedAnime]);
     
+    const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
+        setIsLoading(true);
+        setIsBannerInView(true); // Reset for new page view
+        setView('details');
+        window.scrollTo(0, 0);
+        try {
+            const fullDetails = await getAnimeDetails(anime.anilistId);
+            
+            const allProgress = progressTracker.getAllMediaData();
+
+            if (fullDetails.relations) {
+                fullDetails.relations = fullDetails.relations.map(rel => {
+                    const progressData = allProgress[rel.id];
+                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
+                        return { ...rel, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
+                    }
+                    return rel;
+                });
+            }
+            if (fullDetails.recommendations) {
+                fullDetails.recommendations = fullDetails.recommendations.map(rec => {
+                    const progressData = allProgress[rec.id];
+                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
+                        return { ...rec, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
+                    }
+                    return rec;
+                });
+            }
+
+            setSelectedAnime(enrichAnimeWithProgress([applyOverrides(fullDetails)])[0]);
+
+        } catch (error) {
+            console.error("Failed to get anime details:", error);
+            setSelectedAnime(null); // Reset on error
+            setView('home'); // Go back home
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const handleWatchNow = (anime: Anime, episode = 1) => {
+        progressTracker.addToHistory(anime);
+        // Clear previous anime to ensure loading state triggers, then fetch full details
+        setPlayerState({ anime: null, episode, source: StreamSource.AnimePahe, language: StreamLanguage.Sub });
+        setView('player');
+
+        const fetchForPlayer = async () => {
+            setIsLoading(true);
+            window.scrollTo(0, 0);
+            try {
+                const fullDetails = await getAnimeDetails(anime.anilistId);
+                setPlayerState(prev => ({
+                    ...prev,
+                    anime: applyOverrides(fullDetails),
+                }));
+            } catch (error) {
+                console.error("Failed to get anime details for player:", error);
+                setView('home'); // Fallback to home on error
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchForPlayer();
+    };
+
     // Initialize tracker and listen for progress updates
     useEffect(() => {
         progressTracker.init();
@@ -150,8 +217,73 @@ const AppContent: React.FC = () => {
         };
     }, [refreshDataWithProgress]);
 
+    // Restore session on initial load
+    useEffect(() => {
+        const restoreSession = async () => {
+            try {
+                const savedSessionJSON = localStorage.getItem(SESSION_STORAGE_KEY);
+                if (!savedSessionJSON) return;
 
-    // Fetch initial data for the home page
+                const savedSession = JSON.parse(savedSessionJSON);
+                const now = Date.now();
+
+                // Check if the session is recent (within 5 seconds)
+                if (savedSession.timestamp && now - savedSession.timestamp < 5000) {
+                    if (savedSession.view === 'details' && savedSession.animeId) {
+                        // Restore details view
+                        await handleSelectAnime({ anilistId: savedSession.animeId });
+                    } else if (savedSession.view === 'player' && savedSession.animeId) {
+                        // To restore player, we need the full anime object. Fetch it first.
+                        try {
+                            const animeForPlayer = await getAnimeDetails(savedSession.animeId);
+                            handleWatchNow(animeForPlayer, savedSession.episode || 1);
+                        } catch (error) {
+                            console.error("Failed to fetch anime details for session restore:", error);
+                            setView('home');
+                        }
+                    }
+                } else {
+                    // Clean up expired session data
+                    localStorage.removeItem(SESSION_STORAGE_KEY);
+                }
+            } catch (error) {
+                console.error("Failed to restore session:", error);
+                localStorage.removeItem(SESSION_STORAGE_KEY);
+            }
+        };
+        
+        restoreSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run only once on mount. Dependencies are intentionally omitted.
+
+    // Save session state on change
+    useEffect(() => {
+        try {
+            if (view === 'details' && selectedAnime) {
+                const session = {
+                    view: 'details',
+                    animeId: selectedAnime.anilistId,
+                    timestamp: Date.now(),
+                };
+                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+            } else if (view === 'player' && playerState.anime) {
+                const session = {
+                    view: 'player',
+                    animeId: playerState.anime.anilistId,
+                    episode: playerState.episode,
+                    timestamp: Date.now(),
+                };
+                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+            } else if (view === 'home') {
+                localStorage.removeItem(SESSION_STORAGE_KEY);
+            }
+        } catch (error) {
+            console.error("Failed to save session:", error);
+        }
+    }, [view, selectedAnime, playerState.anime, playerState.episode]);
+
+
+    // Fetch initial data for the home page (only if not restoring a session)
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
@@ -177,8 +309,12 @@ const AppContent: React.FC = () => {
                 setIsLoading(false);
             }
         };
-        fetchInitialData();
-    }, [applyOverridesToList, enrichAnimeWithProgress, enrichScheduleWithProgress]);
+        
+        // Only fetch if we are on the homepage after initial render
+        if (view === 'home') {
+          fetchInitialData();
+        }
+    }, [applyOverridesToList, enrichAnimeWithProgress, enrichScheduleWithProgress, view]);
 
     // Re-apply overrides if they change
     useEffect(() => {
@@ -239,7 +375,7 @@ const AppContent: React.FC = () => {
     }, [applyOverridesToList, enrichAnimeWithProgress]);
 
 
-    // Perform discovery search when term or filters change
+    // Perform discovery search when submitted term or filters change
     useEffect(() => {
         if (!isDiscoveryView) {
             setSearchResults([]);
@@ -248,8 +384,9 @@ const AppContent: React.FC = () => {
 
         const performSearch = async () => {
             setIsDiscoverLoading(true);
+            const termToSearch = submittedSearchTerm.trim() ? submittedSearchTerm : '';
             try {
-                const results = await discoverAnime(debouncedSearchTerm, filters);
+                const results = await discoverAnime(termToSearch, filters);
                 setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
             } catch (error) {
                 console.error("Failed to discover anime:", error);
@@ -258,7 +395,7 @@ const AppContent: React.FC = () => {
             }
         };
         performSearch();
-    }, [debouncedSearchTerm, filters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress]);
+    }, [submittedSearchTerm, filters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress]);
     
     // Perform search for suggestions
     useEffect(() => {
@@ -282,46 +419,6 @@ const AppContent: React.FC = () => {
     }, [debouncedSuggestionsTerm]);
 
     // Handlers
-    const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
-        setIsLoading(true);
-        setIsBannerInView(true); // Reset for new page view
-        setView('details');
-        window.scrollTo(0, 0);
-        try {
-            const fullDetails = await getAnimeDetails(anime.anilistId);
-            
-            const allProgress = progressTracker.getAllMediaData();
-
-            if (fullDetails.relations) {
-                fullDetails.relations = fullDetails.relations.map(rel => {
-                    const progressData = allProgress[rel.id];
-                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
-                        return { ...rel, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
-                    }
-                    return rel;
-                });
-            }
-            if (fullDetails.recommendations) {
-                fullDetails.recommendations = fullDetails.recommendations.map(rec => {
-                    const progressData = allProgress[rec.id];
-                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
-                        return { ...rec, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
-                    }
-                    return rec;
-                });
-            }
-
-            setSelectedAnime(enrichAnimeWithProgress([applyOverrides(fullDetails)])[0]);
-
-        } catch (error) {
-            console.error("Failed to get anime details:", error);
-            setSelectedAnime(null); // Reset on error
-            setView('home'); // Go back home
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const handleRandomAnime = async () => {
         setIsLoading(true);
         try {
@@ -336,41 +433,32 @@ const AppContent: React.FC = () => {
         }
     }
     
-    const handleSearch = (term: string) => {
+    const handleSearchInputChange = (term: string) => {
         setSearchTerm(term);
-        setDiscoveryTitle(`Results for "${term}"`);
-        setView('home'); // Switch to home view to show search results
+    };
+
+    const handleSearchSubmit = () => {
+        const termToSubmit = searchTerm.trim();
+        if (termToSubmit === '') return;
+        
+        setSubmittedSearchTerm(termToSubmit);
+        setFilters(initialFilters); // Reset filters on a new search
+        setDiscoveryTitle(`Results for "${termToSubmit}"`);
+        setView('home');
+        setSearchTerm(''); // Clear input to hide suggestions
+        setSearchSuggestions([]); // Clear suggestions data
+        
+        const activeElement = document.activeElement as HTMLElement;
+        if (activeElement) {
+            activeElement.blur();
+        }
     };
 
     const handleSuggestionClick = (anime: { anilistId: number }) => {
         setSearchTerm(''); 
+        setSubmittedSearchTerm('');
         setSearchSuggestions([]);
         handleSelectAnime(anime);
-    };
-
-    const handleWatchNow = (anime: Anime, episode = 1) => {
-        progressTracker.addToHistory(anime);
-        // Clear previous anime to ensure loading state triggers, then fetch full details
-        setPlayerState({ anime: null, episode, source: StreamSource.AnimePahe, language: StreamLanguage.Sub });
-        setView('player');
-
-        const fetchForPlayer = async () => {
-            setIsLoading(true);
-            window.scrollTo(0, 0);
-            try {
-                const fullDetails = await getAnimeDetails(anime.anilistId);
-                setPlayerState(prev => ({
-                    ...prev,
-                    anime: applyOverrides(fullDetails),
-                }));
-            } catch (error) {
-                console.error("Failed to get anime details for player:", error);
-                setView('home'); // Fallback to home on error
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchForPlayer();
     };
     
     const handleContinueWatching = (anime: Anime) => {
@@ -392,7 +480,6 @@ const AppContent: React.FC = () => {
             setSelectedAnime(playerState.anime); // We already have full details
             setIsBannerInView(true); // Reset banner state for details page
             setView('details');
-            window.scrollTo(0, 0); // Scroll to top to ensure banner is visible
         } else {
             setView('home'); // Fallback
         }
@@ -406,6 +493,7 @@ const AppContent: React.FC = () => {
     
     const handleHomeClick = () => {
         setSearchTerm('');
+        setSubmittedSearchTerm('');
         setFilters(initialFilters);
         setSearchResults([]);
         setSelectedAnime(null);
@@ -419,6 +507,7 @@ const AppContent: React.FC = () => {
 
     const handleApplyFilters = (newFilters: FilterState) => {
         setIsFilterModalOpen(false);
+        setSubmittedSearchTerm(''); // Clear search term when applying filters
         setFilters(newFilters);
         setDiscoveryTitle("Filtered Results");
         setView('home');
@@ -426,6 +515,7 @@ const AppContent: React.FC = () => {
 
     const handleViewMore = (partialFilters: Partial<FilterState>, title: string) => {
         setSearchTerm('');
+        setSubmittedSearchTerm('');
         setFilters({ ...initialFilters, ...partialFilters });
         setDiscoveryTitle(title);
         setView('home');
@@ -433,8 +523,8 @@ const AppContent: React.FC = () => {
     };
 
     const generateDiscoveryTitle = () => {
-        if (debouncedSearchTerm.trim()) {
-            return `Results for "${debouncedSearchTerm}"`;
+        if (submittedSearchTerm.trim()) {
+            return `Results for "${submittedSearchTerm}"`;
         }
         return discoveryTitle;
     };
@@ -621,11 +711,12 @@ const AppContent: React.FC = () => {
     return (
         <div className="bg-gray-950 min-h-screen">
             <Header 
-                onSearch={handleSearch} 
+                onSearch={handleSearchInputChange} 
                 onHomeClick={handleHomeClick} 
                 onFilterClick={() => setIsFilterModalOpen(true)}
                 onRandomAnime={handleRandomAnime}
                 onLoginClick={handleLoginClick} 
+                onSearchSubmit={handleSearchSubmit}
                 searchTerm={searchTerm} 
                 suggestions={searchSuggestions}
                 onSuggestionClick={handleSuggestionClick}
@@ -648,24 +739,32 @@ const AppContent: React.FC = () => {
             <InfoModal 
                 isOpen={isLoginModalOpen}
                 onClose={() => setIsLoginModalOpen(false)}
-                title="Login to AniGloK"
+                title="Login"
             >
-                <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+                <div className="space-y-4">
+                    <p className="text-center text-sm bg-yellow-900/50 text-yellow-300 p-2 rounded-md">
+                        This is a demonstration UI. The login feature is not implemented yet but will be available soon.
+                    </p>
                     <div>
-                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="fake-username">Username</label>
-                        <input id="fake-username" type="text" placeholder="your_username" className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="username">Username</label>
+                        <input
+                            id="username"
+                            type="text"
+                            className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
                     </div>
                     <div>
-                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="fake-password">Password</label>
-                        <input id="fake-password" type="password" placeholder="********" className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="password">Password</label>
+                        <input
+                            id="password"
+                            type="password"
+                            className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
                     </div>
-                    <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50" disabled>
+                     <button type="submit" disabled className="w-full bg-cyan-700 text-white/50 font-bold py-2 px-4 rounded cursor-not-allowed">
                         Login
                     </button>
-                    <p className="text-center text-yellow-400 text-sm mt-4 p-2 bg-yellow-900/50 rounded-md">
-                        Note: This feature is not yet implemented but will be available soon.
-                    </p>
-                </form>
+                </div>
             </InfoModal>
         </div>
     );

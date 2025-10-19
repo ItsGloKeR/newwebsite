@@ -10,6 +10,7 @@ interface HeaderProps {
   onFilterClick: () => void;
   onRandomAnime: () => void;
   onLoginClick: () => void;
+  onSearchSubmit: () => void;
   searchTerm: string;
   suggestions: SearchSuggestion[];
   onSuggestionClick: (anime: { anilistId: number }) => void;
@@ -29,7 +30,8 @@ const Header: React.FC<HeaderProps> = ({
   onHomeClick, 
   onFilterClick,
   onRandomAnime,
-  onLoginClick, 
+  onLoginClick,
+  onSearchSubmit,
   searchTerm,
   suggestions,
   onSuggestionClick,
@@ -58,6 +60,13 @@ const Header: React.FC<HeaderProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [headerRef]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        onSearchSubmit();
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50" ref={headerRef}>
@@ -92,6 +101,7 @@ const Header: React.FC<HeaderProps> = ({
                 placeholder="Search anime..."
                 value={searchTerm}
                 onChange={(e) => onSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
                 onFocus={() => setIsSearchFocused(true)}
                 className="bg-gray-900/80 text-white rounded-full py-2 pl-10 pr-24 w-full focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all border border-transparent focus:border-cyan-500"
               />
@@ -107,6 +117,7 @@ const Header: React.FC<HeaderProps> = ({
                       suggestions={suggestions} 
                       onSuggestionClick={onSuggestionClick} 
                       isLoading={isSuggestionsLoading}
+                      onViewAllClick={onSearchSubmit}
                   />
               )}
             </div>

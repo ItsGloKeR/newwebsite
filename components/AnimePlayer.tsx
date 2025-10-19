@@ -187,7 +187,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
   const episodeCount = anime.episodes || 1;
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
   const [isZenshinLoading, setIsZenshinLoading] = useState(true);
-  const [isAiringNotifVisible, setIsAiringNotifVisible] = useState(true);
 
   useEffect(() => {
     if (!anime) return;
@@ -320,6 +319,11 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                         )}
                     </div>
                     <div className="p-6">
+                        {anime.status === 'RELEASING' && nextAiringDate && (
+                            <div className="bg-cyan-900/50 text-cyan-300 text-center text-sm font-semibold p-2 rounded-md mb-4 animate-fade-in">
+                                🚀 Estimated next episode ({anime.nextAiringEpisode?.episode}) will come at {nextAiringDate}
+                            </div>
+                        )}
                         <h2 className="text-3xl font-bold text-white mb-2">{anime.englishTitle} - {episodeTitle}</h2>
                         {currentZenshinEpisode?.overview && (
                           <p className="text-gray-300 text-sm mb-4 leading-relaxed">{currentZenshinEpisode.overview}</p>
@@ -342,22 +346,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                         
                         <AdminEpisodeEditor anime={anime} episode={currentEpisode} />
                         
-                        {anime.status === 'RELEASING' && nextAiringDate && isAiringNotifVisible && (
-                            <div className="bg-cyan-900/50 text-cyan-300 text-sm font-semibold p-3 rounded-md my-4 flex items-center justify-between animate-fade-in">
-                                <div className="flex items-center gap-3">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                                    </svg>
-                                    <span>Estimated next episode ({anime.nextAiringEpisode?.episode}) airs on {nextAiringDate}</span>
-                                </div>
-                                <button onClick={() => setIsAiringNotifVisible(false)} className="text-cyan-200 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors" aria-label="Dismiss notification">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                        )}
-
                         <div className="mt-4">
                             <div className="flex justify-between items-center mb-3">
                                 <h3 className="text-xl font-semibold text-white">Episodes</h3>
