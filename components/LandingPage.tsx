@@ -10,6 +10,11 @@ interface LandingPageProps {
   onNavigate: (filters: Partial<FilterState>, title: string) => void;
 }
 
+// Placeholder Data URIs for character PNGs. In a real project, these would be actual, optimized image files.
+const luffyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; // Placeholder
+const gokuPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; // Placeholder
+const narutoPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; // Placeholder
+
 // Icon Components
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>;
 const MovieIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 4a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm10 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
@@ -140,14 +145,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
 
     return (
     <div className="bg-gray-950 text-white min-h-screen font-sans overflow-x-hidden relative">
-      {/* New Background Elements */}
-      <div className="absolute inset-0 z-0 opacity-40" style={{
-        backgroundImage: 'radial-gradient(circle at top right, rgba(34, 211, 238, 0.4), transparent 50%), radial-gradient(circle at bottom left, rgba(8, 145, 178, 0.4), transparent 50%)',
-      }}></div>
-       <div className="absolute inset-0 z-0" style={{
-        backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
-      }}></div>
+      {/* Background Elements */}
+      <div className="absolute inset-0 z-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at top right, rgba(34, 211, 238, 0.4), transparent 50%), radial-gradient(circle at bottom left, rgba(8, 145, 178, 0.4), transparent 50%)' }}></div>
+      <div className="absolute inset-0 z-0" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+
+      {/* Character PNGs Container */}
+      <div aria-hidden="true" className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <img src={luffyPng} alt="" className="absolute -bottom-10 -left-20 w-1/3 max-w-[280px] opacity-40 transform -rotate-12 hidden lg:block animate-fade-in [filter:drop-shadow(0_0_30px_rgba(0,0,0,0.8))]" style={{ animationDelay: '0.5s' }} />
+          <img src={gokuPng} alt="" className="absolute -top-20 -right-20 w-1/2 max-w-[450px] opacity-20 transform rotate-15 hidden lg:block animate-fade-in [filter:drop-shadow(0_0_30px_rgba(0,0,0,0.8))]" style={{ animationDelay: '0.2s' }} />
+          <img src={narutoPng} alt="" className="absolute bottom-0 right-0 w-1/4 max-w-[320px] opacity-50 hidden xl:block animate-fade-in [filter:drop-shadow(0_0_30px_rgba(0,0,0,0.8))]" style={{ animationDelay: '0.8s' }}/>
+      </div>
 
       <div className="relative z-10 flex flex-col min-h-screen">
         <header className="container mx-auto p-4 flex justify-between items-center">
