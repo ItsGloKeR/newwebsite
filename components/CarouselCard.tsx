@@ -1,6 +1,7 @@
 import React from 'react';
 import { Anime } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
+import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 
 interface CarouselCardProps {
   anime: Anime;
@@ -11,6 +12,9 @@ interface CarouselCardProps {
 }
 
 const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRemove, size = 'normal' }) => {
+  const { titleLanguage } = useTitleLanguage();
+  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+  
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the main card click
     if (onRemove) {
@@ -29,7 +33,7 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
     >
       <img
         src={anime.coverImage}
-        alt={anime.title}
+        alt={title}
         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         loading="lazy"
         onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
@@ -48,12 +52,12 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
       )}
 
       {anime.isAdult && (
-        <div className={`absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20 transition-opacity ${onRemove ? 'group-hover:opacity-0' : ''}`}>
+        <div className={`absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20`}>
           18+
         </div>
       )}
       {anime.episodes != null && (
-        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20">
+        <div className={`absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20 transition-opacity ${onRemove ? 'group-hover:opacity-0' : ''}`}>
           {anime.episodes} Ep
         </div>
       )}
@@ -72,7 +76,7 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
         
         {/* Title is positioned with a higher z-index and padding to avoid the number */}
         <h3 className={`relative z-20 text-white text-md font-bold truncate w-full ${rank ? titlePaddingClass : 'pl-2'}`}>
-          {anime.title}
+          {title}
         </h3>
       </div>
        {/* Progress Bar */}

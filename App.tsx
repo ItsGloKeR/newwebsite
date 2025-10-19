@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule } from './types';
-import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails } from './services/anilistService';
+import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime } from './services/anilistService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -14,9 +14,11 @@ import SchedulePage from './components/SchedulePage';
 import VerticalAnimeList from './components/VerticalAnimeList';
 import AdminModal from './components/AdminModal';
 import FilterModal from './components/FilterModal';
+import InfoModal from './components/InfoModal';
 import { useDebounce } from './hooks/useDebounce';
 import { initialTrending, initialPopular, initialTopAiring } from './static/initialData';
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
+import { TitleLanguageProvider } from './contexts/TitleLanguageContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import { progressTracker } from './utils/progressTracking';
@@ -62,8 +64,11 @@ const AppContent: React.FC = () => {
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [currentSeason, setCurrentSeason] = useState<MediaSeason | null>(null);
     const [currentYear, setCurrentYear] = useState<number | null>(null);
+    const [heroBannerUrl, setHeroBannerUrl] = useState<string | null>(null);
+    const [isBannerInView, setIsBannerInView] = useState(true);
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
@@ -76,7 +81,8 @@ const AppContent: React.FC = () => {
     const applyOverrides = useCallback((anime: Anime): Anime => {
         if (!anime) return anime;
         const overriddenTitle = overrides.anime[anime.anilistId]?.title;
-        return overriddenTitle ? { ...anime, title: overriddenTitle } : anime;
+        // The title override is just for the english title for simplicity in admin panel
+        return overriddenTitle ? { ...anime, englishTitle: overriddenTitle } : anime;
     }, [overrides.anime]);
     
     const enrichAnimeWithProgress = useCallback((animeList: Anime[]): Anime[] => {
@@ -278,6 +284,7 @@ const AppContent: React.FC = () => {
     // Handlers
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
         setIsLoading(true);
+        setIsBannerInView(true); // Reset for new page view
         setView('details');
         window.scrollTo(0, 0);
         try {
@@ -314,6 +321,20 @@ const AppContent: React.FC = () => {
             setIsLoading(false);
         }
     };
+
+    const handleRandomAnime = async () => {
+        setIsLoading(true);
+        try {
+            const randomAnime = await getRandomAnime();
+            if (randomAnime) {
+                handleSelectAnime(randomAnime);
+            }
+        } catch (error) {
+            console.error("Failed to get random anime:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }
     
     const handleSearch = (term: string) => {
         setSearchTerm(term);
@@ -369,6 +390,7 @@ const AppContent: React.FC = () => {
     const handleBackToDetails = () => {
         if (playerState.anime) {
             setSelectedAnime(playerState.anime); // We already have full details
+            setIsBannerInView(true); // Reset banner state for details page
             setView('details');
         } else {
             setView('home'); // Fallback
@@ -377,6 +399,7 @@ const AppContent: React.FC = () => {
     
     const handleBackFromDetails = () => {
         setSelectedAnime(null);
+        setIsBannerInView(true); // Reset for new page view
         setView('home');
     };
     
@@ -385,7 +408,12 @@ const AppContent: React.FC = () => {
         setFilters(initialFilters);
         setSearchResults([]);
         setSelectedAnime(null);
+        setIsBannerInView(true); // Reset for new page view
         setView('home');
+    };
+
+    const handleLoginClick = () => {
+        setIsLoginModalOpen(true);
     };
 
     const handleApplyFilters = (newFilters: FilterState) => {
@@ -440,7 +468,7 @@ const AppContent: React.FC = () => {
 
         return (
             <main>
-                <Hero animes={trending} onWatchNow={handleWatchNow} onDetails={handleSelectAnime} />
+                <Hero animes={trending} onWatchNow={handleWatchNow} onDetails={handleSelectAnime} onBannerChange={setHeroBannerUrl} setInView={setIsBannerInView} />
                 <div className="container mx-auto p-4 md:p-8">
                     {/* Full-width sections */}
                     {continueWatching.length > 0 && (
@@ -473,7 +501,8 @@ const AppContent: React.FC = () => {
                                 icon={LatestIcon}
                                 animeList={latestEpisodes.map(schedule => ({
                                     anilistId: schedule.media.id,
-                                    title: schedule.media.title.english || schedule.media.title.romaji,
+                                    englishTitle: schedule.media.title.english || schedule.media.title.romaji,
+                                    romajiTitle: schedule.media.title.romaji || schedule.media.title.english,
                                     coverImage: schedule.media.coverImage.extraLarge,
                                     episodes: schedule.episode,
                                     isAdult: schedule.media.isAdult,
@@ -483,6 +512,7 @@ const AppContent: React.FC = () => {
                                     genres: [],
                                     year: 0,
                                     rating: 0,
+                                    duration: null,
                                     status: '',
                                     studios: [],
                                     staff: [],
@@ -575,6 +605,7 @@ const AppContent: React.FC = () => {
                         onWatchNow={handleWatchNow}
                         onBack={handleBackFromDetails}
                         onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
+                        setInView={setIsBannerInView}
                     />;
             
             case 'home':
@@ -591,12 +622,15 @@ const AppContent: React.FC = () => {
             <Header 
                 onSearch={handleSearch} 
                 onHomeClick={handleHomeClick} 
-                onFilterClick={() => setIsFilterModalOpen(true)} 
+                onFilterClick={() => setIsFilterModalOpen(true)}
+                onRandomAnime={handleRandomAnime}
+                onLoginClick={handleLoginClick} 
                 searchTerm={searchTerm} 
                 suggestions={searchSuggestions}
                 onSuggestionClick={handleSuggestionClick}
                 isSuggestionsLoading={isSuggestionsLoading}
                 onNavigate={handleViewMore}
+                isBannerInView={isBannerInView}
             />
             {renderContent()}
             <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} />
@@ -610,13 +644,22 @@ const AppContent: React.FC = () => {
                 currentFilters={filters}
                 initialFilters={initialFilters}
             />
+            <InfoModal 
+                isOpen={isLoginModalOpen}
+                onClose={() => setIsLoginModalOpen(false)}
+                title="Feature Not Available"
+            >
+                <p>The login and user account feature is not yet implemented. We're working hard to bring this to you soon. Stay tuned!</p>
+            </InfoModal>
         </div>
     );
 };
 
 const App: React.FC = () => (
     <AdminProvider>
-        <AppContent />
+        <TitleLanguageProvider>
+           <AppContent />
+        </TitleLanguageProvider>
     </AdminProvider>
 );
 

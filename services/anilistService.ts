@@ -18,6 +18,7 @@ const ANIME_FIELDS_FRAGMENT = `
   bannerImage
   genres
   episodes
+  duration
   status
   format
   nextAiringEpisode {
@@ -144,7 +145,8 @@ const mapToAnime = (data: any): Anime => {
     .filter((edge: any) => edge.node.type === 'ANIME') // Only include anime relations
     .map((edge: any) => ({
       id: edge.node.id,
-      title: edge.node.title.english || edge.node.title.romaji,
+      englishTitle: edge.node.title.english || edge.node.title.romaji,
+      romajiTitle: edge.node.title.romaji || edge.node.title.english,
       coverImage: edge.node.coverImage.extraLarge,
       relationType: edge.relationType,
       isAdult: edge.node.isAdult,
@@ -155,7 +157,8 @@ const mapToAnime = (data: any): Anime => {
     .filter((node: any) => node.mediaRecommendation)
     .map((node: any) => ({
       id: node.mediaRecommendation.id,
-      title: node.mediaRecommendation.title.english || node.mediaRecommendation.title.romaji,
+      englishTitle: node.mediaRecommendation.title.english || node.mediaRecommendation.title.romaji,
+      romajiTitle: node.mediaRecommendation.title.romaji || node.mediaRecommendation.title.english,
       coverImage: node.mediaRecommendation.coverImage.extraLarge,
       isAdult: node.mediaRecommendation.isAdult,
       episodes: node.mediaRecommendation.episodes,
@@ -182,7 +185,8 @@ const mapToAnime = (data: any): Anime => {
   return {
     anilistId: data.id,
     malId: data.idMal,
-    title: data.title.english || data.title.romaji,
+    englishTitle: data.title.english || data.title.romaji,
+    romajiTitle: data.title.romaji || data.title.english,
     description,
     format: data.format ? data.format.replace(/_/g, ' ') : 'N/A',
     coverImage: data.coverImage.extraLarge,
@@ -190,6 +194,7 @@ const mapToAnime = (data: any): Anime => {
     bannerImage: data.bannerImage || data.coverImage.extraLarge,
     genres: data.genres || [],
     episodes: episodeCount || 0,
+    duration: data.duration,
     year: data.seasonYear,
     rating: data.averageScore,
     status: data.status,
@@ -202,6 +207,54 @@ const mapToAnime = (data: any): Anime => {
     isAdult: data.isAdult,
   };
 };
+
+export const getRandomAnime = async (): Promise<Anime | null> => {
+    // Fetch the last page number to determine the range of pages
+    const pageInfoQuery = `
+        query {
+            Page(page: 1, perPage: 1) {
+                pageInfo {
+                    lastPage
+                }
+                # We must include the media query to get the correct context for pageInfo
+                media(type: ANIME, format_not_in: [MUSIC], isAdult: false, averageScore_greater: 60, sort: POPULARITY_DESC) {
+                    id # Select at least one field
+                }
+            }
+        }
+    `;
+    const pageInfoData = await fetchAniListData(pageInfoQuery, {});
+    if (!pageInfoData.Page || !pageInfoData.Page.pageInfo) {
+        console.error("Could not fetch page info for random anime.");
+        return null;
+    }
+    const lastPage = pageInfoData.Page.pageInfo.lastPage;
+    
+    // Pick a random page
+    const randomPage = Math.floor(Math.random() * lastPage) + 1;
+    
+    // Fetch one anime from that random page
+    const randomAnimeQuery = `
+        query ($page: Int) {
+            Page(page: $page, perPage: 1) {
+                media(type: ANIME, format_not_in: [MUSIC], isAdult: false, averageScore_greater: 60, sort: POPULARITY_DESC) {
+                    ...animeFields
+                }
+            }
+        }
+        fragment animeFields on Media {
+            ${ANIME_FIELDS_FRAGMENT}
+        }
+    `;
+    
+    const randomAnimeData = await fetchAniListData(randomAnimeQuery, { page: randomPage });
+    
+    if (randomAnimeData.Page && randomAnimeData.Page.media && randomAnimeData.Page.media.length > 0) {
+        return mapToAnime(randomAnimeData.Page.media[0]);
+    }
+
+    return null;
+}
 
 const getCurrentSeason = (): { season: MediaSeason, year: number } => {
     const now = new Date();
@@ -520,7 +573,8 @@ export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSu
 
   return data.Page.media.map((media: any) => ({
     anilistId: media.id,
-    title: media.title.english || media.title.romaji,
+    englishTitle: media.title.english || media.title.romaji,
+    romajiTitle: media.title.romaji || media.title.english,
     coverImage: media.coverImage.medium,
     year: media.seasonYear,
     isAdult: media.isAdult,

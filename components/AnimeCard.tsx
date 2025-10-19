@@ -1,6 +1,7 @@
 import React from 'react';
 import { Anime } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
+import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 
 interface AnimeCardProps {
   anime: Anime;
@@ -8,6 +9,9 @@ interface AnimeCardProps {
 }
 
 const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
+  const { titleLanguage } = useTitleLanguage();
+  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+  
   return (
     <div 
       className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/30"
@@ -15,24 +19,24 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
     >
       <img
         src={anime.coverImage}
-        alt={anime.title}
+        alt={title}
         className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-100 brightness-90"
         loading="lazy"
         onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
       />
       {anime.isAdult && (
-        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+        <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
           18+
         </div>
       )}
       {anime.episodes != null && (
-        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
           {anime.episodes} Ep
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
       <div className="absolute bottom-0 left-0 p-4 z-20">
-        <h3 className="text-white text-lg font-bold truncate group-hover:whitespace-normal">{anime.title}</h3>
+        <h3 className="text-white text-lg font-bold truncate group-hover:whitespace-normal">{title}</h3>
         <p className="text-gray-300 text-sm">{anime.year}</p>
       </div>
       <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">

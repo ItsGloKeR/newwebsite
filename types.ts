@@ -56,7 +56,8 @@ export interface StaffMember {
 
 export interface RelatedAnime {
   id: number;
-  title: string;
+  englishTitle: string;
+  romajiTitle: string;
   coverImage: string;
   relationType: string;
   isAdult: boolean;
@@ -66,7 +67,8 @@ export interface RelatedAnime {
 
 export interface RecommendedAnime {
   id: number;
-  title: string;
+  englishTitle: string;
+  romajiTitle: string;
   coverImage: string;
   isAdult: boolean;
   episodes: number | null;
@@ -87,13 +89,15 @@ export interface NextAiringEpisode {
 export interface Anime {
   anilistId: number;
   malId?: number;
-  title: string;
+  englishTitle: string;
+  romajiTitle: string;
   description: string;
   coverImage: string;
   coverImageColor?: string;
   bannerImage: string;
   genres: string[];
   episodes: number;
+  duration: number | null;
   year: number;
   rating: number;
   status: string;
@@ -110,7 +114,8 @@ export interface Anime {
 
 export interface SearchSuggestion {
   anilistId: number;
-  title: string;
+  englishTitle: string;
+  romajiTitle: string;
   coverImage: string;
   year: number;
   isAdult: boolean;
@@ -225,3 +230,4 @@ export interface MediaProgress {
 }
 
 export type PlayerEventCallback = (data: any) => void;
+export type TitleLanguage = 'english' | 'romaji';

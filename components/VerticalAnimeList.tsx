@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Anime } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
+import { useTitleLanguage } from '../contexts/TitleLanguageContext';
+
 
 interface VerticalAnimeListProps {
   title: string;
@@ -11,6 +13,8 @@ interface VerticalAnimeListProps {
 }
 
 const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) => void; }> = ({ anime, onSelect }) => {
+  const { titleLanguage } = useTitleLanguage();
+  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
   let episodeText: string;
 
   if (anime.status === 'RELEASING' && anime.nextAiringEpisode) {
@@ -31,7 +35,7 @@ const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) =
         <div className="group relative w-14 h-20 flex-shrink-0">
             <img 
                 src={anime.coverImage} 
-                alt={anime.title} 
+                alt={title} 
                 className="w-full h-full object-cover rounded-md shadow-md"
                 onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
             />
@@ -43,7 +47,7 @@ const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) =
         </div>
         <div className="overflow-hidden flex-grow">
           <h4 className="text-white font-semibold truncate flex items-center text-sm">
-              <span className="truncate">{anime.title}</span>
+              <span className="truncate">{title}</span>
           </h4>
           <div className="text-gray-400 text-xs mt-2 flex items-center gap-3">
              <span className="capitalize">{anime.format}</span>

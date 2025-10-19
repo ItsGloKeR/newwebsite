@@ -114,7 +114,7 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => vo
         <div className="relative w-16 h-24 flex-shrink-0">
              <img
                 src={anime.coverImage}
-                alt={anime.title}
+                alt={anime.englishTitle}
                 className="w-full h-full object-cover rounded-md"
                 onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
             />
@@ -129,7 +129,7 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => vo
         </div>
         <div className="overflow-hidden">
             <h4 className="text-white font-semibold line-clamp-2 flex items-center gap-2">
-                {anime.title}
+                {anime.englishTitle}
                 {anime.isAdult && <span className="flex-shrink-0 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-sm">18+</span>}
             </h4>
             <p className="text-gray-400 text-sm mt-1">{anime.episodes ? `${anime.episodes} Episodes` : 'TBA'}</p>
@@ -142,7 +142,7 @@ const RelatedCard: React.FC<{ anime: RelatedAnime, onSelect: () => void }> = ({ 
         <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
             <img 
               src={anime.coverImage} 
-              alt={anime.title} 
+              alt={anime.englishTitle} 
               className="w-full h-full object-cover"
               onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
             />
@@ -166,7 +166,7 @@ const RelatedCard: React.FC<{ anime: RelatedAnime, onSelect: () => void }> = ({ 
                 </div>
             )}
         </div>
-        <p className="text-white text-xs font-semibold line-clamp-2 mt-2 group-hover:text-cyan-400 transition-colors">{anime.title}</p>
+        <p className="text-white text-xs font-semibold line-clamp-2 mt-2 group-hover:text-cyan-400 transition-colors">{anime.englishTitle}</p>
         <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
     </div>
 );
@@ -311,7 +311,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                             <iframe
                             key={`${streamUrl}-${currentSource}-${currentLanguage}`}
                             src={streamUrl}
-                            title={`${anime.title} - Episode ${currentEpisode}`}
+                            title={`${anime.englishTitle} - Episode ${currentEpisode}`}
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                             allowFullScreen
                             className="w-full h-full border-0"
@@ -324,11 +324,11 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
                                 🚀 Estimated next episode ({anime.nextAiringEpisode?.episode}) will come at {nextAiringDate}
                             </div>
                         )}
-                        <h2 className="text-3xl font-bold text-white mb-2">{anime.title} - {episodeTitle}</h2>
+                        <h2 className="text-3xl font-bold text-white mb-2">{anime.englishTitle} - {episodeTitle}</h2>
                         {currentZenshinEpisode?.overview && (
                           <p className="text-gray-300 text-sm mb-4 leading-relaxed">{currentZenshinEpisode.overview}</p>
                         )}
-                        <div className="flex flex-wrap gap-4 items-center mb-4">
+                        <div className="flex flex-wrap gap-2 md:gap-4 items-center mb-4">
                         <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-400">Source:</span>
                             {renderControlButton(StreamSource.AnimePahe, currentSource, handleSourceChange, 'Source 1')}
@@ -400,9 +400,9 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
             <aside className="lg:col-span-1 flex flex-col gap-6">
                 <div className="bg-gray-900 rounded-lg p-4">
                     <div className="flex gap-4">
-                        <img src={anime.coverImage} alt={anime.title} className="w-24 h-36 object-cover rounded-md flex-shrink-0" />
+                        <img src={anime.coverImage} alt={anime.englishTitle} className="w-24 h-36 object-cover rounded-md flex-shrink-0" />
                         <div>
-                            <h3 className="text-xl font-bold line-clamp-3">{anime.title}</h3>
+                            <h3 className="text-xl font-bold line-clamp-3">{anime.englishTitle}</h3>
                             <p className="text-sm text-gray-400 capitalize mt-2">{anime.status.toLowerCase().replace('_', ' ')}</p>
                             <p className="text-sm text-gray-400">{anime.rating ? `${anime.rating}/100 Score` : ''}</p>
                         </div>

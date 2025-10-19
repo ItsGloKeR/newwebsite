@@ -1,109 +1,122 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Anime, RelatedAnime, StreamSource, RecommendedAnime, ZenshinMapping } from '../types';
 import GenrePill from './GenrePill';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import TrailerModal from './TrailerModal';
 import { getZenshinMappings } from '../services/anilistService';
+import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 
-const RELATED_ANIME_LIMIT = 10;
 
 interface RelatedAnimeCardProps {
   anime: RelatedAnime;
   onSelect: (id: number) => void;
 }
 
-const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) => (
-  <div 
-    className="flex-shrink-0 w-32 md:w-40 cursor-pointer group"
-    onClick={() => onSelect(anime.id)}
-  >
-    <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
-        <img 
-          src={anime.coverImage} 
-          alt={anime.title} 
-          className="w-full h-full object-cover"
-          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-        />
-        {anime.isAdult && (
-            <div className="absolute top-1 left-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-            18+
+const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) => {
+  const { titleLanguage } = useTitleLanguage();
+  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+  
+  return (
+      <div 
+        className="flex-shrink-0 w-32 md:w-40 cursor-pointer group"
+        onClick={() => onSelect(anime.id)}
+      >
+        <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
+            <img 
+              src={anime.coverImage} 
+              alt={title} 
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+            />
+            {anime.isAdult && (
+                <div className="absolute top-1 right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+                18+
+                </div>
+            )}
+            {anime.episodes != null && (
+                <div className="absolute top-1 left-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+                {anime.episodes} Ep
+                </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
+            <div className="absolute bottom-0 left-0 p-2 z-20">
+                <p className="text-white text-sm font-bold line-clamp-2">{title}</p>
             </div>
-        )}
-        {anime.episodes != null && (
-            <div className="absolute top-1 right-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-            {anime.episodes} Ep
-            </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
-        <div className="absolute bottom-0 left-0 p-2 z-20">
-            <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>
+            {anime.progress > 0 && anime.progress < 95 && (
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                    <div
+                        className="h-full bg-cyan-500"
+                        style={{ width: `${anime.progress}%` }}
+                    ></div>
+                </div>
+            )}
         </div>
-        {anime.progress > 0 && anime.progress < 95 && (
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-                <div
-                    className="h-full bg-cyan-500"
-                    style={{ width: `${anime.progress}%` }}
-                ></div>
-            </div>
-        )}
-    </div>
-    <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
-  </div>
-);
+        <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
+      </div>
+  );
+};
 
 interface RecommendationCardProps {
   anime: RecommendedAnime;
   onSelect: (id: number) => void;
 }
 
-const RecommendationCard: React.FC<RecommendationCardProps> = ({ anime, onSelect }) => (
-  <div 
-    className="flex-shrink-0 w-32 md:w-40 cursor-pointer group"
-    onClick={() => onSelect(anime.id)}
-  >
-    <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
-        <img 
-          src={anime.coverImage} 
-          alt={anime.title} 
-          className="w-full h-full object-cover"
-          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-        />
-        {anime.isAdult && (
-            <div className="absolute top-1 left-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-            18+
+const RecommendationCard: React.FC<RecommendationCardProps> = ({ anime, onSelect }) => {
+  const { titleLanguage } = useTitleLanguage();
+  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+
+  return (
+      <div 
+        className="flex-shrink-0 w-32 md:w-40 cursor-pointer group"
+        onClick={() => onSelect(anime.id)}
+      >
+        <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
+            <img 
+              src={anime.coverImage} 
+              alt={title} 
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+            />
+            {anime.isAdult && (
+                <div className="absolute top-1 right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+                18+
+                </div>
+            )}
+            {anime.episodes != null && (
+                <div className="absolute top-1 left-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
+                {anime.episodes} Ep
+                </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
+            <div className="absolute bottom-0 left-0 p-2 z-20">
+                <p className="text-white text-sm font-bold line-clamp-2">{title}</p>
             </div>
-        )}
-        {anime.episodes != null && (
-            <div className="absolute top-1 right-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-            {anime.episodes} Ep
-            </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
-        <div className="absolute bottom-0 left-0 p-2 z-20">
-            <p className="text-white text-sm font-bold line-clamp-2">{anime.title}</p>
+            {anime.progress > 0 && anime.progress < 95 && (
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                    <div
+                        className="h-full bg-cyan-500"
+                        style={{ width: `${anime.progress}%` }}
+                    ></div>
+                </div>
+            )}
         </div>
-         {anime.progress > 0 && anime.progress < 95 && (
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-                <div
-                    className="h-full bg-cyan-500"
-                    style={{ width: `${anime.progress}%` }}
-                ></div>
-            </div>
-        )}
-    </div>
-  </div>
-);
+      </div>
+  );
+};
 
 
 const TitleEditor: React.FC<{ anime: Anime }> = ({ anime }) => {
     const { updateTitle } = useAdmin();
+    const { titleLanguage } = useTitleLanguage();
+    const displayTitle = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+    
     const [isEditing, setIsEditing] = useState(false);
-    const [title, setTitle] = useState(anime.title);
+    const [title, setTitle] = useState(anime.englishTitle);
 
     useEffect(() => {
-        setTitle(anime.title);
-    }, [anime.title]);
+        setTitle(anime.englishTitle);
+    }, [anime.englishTitle]);
 
     const handleSave = () => {
         updateTitle(anime.anilistId, title);
@@ -115,7 +128,7 @@ const TitleEditor: React.FC<{ anime: Anime }> = ({ anime }) => {
             handleSave();
         } else if (e.key === 'Escape') {
             setIsEditing(false);
-            setTitle(anime.title);
+            setTitle(anime.englishTitle);
         }
     };
 
@@ -132,7 +145,7 @@ const TitleEditor: React.FC<{ anime: Anime }> = ({ anime }) => {
                     autoFocus
                 />
             ) : (
-                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{anime.title}</h1>
+                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{displayTitle}</h1>
             )}
             <button onClick={() => setIsEditing(!isEditing)} className="text-gray-400 hover:text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -222,13 +235,40 @@ interface AnimeDetailPageProps {
   onWatchNow: (anime: Anime) => void;
   onBack: () => void;
   onSelectRelated: (id: number) => void;
+  setInView: (inView: boolean) => void;
 }
 
-const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated }) => {
+// FIX: Define a limit for the number of related anime to show.
+const RELATED_ANIME_LIMIT = 15;
+
+const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated, setInView }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
   const { isAdmin } = useAdmin();
+  const { titleLanguage } = useTitleLanguage();
+  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+  const bannerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setInView(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = bannerRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [setInView]);
 
   useEffect(() => {
     if (!anime) return;
@@ -246,10 +286,10 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
 
   return (
     <div className="animate-fade-in text-white">
-      <div className="relative h-[50vh] w-full">
+      <div ref={bannerRef} className="relative h-[50vh] w-full -mt-16 pt-16">
         <img
           src={anime.bannerImage || anime.coverImage}
-          alt={anime.title}
+          alt={title}
           className="w-full h-full object-cover"
           onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
         />
@@ -260,12 +300,19 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
       <div className="container mx-auto p-4 md:p-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 relative z-10 -mt-32 md:-mt-48">
           <div className="md:col-span-4 lg:col-span-3">
-            <img 
-              src={anime.coverImage} 
-              alt={anime.title} 
-              className="w-full rounded-lg shadow-2xl aspect-[2/3] object-cover"
-              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-            />
+            <div className="relative">
+              <img 
+                src={anime.coverImage} 
+                alt={title} 
+                className="w-full rounded-lg shadow-2xl aspect-[2/3] object-cover"
+                onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+              />
+              {anime.isAdult && (
+                <div className="absolute top-3 right-3 bg-red-600 text-white text-sm font-bold px-3 py-1.5 rounded-md shadow-lg z-10">
+                  18+
+                </div>
+              )}
+            </div>
           </div>
           <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-end md:pb-8">
             <button onClick={onBack} className="absolute top-4 left-4 text-white bg-black/50 p-2 rounded-full hover:bg-cyan-500 transition-colors z-20">
@@ -276,7 +323,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
             {isAdmin ? (
                 <TitleEditor anime={anime} />
             ) : (
-                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{anime.title}</h1>
+                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{title}</h1>
             )}
             <div className="my-4 flex flex-wrap gap-2">
               {anime.genres.map(genre => <GenrePill key={genre} genre={genre} />)}
@@ -284,7 +331,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <button 
                 onClick={() => onWatchNow(anime)}
-                className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2"
+                className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
@@ -294,7 +341,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
               {anime.trailer && anime.trailer.site === 'youtube' ? (
                 <button
                   onClick={() => setIsTrailerOpen(true)}
-                  className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2"
+                  className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full transition-colors flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
@@ -304,7 +351,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
               ) : (
                 <button
                   disabled
-                  className="bg-gray-800 text-gray-500 font-bold py-3 px-8 rounded-full cursor-not-allowed flex items-center gap-2"
+                  className="bg-gray-800 text-gray-500 font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full cursor-not-allowed flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
