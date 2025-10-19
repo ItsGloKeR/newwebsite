@@ -27,9 +27,10 @@ const SchedulePage = React.lazy(() => import('./components/SchedulePage'));
 const AdminModal = React.lazy(() => import('./components/AdminModal'));
 const FilterModal = React.lazy(() => import('./components/FilterModal'));
 const InfoModal = React.lazy(() => import('./components/InfoModal'));
+const ReportPage = React.lazy(() => import('./components/ReportPage'));
 
 
-type View = 'home' | 'details' | 'player';
+type View = 'home' | 'details' | 'player' | 'report';
 
 const initialFilters: FilterState = {
     genres: [],
@@ -548,6 +549,15 @@ const AppContent: React.FC = () => {
         setIsBannerInView(true);
         setView('home');
     };
+
+    const handleGoToReport = () => {
+        setView('report');
+        window.scrollTo(0, 0);
+    };
+
+    const handleBackFromReport = () => {
+        setView('player');
+    };
     
     const handleGoToAppHome = () => {
         setSearchTerm('');
@@ -762,6 +772,9 @@ const AppContent: React.FC = () => {
     const renderContent = () => {
         let content;
         switch(view) {
+            case 'report':
+                content = <ReportPage onBack={handleBackFromReport} />;
+                break;
             case 'player':
                 content = <AnimePlayer
                     anime={playerState.anime!}
@@ -774,6 +787,7 @@ const AppContent: React.FC = () => {
                     onBack={handleBackToDetails}
                     onSelectRecommended={handleSelectAnime}
                     onSelectRelated={handleSelectAnime}
+                    onReportIssue={handleGoToReport}
                 />;
                 break;
             case 'details':
