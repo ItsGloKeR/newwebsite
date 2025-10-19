@@ -34,7 +34,6 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ isOpen, onClose, onFilterCl
     { label: 'Drama', filters: { genres: ['Drama'] }, title: 'Drama Anime' },
     { label: 'Ecchi', filters: { genres: ['Ecchi'] }, title: 'Ecchi Anime' },
     { label: 'Fantasy', filters: { genres: ['Fantasy'] }, title: 'Fantasy Anime' },
-    { label: 'Hentai', filters: { genres: ['Hentai'] }, title: 'Hentai Anime' },
     { label: 'Horror', filters: { genres: ['Horror'] }, title: 'Horror Anime' },
     { label: 'Mahou Shoujo', filters: { genres: ['Mahou Shoujo'] }, title: 'Mahou Shoujo Anime' },
     { label: 'Mecha', filters: { genres: ['Mecha'] }, title: 'Mecha Anime' },

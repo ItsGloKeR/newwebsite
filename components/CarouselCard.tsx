@@ -30,9 +30,9 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
     }
   };
 
-  const widthClass = size === 'small' ? 'w-44' : 'w-56';
-  const rankSizeClass = size === 'small' ? 'text-7xl' : 'text-8xl';
-  const titlePaddingClass = size === 'small' ? 'pl-12' : 'pl-14';
+  const widthClass = size === 'small' ? 'w-40' : 'w-48';
+  const rankSizeClass = size === 'small' ? 'text-6xl' : 'text-7xl';
+  const titlePaddingClass = size === 'small' ? 'pl-10' : 'pl-12';
 
   return (
     <button

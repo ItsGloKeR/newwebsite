@@ -89,13 +89,13 @@ const TwoRowAnimeGrid: React.FC<TwoRowAnimeGridProps> = ({ title, animeList, onS
           <div className="grid grid-rows-2 grid-flow-col gap-4 md:gap-6" style={{ width: 'max-content' }}>
             {isLoading ? (
               Array.from({ length: skeletonCount }).map((_, index) => (
-                <div key={index} className="w-40 sm:w-48 md:w-56">
+                <div key={index} className="w-36 sm:w-44 md:w-48">
                   <SkeletonCard />
                 </div>
               ))
             ) : (
               animeList.map(anime => (
-                <div key={anime.anilistId} className="w-40 sm:w-48 md:w-56">
+                <div key={anime.anilistId} className="w-36 sm:w-44 md:w-48">
                   <AnimeCard anime={anime} onSelect={onSelectAnime} />
                 </div>
               ))

@@ -139,6 +139,7 @@ export interface AiringSchedule {
     id: number;
     isAdult: boolean;
     episodes: number | null;
+    genres?: string[];
     title: {
       romaji: string;
       english: string;

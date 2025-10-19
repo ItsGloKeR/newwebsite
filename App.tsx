@@ -17,7 +17,6 @@ import { UserDataProvider, useUserData } from './contexts/UserDataContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import { progressTracker } from './utils/progressTracking';
-import SpotlightSection from './components/SpotlightSection';
 import { PLACEHOLDER_IMAGE_URL } from './constants';
 // FIX: Import useDebounce hook to fix 'Cannot find name' error.
 import { useDebounce } from './hooks/useDebounce';
@@ -431,7 +430,8 @@ const AppContent: React.FC = () => {
             const animeDetailsMap = new Map(animeDetails.map(a => [a.anilistId, a]));
             const sortedAnimeDetails = inProgress
                 .map(p => animeDetailsMap.get(p.id))
-                .filter((a): a is Anime => !!a);
+                .filter((a): a is Anime => !!a)
+                .filter(a => !a.genres.includes("Hentai") && !a.isAdult);
             const enrichedList = enrichAnimeWithProgress(applyOverridesToList(sortedAnimeDetails));
             setContinueWatching(enrichedList);
         };
@@ -604,8 +604,6 @@ const AppContent: React.FC = () => {
         return discoveryTitle;
     };
     
-    const spotlightMovie = useMemo(() => popular.find(anime => anime.format === MediaFormat.MOVIE.replace('_', ' ')), [popular]);
-
     const latestEpisodesAsAnime = useMemo(() => latestEpisodes.map(schedule => ({
         anilistId: schedule.media.id,
         englishTitle: schedule.media.title.english || schedule.media.title.romaji,
@@ -613,7 +611,7 @@ const AppContent: React.FC = () => {
         coverImage: schedule.media.coverImage.extraLarge,
         isAdult: schedule.media.isAdult,
         episodes: schedule.episode,
-        description: '', bannerImage: '', genres: [], duration: null, year: 0, rating: 0, status: '', format: '', studios: [], staff: [], relations: [], recommendations: [],
+        description: '', bannerImage: '', genres: schedule.media.genres || [], duration: null, year: 0, rating: 0, status: '', format: '', studios: [], staff: [], relations: [], recommendations: [],
     })), [latestEpisodes]);
     
     const iconProps = { className: "h-7 w-7" };
@@ -625,7 +623,7 @@ const AppContent: React.FC = () => {
     const PopularIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M11 2a1 1 0 10-2 0v1a1 1 0 102 0V2zM5 5a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm3 8a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm-3 4a1 1 0 100 2h8a1 1 0 100-2H5z" /><path fillRule="evenodd" d="M3 5a3 3 0 013-3h8a3 3 0 013 3v12a1 1 0 11-2 0V5a1 1 0 00-1-1H6a1 1 0 00-1 1v12a1 1 0 11-2 0V5z" clipRule="evenodd" /></svg>;
     const UpcomingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
     const SeasonIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 001 1h12a1 1 0 001-1V6h1a1 1 0 100-2h-1V3a1 1 0 00-1-1H5zM4 9a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zm2 3a1 1 0 100 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
-    const AiringIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.99 2.05c.53 0 1.04.08 1.54.23l-1.28 1.28A5.95 5.95 0 004.28 7.5l-1.28 1.28A7.94 7.94 0 019.99 2.05zM2.06 9.99a7.94 7.94 0 016.71-7.71l-1.28 1.28A5.95 5.95 0 003.5 12.5l-1.28 1.28A7.94 7.94 0 012.06 10zM10 4a6 6 0 100 12 6 6 0 000-12zM10 14a4 4 0 110-8 4 4 0 010 8z" /></svg>;
+    const AiringIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.99 2.05c.53 0 1.04 .08 1.54 .23l-1.28 1.28A5.95 5.95 0 004.28 7.5l-1.28 1.28A7.94 7.94 0 019.99 2.05zM2.06 9.99a7.94 7.94 0 016.71-7.71l-1.28 1.28A5.95 5.95 0 003.5 12.5l-1.28 1.28A7.94 7.94 0 012.06 10zM10 4a6 6 0 100 12 6 6 0 000-12zM10 14a4 4 0 110-8 4 4 0 010 8z" /></svg>;
     const RatedIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
     const FilterIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" /></svg>;
 
@@ -661,7 +659,7 @@ const AppContent: React.FC = () => {
                             />
                         </div>
                     )}
-                    <div className="mb-12">
+                    <div className="mb-4">
                         <AnimeCarousel 
                             title="Trending" 
                             icon={TrendingIcon}
@@ -672,16 +670,8 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
 
-                {spotlightMovie && (
-                    <SpotlightSection
-                        anime={spotlightMovie}
-                        onWatchNow={handleWatchNow}
-                        onDetails={handleSelectAnime}
-                    />
-                )}
-                
                 <div className="container mx-auto p-4 md:p-8">
-                    <div className="mt-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         <div className="lg:col-span-3 flex flex-col gap-12">
                              <AnimeCarousel
                                 title="Latest Episodes"
@@ -698,6 +688,7 @@ const AppContent: React.FC = () => {
                                 animeList={popular}
                                 onSelectAnime={handleSelectAnime}
                                 onViewMore={() => handleViewMore({ sort: MediaSort.POPULARITY_DESC }, "All Time Popular Anime")}
+                                showRank={false}
                             />
                             <AnimeCarousel 
                                 title="Top Upcoming" 
@@ -708,15 +699,17 @@ const AppContent: React.FC = () => {
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.NOT_YET_RELEASED], sort: MediaSort.POPULARITY_DESC }, "Top Upcoming Anime")}
                                 cardSize="small"
                             />
-                            <AnimeCarousel 
-                                title="Popular This Season"
-                                icon={SeasonIcon}
-                                animeList={popularThisSeason} 
-                                onSelectAnime={handleSelectAnime}
-                                showRank={false}
-                                onViewMore={() => handleViewMore({ season: currentSeason!, year: String(currentYear!), sort: MediaSort.POPULARITY_DESC }, "Popular This Season")}
-                                cardSize="small"
-                            />
+                            <div className="mt-4">
+                                <AnimeCarousel 
+                                    title="Popular This Season"
+                                    icon={SeasonIcon}
+                                    animeList={popularThisSeason} 
+                                    onSelectAnime={handleSelectAnime}
+                                    showRank={false}
+                                    onViewMore={() => handleViewMore({ season: currentSeason!, year: String(currentYear!), sort: MediaSort.POPULARITY_DESC }, "Popular This Season")}
+                                    cardSize="small"
+                                />
+                            </div>
                         </div>
                         <div className="lg:col-span-1">
                             <div className="flex flex-col gap-8">
@@ -740,21 +733,23 @@ const AppContent: React.FC = () => {
                         </div>
                     </div>
                                         
-                    {isScheduleVisible ? (
-                        <Suspense fallback={<FullPageSpinner />}>
-                            <SchedulePage 
+                    <div className="mt-16">
+                        {isScheduleVisible ? (
+                            <Suspense fallback={<FullPageSpinner />}>
+                                <SchedulePage 
+                                    schedule={scheduleList}
+                                    onSelectAnime={handleSelectAnime} 
+                                    onClose={() => setIsScheduleVisible(false)}
+                                />
+                            </Suspense>
+                        ) : (
+                            <SchedulePreview 
                                 schedule={scheduleList}
-                                onSelectAnime={handleSelectAnime} 
-                                onClose={() => setIsScheduleVisible(false)}
+                                onSelectAnime={handleSelectAnime}
+                                onShowMore={() => setIsScheduleVisible(true)}
                             />
-                        </Suspense>
-                    ) : (
-                        <SchedulePreview 
-                            schedule={scheduleList}
-                            onSelectAnime={handleSelectAnime}
-                            onShowMore={() => setIsScheduleVisible(true)}
-                        />
-                    )}
+                        )}
+                    </div>
                 </div>
             </main>
         );
@@ -812,7 +807,7 @@ const AppContent: React.FC = () => {
                 <Header 
                     onSearch={handleSearchInputChange} 
                     onHomeClick={handleGoToAppHome}
-                    onLogoClick={handleGoToLanding} 
+                    onLogoClick={handleGoToAppHome} 
                     onFilterClick={() => setIsFilterModalOpen(true)}
                     onRandomAnime={handleRandomAnime}
                     onLoginClick={handleLoginClick} 

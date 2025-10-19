@@ -29,9 +29,7 @@ const SpotlightSection: React.FC<SpotlightSectionProps> = ({ anime, onWatchNow, 
   
   const isFavorite = favorites.includes(anime.anilistId);
 
-  const description = anime.description
-    ? (anime.description.length > 300 ? `${anime.description.substring(0, 300)}...` : anime.description)
-    : 'No description available.';
+  const description = anime.description || 'No description available.';
 
   return (
     <div className="relative w-full h-[60vh] md:h-[70vh] my-16 overflow-hidden">
@@ -54,13 +52,19 @@ const SpotlightSection: React.FC<SpotlightSectionProps> = ({ anime, onWatchNow, 
           </div>
           <div className="md:col-span-2 text-center md:text-left animate-fade-in" style={{ animationDelay: '0.2s' }}>
             <p className="text-cyan-400 font-bold uppercase tracking-widest mb-2 font-display">Movie Spotlight</p>
-            <h2 className="text-4xl md:text-5xl font-black drop-shadow-lg leading-tight break-words font-display">{title}</h2>
+            <h2 className="text-3xl md:text-4xl font-black drop-shadow-lg leading-tight break-words font-display">{title}</h2>
             
             <div className="my-4 flex flex-wrap gap-2 justify-center md:justify-start">
               {anime.genres.slice(0, 4).map(genre => <GenrePill key={genre} genre={genre} />)}
             </div>
 
-            <p className="text-gray-200 leading-relaxed text-sm my-4 max-w-2xl mx-auto md:mx-0">{description}</p>
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-2 my-4 text-gray-300 text-sm justify-center md:justify-start">
+              <span className="flex items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>{anime.format}</span>
+              <span className="flex items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>{anime.episodes ? `${anime.episodes} Ep` : 'TBA'}</span>
+              <span className="flex items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>{anime.year}</span>
+            </div>
+
+            <p className="text-gray-200 leading-relaxed text-sm my-4 max-w-3xl mx-auto md:mx-0 line-clamp-4">{description}</p>
             
             <div className="mt-6 flex flex-wrap gap-4 justify-center md:justify-start items-center">
                 <button

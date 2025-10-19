@@ -313,6 +313,10 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
 
   return (
     <div className="animate-fade-in text-white">
+      <div className="absolute top-20 left-4 md:left-8 z-30">
+        <BackButton />
+      </div>
+
       <div ref={bannerRef} className="relative h-[50vh] w-full -mt-16 pt-16">
         <img
           src={anime.bannerImage || anime.coverImage}
@@ -325,9 +329,6 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
       </div>
 
       <div className="container mx-auto p-4 md:p-8">
-        <div className="mb-6">
-          <BackButton />
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 relative z-10 -mt-32 md:-mt-48">
           <div className="md:col-span-4 lg:col-span-3">
             <div className="relative">
@@ -496,10 +497,6 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
               </div>
            </div>
         )}
-        
-        <div className="mt-16 flex justify-center">
-            <BackButton />
-        </div>
       </div>
       
       {isTrailerOpen && anime.trailer && (

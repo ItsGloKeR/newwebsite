@@ -1,6 +1,6 @@
 // services/anilistService.ts
 
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus } from '../types';
 import * as db from './dbService';
 
 // Cache Durations
@@ -330,7 +330,7 @@ export const getRandomAnime = async (): Promise<Anime | null> => {
     const randomAnimeQuery = `
         query ($page: Int) {
             Page(page: $page, perPage: 1) {
-                media(type: ANIME, format_not_in: [MUSIC], isAdult: false, averageScore_greater: 60, sort: POPULARITY_DESC) {
+                media(type: ANIME, format_not_in: [MUSIC], isAdult: false, averageScore_greater: 60, sort: POPULARITY_DESC, genre_not_in: "Hentai") {
                     ...animeFields
                 }
             }
@@ -368,7 +368,7 @@ export const getLandingPageData = async () => {
         const query = `
             query {
                 popular: Page(page: 1, perPage: 8) {
-                    media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED]) {
+                    media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai") {
                         id
                         isAdult
                         title {
@@ -399,32 +399,32 @@ export const getHomePageData = async () => {
         const query = `
             query ($season: MediaSeason, $seasonYear: Int) {
             trending: Page(page: 1, perPage: 10) {
-                media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
+                media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
             popular: Page(page: 1, perPage: 24) {
-                media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED]) {
+                media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
             topAiring: Page(page: 1, perPage: 10) {
-                media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING) {
+                media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
             topRated: Page(page: 1, perPage: 10) {
-                media(sort: SCORE_DESC, type: ANIME) {
+                media(sort: SCORE_DESC, type: ANIME, genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
             topUpcoming: Page(page: 1, perPage: 10) {
-                media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED) {
+                media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED, genre_not_in: "Hentai", isAdult: false) {
                 ...animeFields
                 }
             }
             popularThisSeason: Page(page: 1, perPage: 10) {
-                media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear) {
+                media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear, genre_not_in: "Hentai", isAdult: false) {
                     ...animeFields
                 }
             }
@@ -508,7 +508,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
     return getOrSetCache(cacheKey, LATEST_EPISODES_CACHE_DURATION, async () => {
         const query = `
         query {
-            Page(page: 1, perPage: 18) {
+            Page(page: 1, perPage: 25) {
             airingSchedules(notYetAired: false, sort: TIME_DESC) {
                 id
                 episode
@@ -517,6 +517,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
                 id
                 isAdult
                 episodes
+                genres
                 title {
                     romaji
                     english
@@ -531,7 +532,12 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
         `;
 
         const data = await fetchAniListData(query, {});
-        const schedules: AiringSchedule[] = data.Page.airingSchedules;
+        const schedules: AiringSchedule[] = data.Page.airingSchedules.filter(
+            (schedule: any) => 
+                schedule.media.genres && 
+                !schedule.media.genres.includes('Hentai') && 
+                !schedule.media.isAdult
+        );
 
         const uniqueSchedules = schedules.reduce((acc, current) => {
             if (!acc.some(item => item.media.id === current.media.id)) {
@@ -540,7 +546,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
             return acc;
         }, [] as AiringSchedule[]);
         
-        return uniqueSchedules;
+        return uniqueSchedules.slice(0, 18);
     });
 };
 
@@ -559,7 +565,9 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
         $season: MediaSeason,
         $seasonYear: Int,
         $format_in: [MediaFormat],
-        $status_in: [MediaStatus]
+        $status_in: [MediaStatus],
+        $genre_not_in: [String],
+        $isAdult: Boolean
       ) {
         Page(page: $page, perPage: $perPage) {
           media(
@@ -570,7 +578,9 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
             season: $season,
             seasonYear: $seasonYear,
             format_in: $format_in,
-            status_in: $status_in
+            status_in: $status_in,
+            genre_not_in: $genre_not_in,
+            isAdult: $isAdult
           ) {
             ...animeFields
           }
@@ -588,6 +598,13 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
         page,
         perPage,
       };
+
+      // Only apply Hentai/Adult filter when NOT searching.
+      if (!searchTerm.trim()) {
+        variables.isAdult = false;
+        variables.genre_not_in = ['Hentai'];
+      }
+
       if (filters.genres.length > 0) variables.genres = filters.genres;
       if (filters.year && !isNaN(parseInt(filters.year))) variables.seasonYear = parseInt(filters.year, 10);
       if (filters.season) variables.season = filters.season;
