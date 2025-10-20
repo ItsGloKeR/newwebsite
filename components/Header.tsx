@@ -3,8 +3,6 @@ import { SearchSuggestion, FilterState } from '../types';
 import SearchSuggestions from './SearchSuggestions';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { getSearchHistory, removeSearchTermFromHistory, clearSearchHistory } from '../services/cacheService';
-import { useAuth } from '../contexts/AuthContext';
-import { signOutUser } from '../services/firebase';
 
 
 interface HeaderProps {
@@ -23,44 +21,6 @@ interface HeaderProps {
   onNavigate: (filters: Partial<FilterState>, title: string) => void;
   isBannerInView: boolean;
 }
-
-const UserMenu: React.FC<{ user: any; onLogout: () => void }> = ({ user, onLogout }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-  
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-          setIsOpen(false);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-  
-    return (
-      <div className="relative" ref={menuRef}>
-        <button onClick={() => setIsOpen(p => !p)} className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-cyan-500">
-          <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full" />
-        </button>
-        {isOpen && (
-          <div className="absolute top-full right-0 mt-2 w-56 bg-gray-800 rounded-md shadow-lg py-1 z-50 animate-fade-in-fast">
-            <div className="px-4 py-2 border-b border-gray-700">
-                <p className="font-semibold text-white truncate text-sm">{user.displayName}</p>
-                <p className="text-gray-400 truncate text-xs">{user.email}</p>
-            </div>
-            <button
-              onClick={onLogout}
-              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-2"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                <span>Logout</span>
-            </button>
-          </div>
-        )}
-      </div>
-    );
-};
 
 const SocialIcon: React.FC<{ href: string; ariaLabel: string; children: React.ReactNode }> = ({ href, ariaLabel, children }) => (
     <a href={href} target="_blank" rel="noopener noreferrer" aria-label={ariaLabel} className="text-gray-200 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10">
@@ -89,7 +49,6 @@ const Header: React.FC<HeaderProps> = ({
   const headerRef = useRef<HTMLElement>(null);
   const { titleLanguage, setTitleLanguage } = useTitleLanguage();
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const { user } = useAuth();
   
   const showSuggestions = isSearchFocused && searchTerm.trim() !== '';
   const showHistory = isSearchFocused && searchTerm.trim() === '' && searchHistory.length > 0;
@@ -136,12 +95,6 @@ const Header: React.FC<HeaderProps> = ({
     clearSearchHistory();
     setSearchHistory([]);
   };
-
-  const handleLogout = async () => {
-    await signOutUser();
-    // onAuthStateChanged will handle UI updates
-  };
-
 
   return (
     <header className="sticky top-0 z-50" ref={headerRef}>
@@ -222,11 +175,7 @@ const Header: React.FC<HeaderProps> = ({
               <button onClick={() => setTitleLanguage('romaji')} className={`px-2 py-0.5 rounded-full ${titleLanguage === 'romaji' ? 'bg-cyan-500 text-white' : 'text-gray-400'}`}>JP</button>
             </div>
             <div className="h-5 w-px bg-gray-700 mx-1"></div>
-            {user ? (
-                <UserMenu user={user} onLogout={handleLogout} />
-            ) : (
-                <button onClick={onLoginClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">Login</button>
-            )}
+            <button onClick={onLoginClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">Login</button>
         </div>
       </div>
     </header>
