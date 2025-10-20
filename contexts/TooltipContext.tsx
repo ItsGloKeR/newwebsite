@@ -36,9 +36,14 @@ export const TooltipProvider: React.FC<TooltipProviderProps> = ({ children, onWa
 
     useEffect(() => {
         const handler = () => hideTooltipImmediately();
+        // Listen for explicit hide events (e.g., navigation)
         window.addEventListener('hideTooltip', handler);
+        // Also hide on scroll to prevent detached tooltips
+        window.addEventListener('scroll', handler, { passive: true });
+
         return () => {
             window.removeEventListener('hideTooltip', handler);
+            window.removeEventListener('scroll', handler);
         };
     }, [hideTooltipImmediately]);
 

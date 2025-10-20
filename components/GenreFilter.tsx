@@ -95,7 +95,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFiltersChange, allGenr
     };
     
     return (
-        <div className="bg-gray-900/70 p-4 rounded-lg mb-8 backdrop-blur-sm animate-fade-in">
+        <div className="bg-gray-900/70 p-4 rounded-lg mb-8 backdrop-blur-sm animate-fade-in relative z-10">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {/* Search */}
                 <div className="sm:col-span-2 md:col-span-2 lg:col-span-2">

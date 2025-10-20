@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+// FIX: Corrected typo ZenshinMapping to ZenshinMapping
 import { Anime, StreamSource, StreamLanguage, RelatedAnime, RecommendedAnime, ZenshinMapping } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
@@ -6,8 +7,17 @@ import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import VerticalAnimeList from './VerticalAnimeList';
 import { useTooltip } from '../contexts/TooltipContext';
-import { setLastWatchedEpisode } from '../services/userPreferenceService';
+import { setLastWatchedEpisode, getLastWatchedEpisode } from '../services/userPreferenceService';
 import LoadingSpinner from './LoadingSpinner';
+import { progressTracker } from '../utils/progressTracking';
+import Logo from './Logo';
+
+
+// Player control icons
+const PrevIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>;
+const NextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>;
+const FullscreenEnterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v5A1.5 1.5 0 004.5 10h5A1.5 1.5 0 0011 8.5v-5A1.5 1.5 0 009.5 2h-5zM3 13.5A1.5 1.5 0 014.5 12h5A1.5 1.5 0 0111 13.5v5A1.5 1.5 0 019.5 20h-5A1.5 1.5 0 013 18.5v-5zM13.5 2A1.5 1.5 0 0115 3.5v5A1.5 1.5 0 0113.5 10h-5A1.5 1.5 0 017 8.5v-5A1.5 1.5 0 018.5 2h5zM12 13.5a1.5 1.5 0 00-1.5 1.5v5a1.5 1.5 0 001.5 1.5h5a1.5 1.5 0 001.5-1.5v-5a1.5 1.5 0 00-1.5-1.5h-5z" clipRule="evenodd" /></svg>;
+const FullscreenExitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a3 3 0 00-3 3v2.5a.5.5 0 001 0V5a2 2 0 012-2h2.5a.5.5 0 000-1H5zM15 2h-2.5a.5.5 0 000 1H15a2 2 0 012 2v2.5a.5.5 0 001 0V5a3 3 0 00-3-3zM5 18H2.5a.5.5 0 000 1H5a3 3 0 003-3v-2.5a.5.5 0 00-1 0V15a2 2 0 01-2 2zM18 15v-2.5a.5.5 0 00-1 0V15a2 2 0 01-2 2h-2.5a.5.5 0 000 1H15a3 3 0 003-3z" clipRule="evenodd" /></svg>;
 
 
 const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => void }> = ({ anime, onSelect }) => {
@@ -166,21 +176,104 @@ const AnimePlayer: React.FC<{
   const rangeSelectorRef = useRef<HTMLDivElement>(null);
   const [isPlayerLoading, setIsPlayerLoading] = useState(true);
   const [resumeNotification, setResumeNotification] = useState<string | null>(null);
+  const lastWatchedEp = useMemo(() => getLastWatchedEpisode(anime.anilistId), [anime.anilistId]);
+  
+  const playerWrapperRef = useRef<HTMLDivElement>(null);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const inactivityTimeoutRef = useRef<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  // --- Overlay and Fullscreen Logic ---
+  
+  const hideOverlay = useCallback(() => {
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+    setIsOverlayVisible(false);
+  }, []);
+
+  const showOverlay = useCallback((autoHide = true) => {
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+    setIsOverlayVisible(true);
+    if (autoHide) {
+      inactivityTimeoutRef.current = window.setTimeout(() => {
+        setIsOverlayVisible(false);
+      }, 3500); // 3.5 seconds
+    }
+  }, []);
+  
+  useEffect(() => {
+    const handlePlayerEvent = (data: any) => {
+        // Show controls near the end of the episode
+        if (data.name === 'timeupdate' && data.currentTime && data.duration) {
+            const timeLeft = data.duration - data.currentTime;
+            if (timeLeft < 30 && timeLeft > 3) {
+                showOverlay(false); // Don't auto-hide
+            }
+        }
+    };
+    progressTracker.addEventListener(handlePlayerEvent);
+    return () => {
+        progressTracker.removeEventListener(handlePlayerEvent);
+    };
+  }, [showOverlay]);
+  
+  // Effect to listen for fullscreen changes and update state
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  // Effect to manage mouse listeners based on fullscreen state
+  useEffect(() => {
+    const handleMouseMove = () => showOverlay();
+
+    if (isFullscreen) {
+        // We are in fullscreen, listen on the document
+        document.addEventListener('mousemove', handleMouseMove);
+    } else {
+        // We are not in fullscreen, remove document listener
+        document.removeEventListener('mousemove', handleMouseMove);
+    }
+
+    return () => {
+        // Cleanup document listener when component unmounts or isFullscreen changes
+        document.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [isFullscreen, showOverlay]);
+
+  const handleFullscreen = () => {
+    if (playerWrapperRef.current) {
+        if (!document.fullscreenElement) {
+            playerWrapperRef.current.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+  };
+
+  const handlePrevEpisode = () => {
+    if (currentEpisode > 1) onEpisodeChange(currentEpisode - 1);
+  };
+  const handleNextEpisode = () => {
+    if (currentEpisode < episodeCount) onEpisodeChange(currentEpisode + 1);
+  };
+
+  // --- End Overlay Logic ---
 
   useEffect(() => {
     // This effect shows a notification when resuming an episode.
-    // It runs only when the player is first loaded for an anime.
     if (currentEpisode > 1) {
         setResumeNotification(`Resuming from Episode ${currentEpisode}`);
-
-        const timer = setTimeout(() => {
-            setResumeNotification(null);
-        }, 4000); // Display for 4 seconds
-
+        const timer = setTimeout(() => setResumeNotification(null), 4000);
         return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anime.anilistId]);
+  }, [anime.anilistId, currentEpisode]);
 
   useEffect(() => {
     const fetchMappings = async () => {
@@ -190,7 +283,7 @@ const AnimePlayer: React.FC<{
             setZenshinData(data);
         } catch (error) {
             console.error("Failed to fetch zenshin mappings", error);
-            setZenshinData(null); // Ensure it's null on error
+            setZenshinData(null);
         } finally {
             setIsZenshinLoading(false);
         }
@@ -202,7 +295,9 @@ const AnimePlayer: React.FC<{
     if (anime && currentEpisode > 0) {
       setLastWatchedEpisode(anime.anilistId, currentEpisode);
     }
-  }, [anime, currentEpisode]);
+    // Hide overlay on episode change
+    hideOverlay();
+  }, [anime, currentEpisode, hideOverlay]);
 
   const episodeRanges = useMemo(() => {
       if (!episodeCount || episodeCount <= 100) return [];
@@ -254,8 +349,8 @@ const AnimePlayer: React.FC<{
     const days = Math.floor(timeUntil / 86400);
     const hours = Math.floor((timeUntil % 86400) / 3600);
     const minutes = Math.floor((timeUntil % 3600) / 60);
-    const countdown = `(${days} days, ${hours} hours, ${minutes} minutes)`;
-    const formattedDate = date.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
+    const countdown = `(${days}d ${hours}h ${minutes}m)`;
+    const formattedDate = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
     return { formattedDate, countdown };
   }, [anime.nextAiringEpisode]);
 
@@ -288,21 +383,6 @@ const AnimePlayer: React.FC<{
     { id: StreamLanguage.Hindi, label: 'HINDI' },
   ];
   
-  const StarRating = ({ score }: { score: number }) => {
-    const rating = score / 10;
-    const stars = [];
-    for (let i = 1; i <= 10; i++) {
-        if (i <= rating) {
-            stars.push(<svg key={i} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>);
-        } else if (i === Math.ceil(rating) && !Number.isInteger(rating)) {
-            stars.push(<svg key={i} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292zM10 12.243l-1.484 1.082.284-1.727-1.255-.913 1.734-.15L10 8.043l.72 1.492 1.734.15-1.255.913.284 1.727L10 12.243z"/></svg>);
-        } else {
-            stars.push(<svg key={i} className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>);
-        }
-    }
-    return <div className="flex">{stars}</div>;
-  };
-
   return (
     <main className="min-h-screen text-white animate-fade-in">
       <div className="container mx-auto max-w-screen-2xl p-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -312,9 +392,7 @@ const AnimePlayer: React.FC<{
                 className="mb-6 group flex items-center gap-2 text-gray-300 hover:text-white font-semibold transition-colors bg-gray-800/50 hover:bg-gray-700/80 px-4 py-2 rounded-full shadow-lg"
                 aria-label="Go back to details"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 <span>Back to details</span>
             </button>
             
@@ -324,7 +402,12 @@ const AnimePlayer: React.FC<{
               <p className="text-gray-400 text-sm mt-2 line-clamp-2">{currentZenshinEpisode?.overview}</p>
             </div>
 
-            <div className="aspect-video bg-black rounded-lg shadow-xl overflow-hidden mb-4 relative">
+            <div 
+                ref={playerWrapperRef}
+                className="aspect-video bg-black rounded-lg shadow-xl overflow-hidden mb-4 relative"
+                onMouseMove={showOverlay}
+                onMouseLeave={hideOverlay}
+            >
               {(isPlayerLoading || isZenshinLoading) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
                       <LoadingSpinner />
@@ -336,20 +419,36 @@ const AnimePlayer: React.FC<{
                 title={`${title} - Episode ${currentEpisode}`}
                 onLoad={() => setIsPlayerLoading(false)}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation allow-fullscreen"
+                sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
                 allowFullScreen
                 className="w-full h-full border-0"
               ></iframe>
                {resumeNotification && (
-                <div className="absolute top-4 right-4 z-20 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-fast">
+                <div className="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-fast pointer-events-none">
                     <p className="font-semibold flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-cyan-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" />
-                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-cyan-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
                         {resumeNotification}
                     </p>
                 </div>
               )}
+              {/* Custom Player Overlay */}
+              <div className={`absolute inset-0 z-20 transition-opacity duration-300 pointer-events-none ${ isOverlayVisible ? 'opacity-100' : 'opacity-0'}`}>
+                  <div className="absolute top-4 right-4 pointer-events-auto opacity-70"><Logo /></div>
+                  <div className="absolute inset-0 flex items-center justify-between px-4">
+                      <button
+                          onClick={handlePrevEpisode}
+                          disabled={currentEpisode <= 1}
+                          className="p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
+                          aria-label="Previous Episode"
+                      ><PrevIcon /></button>
+                      <button
+                          onClick={handleNextEpisode}
+                          disabled={currentEpisode >= episodeCount}
+                          className="p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
+                          aria-label="Next Episode"
+                      ><NextIcon /></button>
+                  </div>
+              </div>
             </div>
 
             <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg mb-4">
@@ -365,17 +464,15 @@ const AnimePlayer: React.FC<{
                           {languages.map(lang => {
                               const isLangDisabled = currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi);
                               return (
-                                <button 
-                                    key={lang.id} 
-                                    onClick={() => !isLangDisabled && onLanguageChange(lang.id)}
-                                    disabled={isLangDisabled}
-                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
-                                >
-                                    {lang.label}
-                                </button>
+                                <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button>
                               )
                           })}
                       </div>
+                       <div className="h-6 w-px bg-gray-700"></div>
+                        <button onClick={handleFullscreen} className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-4 py-1.5 rounded-md transition-colors">
+                            {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+                            {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                        </button>
                   </div>
                   <button onClick={onReportIssue} className="flex items-center gap-2 text-sm text-yellow-400 bg-yellow-900/50 hover:bg-yellow-800/50 font-semibold px-4 py-1.5 rounded-md transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
@@ -411,12 +508,22 @@ const AnimePlayer: React.FC<{
                             {isRangeSelectorOpen && ( <div className="absolute bottom-full mb-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10 animate-fade-in-fast"><ul>{episodeRanges.map((range, i) => <li key={i}><button onClick={() => { setSelectedRange(range); setIsRangeSelectorOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm ${range.start === selectedRange?.start ? 'text-cyan-400' : ''}`}>{`${String(range.start).padStart(3, '0')} - ${range.end}`}</button></li>)}</ul></div> )}
                         </div>
                          <div className="flex items-center gap-2">
-                            <button onClick={() => onEpisodeChange(Math.max(1, currentEpisode - 1))} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-md font-semibold text-sm transition-colors flex items-center gap-1" disabled={currentEpisode <= 1}>
+                            {lastWatchedEp && lastWatchedEp > 0 && lastWatchedEp !== currentEpisode && (
+                                <button 
+                                    onClick={() => onEpisodeChange(lastWatchedEp)} 
+                                    className="bg-cyan-500 hover:bg-cyan-600 px-3 py-1.5 rounded-md font-semibold text-sm transition-colors text-white flex items-center gap-1.5"
+                                    title={`Continue from Episode ${lastWatchedEp}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" /></svg>
+                                    Continue (Ep {lastWatchedEp})
+                                </button>
+                            )}
+                            <button onClick={handlePrevEpisode} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-md font-semibold text-sm transition-colors flex items-center gap-1" disabled={currentEpisode <= 1}>
                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                                 Prev
                             </button>
                             <button onClick={() => onEpisodeChange(episodeCount)} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-md font-semibold text-sm transition-colors" disabled={currentEpisode === episodeCount}>Latest</button>
-                            <button onClick={() => onEpisodeChange(Math.min(episodeCount, currentEpisode + 1))} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-md font-semibold text-sm transition-colors flex items-center gap-1" disabled={currentEpisode >= episodeCount}>
+                            <button onClick={handleNextEpisode} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-md font-semibold text-sm transition-colors flex items-center gap-1" disabled={currentEpisode >= episodeCount}>
                                 Next
                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
                             </button>
@@ -424,34 +531,18 @@ const AnimePlayer: React.FC<{
                    </div>
                    <form onSubmit={handleEpisodeSearch} className="relative">
                        <button type="submit" className="absolute inset-y-0 left-0 flex items-center pl-3" aria-label="Search episode">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
                         </button>
-                        <input 
-                            type="number" 
-                            value={episodeSearch} 
-                            onChange={e => setEpisodeSearch(e.target.value)} 
-                            placeholder="Find Ep..." 
-                            className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
+                        <input type="number" value={episodeSearch} onChange={e => setEpisodeSearch(e.target.value)} placeholder="Find Ep..." className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
                     </form>
                 </div>
-
                 <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1 pt-4 border-t border-gray-700/50">
-                    {filteredEpisodes.map(ep => (
-                    <button key={ep} onClick={() => onEpisodeChange(ep)} className={`py-2 px-1 flex items-center justify-center font-bold rounded transition-colors text-xs ${ep === currentEpisode ? 'bg-cyan-500 text-white' : 'bg-gray-700/80 text-gray-300 hover:bg-gray-600'}`}>{ep}</button>
-                    ))}
+                    {filteredEpisodes.map(ep => (<button key={ep} onClick={() => onEpisodeChange(ep)} className={`py-2 px-1 flex items-center justify-center font-bold rounded transition-colors text-xs ${ep === currentEpisode ? 'bg-cyan-500 text-white' : 'bg-gray-700/80 text-gray-300 hover:bg-gray-600'}`}>{ep}</button>))}
                 </div>
             </div>
-
             <div className="mt-8">
               <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg flex flex-col md:flex-row gap-6">
-                <img 
-                  src={anime.coverImage} 
-                  alt={title}
-                  onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-                  className="w-full md:w-48 h-auto object-cover rounded-lg aspect-[2/3] self-center"
-                />
+                <img src={anime.coverImage} alt={title} onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} className="w-full md:w-48 h-auto object-cover rounded-lg aspect-[2/3] self-center" />
                 <div className="flex-grow">
                   <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Details</h3>
                   <p className="text-gray-400 text-sm mt-2 mb-4 line-clamp-6">{anime.description}</p>
@@ -464,66 +555,29 @@ const AnimePlayer: React.FC<{
                     <div><span className="font-bold text-gray-300">Genres:</span> <span className="text-gray-400">{anime.genres.join(', ')}</span></div>
                   </div>
                 </div>
-                {anime.rating > 0 && (
-                  <div className="flex-shrink-0 bg-gray-900/50 p-4 rounded-lg flex flex-col items-center justify-center gap-2 self-start text-center">
-                      <p className="text-3xl font-bold text-white">
-                          {(anime.rating / 10).toFixed(2)}
-                          <span className="text-xl text-gray-400"> / 10</span>
-                      </p>
-                      <StarRating score={anime.rating} />
-                      <p className="text-xs text-gray-500 mt-1">Avg. Score</p>
-                      <div className="mt-4 pt-4 border-t border-gray-700/50 w-full">
-                          <p className="text-sm font-semibold text-gray-300 mb-2">Rate this anime?</p>
-                          <div className="flex justify-center gap-4">
-                              <button className="p-2 rounded-full bg-gray-700/60 hover:bg-green-500 hover:text-white transition-colors" aria-label="Like">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                      <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333V17a1 1 0 001 1h6.758a1 1 0 00.97-1.22l-1.93-6.114A1 1 0 0012.627 9H9.5a1 1 0 00-1 1v.5a.5.5 0 01-1 0V10a1 1 0 00-1-1H6z" />
-                                  </svg>
-                              </button>
-                              <button className="p-2 rounded-full bg-gray-700/60 hover:bg-red-500 hover:text-white transition-colors" aria-label="Dislike">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                      <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667V3a1 1 0 00-1-1h-6.758a1 1 0 00-.97 1.22l1.93 6.114A1 1 0 008.373 11H10.5a1 1 0 001-1v-.5a.5.5 0 011 0V10a1 1 0 001 1h1z" />
-                                  </svg>
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-                )}
               </div>
             </div>
-
             {anime.recommendations && anime.recommendations.length > 0 && (
               <div className="mt-8">
                   <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">You Might Also Like</h3>
                   <div className="flex gap-4 overflow-x-auto carousel-scrollbar pb-2">
-                      {anime.recommendations.map(rec => (
-                          <RecommendationCard key={rec.id} anime={rec} onSelect={() => onSelectRecommended({ anilistId: rec.id })} />
-                      ))}
+                      {anime.recommendations.map(rec => (<RecommendationCard key={rec.id} anime={rec} onSelect={() => onSelectRecommended({ anilistId: rec.id })} />))}
                   </div>
               </div>
             )}
         </div>
-
         <div className="lg:col-span-1">
             <div className="sticky top-20 flex flex-col gap-8">
                 {anime.relations && anime.relations.length > 0 && (
                     <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg">
                         <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Related Anime</h3>
                         <div className="flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
-                            {anime.relations.map(rel => (
-                                <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />
-                            ))}
+                            {anime.relations.map(rel => (<RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />))}
                         </div>
                     </div>
                 )}
                 {topAiring && topAiring.length > 0 && (!anime.relations || anime.relations.length < 4) && (
-                    <VerticalAnimeList
-                        title="Top Airing"
-                        animeList={topAiring}
-                        onSelectAnime={(selectedAnime) => onSelectRelated({ anilistId: selectedAnime.anilistId })}
-                        icon={<AiringIcon />}
-                        showRank={true}
-                    />
+                    <VerticalAnimeList title="Top Airing" animeList={topAiring} onSelectAnime={(selectedAnime) => onSelectRelated({ anilistId: selectedAnime.anilistId })} icon={<AiringIcon />} showRank={true} />
                 )}
             </div>
         </div>

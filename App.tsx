@@ -25,6 +25,7 @@ import AnimeDetailPageSkeleton from './components/AnimeDetailPageSkeleton';
 import Sidebar from './components/Sidebar';
 import FilterBar from './components/GenreFilter'; // Re-using GenreFilter file for FilterBar
 import Pagination from './components/SidebarMenu'; // Re-using SidebarMenu file for Pagination
+import LandingPageSkeleton from './components/LandingPageSkeleton';
 
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const AnimeDetailPage = React.lazy(() => import('./components/AnimeDetailPage'));
@@ -312,13 +313,20 @@ const AppContent: React.FC = () => {
         progressTracker.addToHistory(anime as Anime);
         const lastSettings = getLastPlayerSettings();
         let startEpisode = episode;
+        
         if (!startEpisode) {
             const progressData = progressTracker.getMediaData(anime.anilistId);
-            const lastWatchedFromProgress = progressData ? parseInt(progressData.last_episode_watched, 10) : null;
-            const lastSelectedEpisode = getLastWatchedEpisode(anime.anilistId);
-            startEpisode = Math.max(lastWatchedFromProgress || 1, lastSelectedEpisode || 1);
+            
+            // Get episode from detailed progress tracking (e.g., from player events)
+            const epFromProgress = progressData?.last_episode_watched ? parseInt(progressData.last_episode_watched, 10) : 1;
+            
+            // Get episode from simple cache (last clicked episode button)
+            const epFromCache = getLastWatchedEpisode(anime.anilistId) || 1;
+    
+            // Use the more advanced of the two, defaulting to 1. Handles potential NaN from parseInt.
+            startEpisode = Math.max(isNaN(epFromProgress) ? 1 : epFromProgress, epFromCache);
         }
-
+    
         setPlayerState({
             anime: applyOverrides(anime as Anime),
             episode: startEpisode,
@@ -888,36 +896,48 @@ const AppContent: React.FC = () => {
         let content;
         switch(view) {
             case 'report':
-                content = <ReportPage onBack={handleBackFromReport} />;
+                content = (
+                  <Suspense fallback={<FullPageSpinner />}>
+                    <ReportPage onBack={handleBackFromReport} />
+                  </Suspense>
+                );
                 break;
             case 'player':
-                content = <AnimePlayer
-                    anime={playerState.anime!}
-                    currentEpisode={playerState.episode}
-                    currentSource={playerState.source}
-                    currentLanguage={playerState.language}
-                    onEpisodeChange={(ep) => setPlayerState(prev => ({...prev, episode: ep}))}
-                    onSourceChange={handleSourceChange}
-                    onLanguageChange={handleLanguageChange}
-                    onBack={handleBackToDetails}
-                    onSelectRecommended={handleSelectAnime}
-                    onSelectRelated={handleSelectAnime}
-                    onReportIssue={handleGoToReport}
-                    topAiring={topAiring}
-                />;
+                content = (
+                  <Suspense fallback={<FullPageSpinner />}>
+                    <AnimePlayer
+                        anime={playerState.anime!}
+                        currentEpisode={playerState.episode}
+                        currentSource={playerState.source}
+                        currentLanguage={playerState.language}
+                        onEpisodeChange={(ep) => setPlayerState(prev => ({...prev, episode: ep}))}
+                        onSourceChange={handleSourceChange}
+                        onLanguageChange={handleLanguageChange}
+                        onBack={handleBackToDetails}
+                        onSelectRecommended={handleSelectAnime}
+                        onSelectRelated={handleSelectAnime}
+                        onReportIssue={handleGoToReport}
+                        topAiring={topAiring}
+                    />
+                  </Suspense>
+                );
                 break;
             case 'details':
-                if (isLoading) {
-                    content = <AnimeDetailPageSkeleton />;
-                } else if (selectedAnime) {
-                    content = <AnimeDetailPage 
-                        anime={selectedAnime}
-                        onWatchNow={handleWatchNow}
-                        onBack={handleBackFromDetails}
-                        onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
-                        setInView={setIsBannerInView}
-                    />;
-                }
+                 content = (
+                    <Suspense fallback={<AnimeDetailPageSkeleton />}>
+                      {isLoading || !selectedAnime ? (
+                          <AnimeDetailPageSkeleton />
+                      ) : (
+                          <AnimeDetailPage 
+                              anime={selectedAnime}
+                              onWatchNow={handleWatchNow}
+                              onBack={handleBackFromDetails}
+                              onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
+                              setInView={setIsBannerInView}
+                          />
+                      )}
+                    </Suspense>
+                );
                 break;
             case 'home':
             default:
@@ -932,7 +952,11 @@ const AppContent: React.FC = () => {
     };
     
     if (showLanding) {
-        return <Suspense fallback={<FullPageSpinner />}><LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} /></Suspense>;
+        return (
+            <Suspense fallback={<LandingPageSkeleton />}>
+                <LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} />
+            </Suspense>
+        );
     }
 
     return (
@@ -969,9 +993,7 @@ const AppContent: React.FC = () => {
                         allGenres={allGenres}
                         isHome={view === 'home' && !isDiscoveryView}
                     />
-                    <Suspense fallback={<FullPageSpinner />}>
-                        {renderContent()}
-                    </Suspense>
+                    {renderContent()}
                     <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />
                     <BackToTopButton />
 

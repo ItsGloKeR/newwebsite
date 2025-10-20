@@ -94,6 +94,8 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
               src={anime.bannerImage || anime.coverImage}
               alt={anime.englishTitle}
               className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? 'opacity-100' : 'opacity-0'}`}
+              loading={index === 0 ? "eager" : "lazy"}
+              fetchpriority={index === 0 ? "high" : "auto"}
               onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
             />
         ))}

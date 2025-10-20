@@ -45,6 +45,53 @@ const getImageQuality = () => ({
   search: isDataSaver ? 'medium' : 'large',
 });
 
+const getSimpleAnimeFieldsFragment = () => `
+  id
+  idMal
+  isAdult
+  title {
+    romaji
+    english
+  }
+  description(asHtml: false)
+  coverImage {
+    ${getImageQuality().cover}
+    color
+  }
+  bannerImage
+  genres
+  episodes
+  totalEpisodes: episodes
+  duration
+  status
+  format
+  seasonYear
+  averageScore
+`;
+
+const getHeroAnimeFieldsFragment = () => `
+  id
+  idMal
+  isAdult
+  title {
+    romaji
+    english
+  }
+  description(asHtml: false)
+  coverImage {
+    ${getImageQuality().cover}
+    color
+  }
+  bannerImage
+  genres
+  episodes
+  duration
+  status
+  format
+  seasonYear
+  averageScore
+`;
+
 const getAnimeFieldsFragment = () => `
   id
   idMal
@@ -362,31 +409,31 @@ const mapToAnime = (data: any): Anime => {
   };
 };
 
-// FIX: Made mapToSimpleAnime more robust to prevent type errors.
-// It now safely handles potentially null data from the API and correctly maps seasonYear.
+// Maps lightweight data for cards, improving performance
 const mapToSimpleAnime = (data: any): Anime => ({
     anilistId: data.id,
+    malId: data.idMal,
     englishTitle: data.title?.english || data.title?.romaji || 'Unknown Title',
     romajiTitle: data.title?.romaji || data.title?.english || 'Unknown Title',
     coverImage: data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
     isAdult: data.isAdult ?? false,
-    // Add default values for other required Anime fields
-    description: '',
+    description: data.description ? data.description.replace(/<br\s*\/?>/gi, '\n').replace(/<i>|<\/i>/g, '') : '',
     bannerImage: data.bannerImage || data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
-    genres: [],
+    genres: data.genres || [],
     episodes: data.episodes || 0,
-    totalEpisodes: data.episodes || null,
-    duration: null,
+    totalEpisodes: data.totalEpisodes || null,
+    duration: data.duration || null,
     year: data.seasonYear || 0,
-    rating: 0,
-    status: '',
-    format: '',
-    studios: [],
-    staff: [],
-    characters: [],
-    relations: [],
-    recommendations: [],
+    rating: data.averageScore || 0,
+    status: data.status || 'N/A',
+    format: data.format ? data.format.replace(/_/g, ' ') : 'N/A',
+    studios: [], // Not fetched
+    staff: [], // Not fetched
+    characters: [], // Not fetched
+    relations: [], // Not fetched
+    recommendations: [], // Not fetched
 });
+
 
 export const getRandomAnime = async (): Promise<Anime | null> => {
     // Fetch the last page number to determine the range of pages
@@ -488,38 +535,40 @@ export const getHomePageData = async () => {
             query ($season: MediaSeason, $seasonYear: Int) {
             trending: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
-                ...animeFields
+                    ...heroAnimeFields
                 }
             }
             popular: Page(page: 1, perPage: ${isDataSaver ? 12 : 24}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
-                ...animeFields
+                    ...simpleAnimeFields
                 }
             }
             topAiring: Page(page: 1, perPage: ${isDataSaver ? 5 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, genre_not_in: "Hentai", isAdult: false) {
-                ...animeFields
+                    ...simpleAnimeFields
                 }
             }
             topRated: Page(page: 1, perPage: ${isDataSaver ? 5 : 10}) {
                 media(sort: SCORE_DESC, type: ANIME, genre_not_in: "Hentai", isAdult: false) {
-                ...animeFields
+                    ...simpleAnimeFields
                 }
             }
             topUpcoming: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED, genre_not_in: "Hentai", isAdult: false) {
-                ...animeFields
+                    ...simpleAnimeFields
                 }
             }
             popularThisSeason: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear, genre_not_in: "Hentai", isAdult: false) {
-                    ...animeFields
+                    ...simpleAnimeFields
                 }
             }
             }
-
-            fragment animeFields on Media {
-            ${getAnimeFieldsFragment()}
+            fragment simpleAnimeFields on Media {
+                ${getSimpleAnimeFieldsFragment()}
+            }
+            fragment heroAnimeFields on Media {
+                ${getHeroAnimeFieldsFragment()}
             }
         `;
 
@@ -527,11 +576,11 @@ export const getHomePageData = async () => {
         
         return {
             trending: data.trending.media.map(mapToAnime),
-            popular: data.popular.media.map(mapToAnime),
-            topAiring: data.topAiring.media.map(mapToAnime),
-            topRated: data.topRated.media.map(mapToAnime),
-            topUpcoming: data.topUpcoming.media.map(mapToAnime),
-            popularThisSeason: data.popularThisSeason.media.map(mapToAnime),
+            popular: data.popular.media.map(mapToSimpleAnime),
+            topAiring: data.topAiring.media.map(mapToSimpleAnime),
+            topRated: data.topRated.media.map(mapToSimpleAnime),
+            topUpcoming: data.topUpcoming.media.map(mapToSimpleAnime),
+            popularThisSeason: data.popularThisSeason.media.map(mapToSimpleAnime),
             currentSeason: season,
             currentYear: year,
         };
@@ -684,12 +733,12 @@ export const discoverAnime = async (filters: FilterState): Promise<{ results: An
             averageScore_greater: $averageScore_greater,
             averageScore_lesser: $averageScore_lesser
           ) {
-            ...animeFields
+            ...simpleAnimeFields
           }
         }
       }
-      fragment animeFields on Media {
-        ${getAnimeFieldsFragment()}
+      fragment simpleAnimeFields on Media {
+        ${getSimpleAnimeFieldsFragment()}
       }
     `;
 
@@ -723,18 +772,18 @@ export const discoverAnime = async (filters: FilterState): Promise<{ results: An
     try {
       const data = await fetchAniListData(query, buildVariables());
       const allMedia = (data.Page && data.Page.media) ? data.Page.media.filter(Boolean) : [];
-      // FIX: Use mapToAnime to correctly map the full data set from getAnimeFieldsFragment.
-      const mappedAnime = allMedia.map(mapToAnime);
-      const uniqueAnime = Array.from(new Map(mappedAnime.map(anime => [anime.anilistId, anime])).values());
+      // Use simple mapper for faster performance on discover pages.
+      const mappedAnime = allMedia.map(mapToSimpleAnime);
+      // FIX: Explicitly type uniqueAnime to correct TypeScript's inference from a complex expression involving 'any'.
+      const uniqueAnime: Anime[] = Array.from(new Map(mappedAnime.map(anime => [anime.anilistId, anime])).values());
       
       return {
           results: uniqueAnime,
-          pageInfo: data.Page.pageInfo || null,
+          pageInfo: data.Page?.pageInfo || null,
       };
     } catch (error) {
       console.error(`Failed to fetch discovery page:`, error);
-      const emptyResults: Anime[] = [];
-      return { results: emptyResults, pageInfo: null };
+      return { results: [], pageInfo: null };
     }
   });
 };
