@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { MediaSort, FilterState, MediaFormat, MediaStatus } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { signOutUser } from '../services/firebase';
 
 // Icons
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -25,6 +27,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeClick, onScheduleClick, onLoginClick, allGenres, isHome }) => {
   const [isGenresOpen, setIsGenresOpen] = useState(false);
   const [isTypesOpen, setIsTypesOpen] = useState(false);
+  const { user } = useAuth();
 
   const handleLinkClick = (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => {
     onNavigate(filters, title);
@@ -33,6 +36,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
   
   const handleHomeClick = () => {
     onHomeClick();
+    onClose();
+  };
+
+  const handleLogout = async () => {
+    await signOutUser();
     onClose();
   };
 
@@ -142,10 +150,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
         </div>
         
         <div className="p-4 border-t border-gray-800">
-          <button onClick={onLoginClick} className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-cyan-500/90 hover:bg-cyan-500 text-white font-bold transition-colors">
-            <LoginIcon />
-            <span>Login</span>
-          </button>
+          {user ? (
+              <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                      <img src={user.photoURL} alt={user.displayName} className="w-10 h-10 rounded-full flex-shrink-0" />
+                      <div className="overflow-hidden">
+                          <p className="font-semibold text-white text-sm truncate">{user.displayName}</p>
+                          <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                      </div>
+                  </div>
+                  <button onClick={handleLogout} className="p-2 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors flex-shrink-0" aria-label="Logout">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  </button>
+              </div>
+          ) : (
+              <button onClick={onLoginClick} className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-cyan-500/90 hover:bg-cyan-500 text-white font-bold transition-colors">
+                  <LoginIcon />
+                  <span>Login</span>
+              </button>
+          )}
         </div>
       </nav>
     </div>
