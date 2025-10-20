@@ -1,7 +1,7 @@
 // service-worker.js
 
 // Cache versions. Increment to force updates.
-const STATIC_CACHE_VERSION = 'v3';
+const STATIC_CACHE_VERSION = 'v4';
 const API_STATIC_CACHE_VERSION = 'api-static-v3';
 const API_DYNAMIC_CACHE_VERSION = 'api-dynamic-v1';
 const IMAGE_CACHE_VERSION = 'images-v1'; // For images
@@ -17,6 +17,7 @@ const APP_SHELL_URLS = [
   '/',
   '/index.html',
   '/favicon.svg',
+  '/manifest.json',
   '/index.tsx', // Cache the main application script
 ];
 

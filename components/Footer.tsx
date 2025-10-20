@@ -93,7 +93,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick, 
     return (
         <>
             <footer className="bg-gray-950 text-gray-400 mt-16 border-t border-gray-800">
-                <div className="container mx-auto px-6 py-12">
+                <div className="container mx-auto max-w-screen-2xl px-6 py-12">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
                         {/* Column 1: Brand & Features */}
                         <div className="sm:col-span-2 lg:col-span-2">

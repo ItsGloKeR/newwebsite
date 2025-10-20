@@ -157,7 +157,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
       </div>
 
       <div className="relative z-10 flex flex-col min-h-screen">
-        <header className="container mx-auto p-4 flex justify-between items-center">
+        <header className="container mx-auto max-w-screen-2xl p-4 flex justify-between items-center">
              <button onClick={onLogoClick} aria-label="Go to landing page">
                 <svg width="105" height="24" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M16.6923 4.5L2.84615 27.5H30.5385L16.6923 4.5Z" stroke="#22d3ee" strokeWidth="2"/><path d="M16.6923 15.5L11.7692 23.5H21.6154L16.6923 15.5Z" fill="white"/><text x="40" y="23" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="900" fill="#22d3ee">Ani<tspan fill="white">GloK</tspan></text>
@@ -168,7 +168,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
         </header>
         
         <main className="flex-grow flex flex-col justify-center">
-            <section className="container mx-auto px-4 py-16 md:py-24">
+            <section className="container mx-auto max-w-screen-2xl px-4 py-16 md:py-24">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
                         <div className="text-center lg:text-left animate-fade-in">
                             <h1 className="text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg">The Ultimate Anime Streaming Destination.</h1>
@@ -206,7 +206,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
             </section>
         </main>
         
-        <section className="container mx-auto px-4 my-24 md:my-32">
+        <section className="container mx-auto max-w-screen-2xl px-4 my-24 md:my-32">
             <div className="text-center mb-16">
                 <h2 className="text-4xl font-black text-white">Why Choose AniGloK?</h2>
                 <p className="mt-4 text-lg text-gray-400 max-w-2xl mx-auto">A seamless, feature-rich experience for every anime fan, built with modern technology for speed and reliability.</p>
@@ -226,7 +226,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
             </div>
         </section>
 
-        <section className="container mx-auto px-4 my-24 md:my-32 text-gray-300">
+        <section className="container mx-auto max-w-screen-2xl px-4 my-24 md:my-32 text-gray-300">
             <div className="max-w-4xl mx-auto bg-gray-900/50 p-8 rounded-lg">
                 <h2 className="text-3xl font-black text-white text-center mb-6">AniGloK - The Best Site to Watch Anime Online for Free</h2>
                 <p className="leading-relaxed mb-4">

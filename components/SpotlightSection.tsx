@@ -40,7 +40,7 @@ const SpotlightSection: React.FC<SpotlightSectionProps> = ({ anime, onWatchNow, 
       ></div>
       <div className="absolute inset-0 bg-gray-950/80 backdrop-blur-sm"></div>
       
-      <div className="container mx-auto relative z-10 h-full flex items-center p-4 md:p-8">
+      <div className="container mx-auto max-w-screen-2xl relative z-10 h-full flex items-center p-4 md:p-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center text-white">
           <div className="md:col-span-1 flex justify-center">
             <img 

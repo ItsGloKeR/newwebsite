@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat } from './types';
+import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
-import { getLastPlayerSettings, setLastPlayerSettings } from './services/userPreferenceService';
+import { getLastPlayerSettings, setLastPlayerSettings, getLastWatchedEpisode } from './services/userPreferenceService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -15,18 +15,22 @@ import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import { TitleLanguageProvider } from './contexts/TitleLanguageContext';
 import { UserDataProvider, useUserData } from './contexts/UserDataContext';
 import { DataSaverProvider, useDataSaver } from './contexts/DataSaverContext';
+import { TooltipProvider } from './contexts/TooltipContext';
 import isEqual from 'lodash.isequal';
 import HomePageSkeleton from './components/HomePageSkeleton';
 import { progressTracker } from './utils/progressTracking';
 import { PLACEHOLDER_IMAGE_URL } from './constants';
 import { useDebounce } from './hooks/useDebounce';
+import AnimeDetailPageSkeleton from './components/AnimeDetailPageSkeleton';
+import Sidebar from './components/Sidebar';
+import FilterBar from './components/GenreFilter'; // Re-using GenreFilter file for FilterBar
+import Pagination from './components/SidebarMenu'; // Re-using SidebarMenu file for Pagination
 
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const AnimeDetailPage = React.lazy(() => import('./components/AnimeDetailPage'));
 const AnimePlayer = React.lazy(() => import('./components/AnimePlayer'));
 const SchedulePage = React.lazy(() => import('./components/SchedulePage'));
 const AdminModal = React.lazy(() => import('./components/AdminModal'));
-const FilterModal = React.lazy(() => import('./components/FilterModal'));
 const InfoModal = React.lazy(() => import('./components/InfoModal'));
 const ReportPage = React.lazy(() => import('./components/ReportPage'));
 
@@ -34,12 +38,15 @@ const ReportPage = React.lazy(() => import('./components/ReportPage'));
 type View = 'home' | 'details' | 'player' | 'report';
 
 const initialFilters: FilterState = {
+    search: '',
     genres: [],
     year: '',
     season: undefined,
     formats: [],
     statuses: [],
     sort: MediaSort.POPULARITY_DESC,
+    scoreRange: [0, 100],
+    page: 1,
 };
 
 const SESSION_STORAGE_KEY = 'aniGlokSession';
@@ -64,7 +71,7 @@ const SchedulePreview: React.FC<{ schedule: AiringSchedule[]; onSelectAnime: (an
     return (
         <section className="mb-12">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
                     <span className="text-cyan-400">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
                     </span>
@@ -126,6 +133,7 @@ const AppContent: React.FC = () => {
     const [popularThisSeason, setPopularThisSeason] = useState<Anime[]>([]);
     const [latestEpisodes, setLatestEpisodes] = useState<EnrichedAiringSchedule[]>([]);
     const [searchResults, setSearchResults] = useState<Anime[]>([]);
+    const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
     const [allGenres, setAllGenres] = useState<string[]>([]);
     const [continueWatching, setContinueWatching] = useState<Anime[]>([]);
     const [scheduleList, setScheduleList] = useState<AiringSchedule[]>([]);
@@ -141,48 +149,61 @@ const AppContent: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [submittedSearchTerm, setSubmittedSearchTerm] = useState('');
     const [filters, setFilters] = useState<FilterState>(initialFilters);
-    const [discoveryTitle, setDiscoveryTitle] = useState('Filtered Results');
+    const [isListView, setIsListView] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [currentSeason, setCurrentSeason] = useState<MediaSeason | null>(null);
     const [currentYear, setCurrentYear] = useState<number | null>(null);
     const [heroBannerUrl, setHeroBannerUrl] = useState<string | null>(null);
     const [isBannerInView, setIsBannerInView] = useState(true);
     const [isScheduleVisible, setIsScheduleVisible] = useState(false);
-    const [isListView, setIsListView] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isDiscoverViewForced, setIsDiscoverViewForced] = useState(false);
+    const [isFullSearchView, setIsFullSearchView] = useState(false);
+    const [discoverListTitle, setDiscoverListTitle] = useState('');
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
     const { watchlist, favorites } = useUserData();
     const { isDataSaverActive } = useDataSaver();
 
+    const hideTooltip = () => window.dispatchEvent(new CustomEvent('hideTooltip'));
+
     useEffect(() => {
         setDataSaverMode(isDataSaverActive);
     }, [isDataSaverActive]);
 
     const isDiscoveryView = useMemo(() => {
-        return submittedSearchTerm.trim() !== '' || !isEqual(filters, initialFilters) || isListView;
-    }, [submittedSearchTerm, filters, isListView]);
+        return !isEqual({ ...filters, page: 1 }, { ...initialFilters, page: 1 }) || isListView || isDiscoverViewForced;
+    }, [filters, isListView, isDiscoverViewForced]);
     
+    const showFilterBar = isDiscoveryView && isFullSearchView;
+
     useEffect(() => {
         if (sessionStorage.getItem('hasVisitedAniGloK') === 'true') {
             setShowLanding(false);
         }
     }, []);
 
+    useEffect(() => {
+        if (isSidebarOpen) {
+            document.body.classList.add('sidebar-open');
+        } else {
+            document.body.classList.remove('sidebar-open');
+        }
+    }, [isSidebarOpen]);
+
     const handleEnterApp = (searchTerm?: string) => {
         sessionStorage.setItem('hasVisitedAniGloK', 'true');
         setShowLanding(false);
         if (searchTerm) {
-            setSubmittedSearchTerm(searchTerm);
+            setFilters({ ...initialFilters, search: searchTerm, page: 1 });
             addSearchTermToHistory(searchTerm);
-            setFilters(initialFilters);
-            setDiscoveryTitle(`Results for "${searchTerm}"`);
+            setIsFullSearchView(true);
+            setIsDiscoverViewForced(true);
             setView('home');
         }
     };
@@ -249,6 +270,7 @@ const AppContent: React.FC = () => {
     }, [enrichAnimeWithProgress, enrichScheduleWithProgress, selectedAnime]);
     
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
+        hideTooltip();
         setIsLoading(true);
         setIsBannerInView(true);
         setView('details');
@@ -285,12 +307,21 @@ const AppContent: React.FC = () => {
         }
     };
     
-    const handleWatchNow = (anime: Anime, episode = 1) => {
-        progressTracker.addToHistory(anime);
+    const handleWatchNow = (anime: Anime | Partial<Anime>, episode?: number) => {
+        hideTooltip();
+        progressTracker.addToHistory(anime as Anime);
         const lastSettings = getLastPlayerSettings();
+        let startEpisode = episode;
+        if (!startEpisode) {
+            const progressData = progressTracker.getMediaData(anime.anilistId);
+            const lastWatchedFromProgress = progressData ? parseInt(progressData.last_episode_watched, 10) : null;
+            const lastSelectedEpisode = getLastWatchedEpisode(anime.anilistId);
+            startEpisode = Math.max(lastWatchedFromProgress || 1, lastSelectedEpisode || 1);
+        }
+
         setPlayerState({
-            anime: applyOverrides(anime),
-            episode,
+            anime: applyOverrides(anime as Anime),
+            episode: startEpisode,
             source: lastSettings.source,
             language: lastSettings.language,
         });
@@ -462,26 +493,31 @@ const AppContent: React.FC = () => {
         window.addEventListener('progressUpdated', loadContinueWatching);
         return () => window.removeEventListener('progressUpdated', loadContinueWatching);
     }, [applyOverridesToList, enrichAnimeWithProgress, showLanding]);
+    
+    const debouncedFilters = useDebounce(filters, 500);
 
     useEffect(() => {
         if (!isDiscoveryView) {
             setSearchResults([]);
+            setPageInfo(null);
             return;
         }
         const performSearch = async () => {
             setIsDiscoverLoading(true);
-            const termToSearch = submittedSearchTerm.trim() ? submittedSearchTerm : '';
             try {
-                const results = await discoverAnime(termToSearch, filters);
+                const { results, pageInfo: newPageInfo } = await discoverAnime(debouncedFilters);
                 setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
+                setPageInfo(newPageInfo);
             } catch (error) {
                 console.error("Failed to discover anime:", error);
+                setSearchResults([]);
+                setPageInfo(null);
             } finally {
                 setIsDiscoverLoading(false);
             }
         };
         performSearch();
-    }, [submittedSearchTerm, filters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress]);
+    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress]);
     
     useEffect(() => {
         if (debouncedSuggestionsTerm.trim() === '') {
@@ -503,6 +539,7 @@ const AppContent: React.FC = () => {
     }, [debouncedSuggestionsTerm]);
 
     const handleRandomAnime = async () => {
+        hideTooltip();
         setIsLoading(true);
         try {
             const randomAnime = await getRandomAnime();
@@ -517,13 +554,14 @@ const AppContent: React.FC = () => {
     const handleSearchInputChange = (term: string) => setSearchTerm(term);
 
     const handleSearchSubmit = () => {
+        hideTooltip();
         const termToSubmit = searchTerm.trim();
         if (termToSubmit === '') return;
         addSearchTermToHistory(termToSubmit);
-        setSubmittedSearchTerm(termToSubmit);
-        setFilters(initialFilters);
-        setDiscoveryTitle(`Results for "${termToSubmit}"`);
+        setFilters({ ...initialFilters, search: termToSubmit, page: 1 });
         setIsListView(false);
+        setIsFullSearchView(true);
+        setIsDiscoverViewForced(true);
         setView('home');
         setSearchTerm('');
         setSearchSuggestions([]);
@@ -532,8 +570,9 @@ const AppContent: React.FC = () => {
     };
 
     const handleSuggestionClick = (anime: { anilistId: number }) => {
+        hideTooltip();
         setSearchTerm(''); 
-        setSubmittedSearchTerm('');
+        setFilters(initialFilters);
         setSearchSuggestions([]);
         handleSelectAnime(anime);
     };
@@ -576,34 +615,45 @@ const AppContent: React.FC = () => {
     };
     
     const handleGoToAppHome = () => {
+        hideTooltip();
         setSearchTerm('');
-        setSubmittedSearchTerm('');
         setFilters(initialFilters);
         setSearchResults([]);
+        setPageInfo(null);
         setSelectedAnime(null);
         setIsBannerInView(true);
         setIsListView(false);
+        setIsDiscoverViewForced(false);
+        setIsFullSearchView(false);
+        setDiscoverListTitle('');
         setView('home');
     };
 
-    const handleLoginClick = () => setIsLoginModalOpen(true);
-
-    const handleApplyFilters = (newFilters: FilterState) => {
-        setIsFilterModalOpen(false);
-        setSubmittedSearchTerm('');
-        setFilters(newFilters);
-        setDiscoveryTitle("Filtered Results");
+    const handleLoginClick = () => {
+        hideTooltip();
+        setIsLoginModalOpen(true);
+    };
+    
+    const handleOpenDiscoverView = () => {
+        hideTooltip();
+        setFilters(prev => ({ ...prev, search: '', page: 1 }));
         setIsListView(false);
+        setIsFullSearchView(true);
+        setIsDiscoverViewForced(true);
         setView('home');
+        window.scrollTo(0, 0);
     };
 
     const handleViewMore = async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' }, title: string) => {
+        hideTooltip();
+        setDiscoverListTitle(title);
+        setIsFullSearchView(false);
+
         if (partialFilters.list) {
             setIsDiscoverLoading(true);
-            setDiscoveryTitle(title);
-            setSubmittedSearchTerm('');
-            setFilters(initialFilters);
-            setIsListView(true); // Set to true here
+            setFilters({ ...initialFilters, page: 1 });
+            setPageInfo(null);
+            setIsListView(true);
             setView('home');
             window.scrollTo(0, 0);
 
@@ -617,23 +667,30 @@ const AppContent: React.FC = () => {
             setIsDiscoverLoading(false);
         } else {
             setSearchTerm('');
-            setSubmittedSearchTerm('');
-            setFilters({ ...initialFilters, ...partialFilters });
-            setDiscoveryTitle(title);
+            setFilters({ ...initialFilters, ...partialFilters, page: 1 });
             setIsListView(false);
+            setIsDiscoverViewForced(true);
+            setIsFullSearchView(false);
             setView('home');
             window.scrollTo(0, 0);
         }
     };
 
-
-    const generateDiscoveryTitle = () => {
-        if (submittedSearchTerm.trim()) {
-            return `Results for "${submittedSearchTerm}"`;
-        }
-        return discoveryTitle;
+    const handleFilterBarChange = (newFilters: FilterState) => {
+        if (!isFullSearchView) setIsFullSearchView(true);
+        // Reset page to 1 on any filter change except pagination itself
+        const hasFilterChanged = !isEqual(
+            { ...filters, page: 1 }, 
+            { ...newFilters, page: 1 }
+        );
+        setFilters(hasFilterChanged ? { ...newFilters, page: 1 } : newFilters);
     };
-    
+
+    const handlePageChange = (newPage: number) => {
+        setFilters(prev => ({ ...prev, page: newPage }));
+        window.scrollTo(0, 0);
+    };
+
     const latestEpisodesAsAnime = useMemo(() => latestEpisodes.map(schedule => ({
         anilistId: schedule.media.id,
         englishTitle: schedule.media.title.english || schedule.media.title.romaji,
@@ -641,7 +698,21 @@ const AppContent: React.FC = () => {
         coverImage: schedule.media.coverImage.extraLarge,
         isAdult: schedule.media.isAdult,
         episodes: schedule.episode,
-        description: '', bannerImage: '', genres: schedule.media.genres || [], duration: null, year: 0, rating: 0, status: '', format: '', studios: [], staff: [], relations: [], recommendations: [],
+        totalEpisodes: schedule.media.episodes || null,
+        description: (schedule.media as any).description || '', 
+        bannerImage: '', 
+        genres: schedule.media.genres || [], 
+        duration: null, 
+        year: (schedule.media as any).seasonYear || 0,
+        rating: 0, 
+        status: 'RELEASING', 
+        format: (schedule.media as any).format || '', 
+        studios: [], 
+        staff: [], 
+        characters: [], 
+        relations: [], 
+        recommendations: [],
+        progress: schedule.progress,
     })), [latestEpisodes]);
     
     const iconProps = { className: "h-7 w-7" };
@@ -654,21 +725,49 @@ const AppContent: React.FC = () => {
     const UpcomingIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
     const SeasonIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 00-1 1v1H3a1 1 0 000 2h1v1a1 1 0 001 1h12a1 1 0 001-1V6h1a1 1 0 100-2h-1V3a1 1 0 00-1-1H5zM4 9a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zm2 3a1 1 0 100 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
     const AiringIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.99 2.05c.53 0 1.04 .08 1.54 .23l-1.28 1.28A5.95 5.95 0 004.28 7.5l-1.28 1.28A7.94 7.94 0 019.99 2.05zM2.06 9.99a7.94 7.94 0 016.71-7.71l-1.28 1.28A5.95 5.95 0 003.5 12.5l-1.28 1.28A7.94 7.94 0 012.06 10zM10 4a6 6 0 100 12 6 6 0 000-12zM10 14a4 4 0 110-8 4 4 0 010 8z" /></svg>;
-    const RatedIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
-    const FilterIcon = <svg {...iconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" /></svg>;
+    const RatedIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
 
     const renderHomePage = () => {
         if (isDiscoveryView) {
+            let title = '';
+            if (showFilterBar) {
+                if(filters.search) {
+                    title = `Search results for: "${filters.search}"`;
+                } else {
+                    title = 'Filtered Results';
+                }
+            } else {
+                title = discoverListTitle;
+            }
+            if (isListView) { // watchlist/favorites are special cases of list view
+                title = discoverListTitle;
+            }
+
             return (
-                <main className="container mx-auto p-4 md:p-8">
+                <main className="container mx-auto max-w-screen-2xl p-4 md:p-8">
+                    {showFilterBar && (
+                        <FilterBar
+                            filters={filters}
+                            onFiltersChange={handleFilterBarChange}
+                            allGenres={allGenres}
+                            onReset={() => setFilters(initialFilters)}
+                        />
+                    )}
                     <AnimeGrid
-                        title={generateDiscoveryTitle()}
-                        icon={FilterIcon}
+                        title={title}
+                        resultsCount={isListView ? searchResults.length : pageInfo?.total}
                         animeList={searchResults}
                         onSelectAnime={handleSelectAnime}
                         isLoading={isDiscoverLoading}
                         onBackClick={handleGoToAppHome}
                     />
+                    {pageInfo && pageInfo.lastPage > 1 && !isDiscoverLoading && (
+                        <Pagination
+                            currentPage={pageInfo.currentPage}
+                            totalPages={pageInfo.lastPage}
+                            onPageChange={handlePageChange}
+                        />
+                    )}
                 </main>
             );
         }
@@ -676,7 +775,7 @@ const AppContent: React.FC = () => {
         return (
             <main>
                 <Hero animes={trending} onWatchNow={handleWatchNow} onDetails={handleSelectAnime} onBannerChange={setHeroBannerUrl} setInView={setIsBannerInView} />
-                <div className="container mx-auto p-4 md:p-8">
+                <div className="container mx-auto max-w-screen-2xl p-4 md:p-8">
                     {continueWatching.length > 0 && (
                         <div className="mb-12">
                             <AnimeCarousel 
@@ -700,7 +799,7 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="container mx-auto p-4 md:p-8">
+                <div className="container mx-auto max-w-screen-2xl p-4 md:p-8">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         <div className="lg:col-span-3 flex flex-col gap-12">
                              <AnimeCarousel
@@ -804,20 +903,25 @@ const AppContent: React.FC = () => {
                     onSelectRecommended={handleSelectAnime}
                     onSelectRelated={handleSelectAnime}
                     onReportIssue={handleGoToReport}
+                    topAiring={topAiring}
                 />;
                 break;
             case 'details':
-                content = selectedAnime && <AnimeDetailPage 
-                    anime={selectedAnime}
-                    onWatchNow={handleWatchNow}
-                    onBack={handleBackFromDetails}
-                    onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
-                    setInView={setIsBannerInView}
-                />;
+                if (isLoading) {
+                    content = <AnimeDetailPageSkeleton />;
+                } else if (selectedAnime) {
+                    content = <AnimeDetailPage 
+                        anime={selectedAnime}
+                        onWatchNow={handleWatchNow}
+                        onBack={handleBackFromDetails}
+                        onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
+                        setInView={setIsBannerInView}
+                    />;
+                }
                 break;
             case 'home':
             default:
-                if (isLoading && trending.length === 0) {
+                if (isLoading && trending.length === 0 && !isDiscoveryView) {
                     content = <HomePageSkeleton />;
                 } else {
                     content = renderHomePage();
@@ -838,70 +942,75 @@ const AppContent: React.FC = () => {
             <div aria-hidden="true" className="fixed inset-0 z-0" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
             
             <div className="relative z-10">
-                <Header 
-                    onSearch={handleSearchInputChange} 
-                    onHomeClick={handleGoToAppHome}
-                    onLogoClick={handleGoToAppHome} 
-                    onFilterClick={() => setIsFilterModalOpen(true)}
-                    onRandomAnime={handleRandomAnime}
-                    onLoginClick={handleLoginClick} 
-                    onSearchSubmit={handleSearchSubmit}
-                    searchTerm={searchTerm} 
-                    suggestions={searchSuggestions}
-                    onSuggestionClick={handleSuggestionClick}
-                    isSuggestionsLoading={isSuggestionsLoading}
-                    onNavigate={handleViewMore}
-                    isBannerInView={isBannerInView}
-                />
-                <Suspense fallback={<FullPageSpinner />}>
-                    {renderContent()}
-                </Suspense>
-                <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />
-                <BackToTopButton />
+                 <TooltipProvider onDetails={handleSelectAnime} onWatchNow={handleWatchNow}>
+                    <Header 
+                        onSearch={handleSearchInputChange} 
+                        onHomeClick={handleGoToAppHome}
+                        onLogoClick={handleGoToAppHome}
+                        onMenuClick={() => setIsSidebarOpen(true)} 
+                        onFilterClick={handleOpenDiscoverView}
+                        onRandomAnime={handleRandomAnime}
+                        onLoginClick={handleLoginClick} 
+                        onSearchSubmit={handleSearchSubmit}
+                        searchTerm={searchTerm} 
+                        suggestions={searchSuggestions}
+                        onSuggestionClick={handleSuggestionClick}
+                        isSuggestionsLoading={isSuggestionsLoading}
+                        onNavigate={handleViewMore}
+                        isBannerInView={isBannerInView}
+                    />
+                    <Sidebar 
+                        isOpen={isSidebarOpen}
+                        onClose={() => setIsSidebarOpen(false)}
+                        onNavigate={handleViewMore}
+                        onHomeClick={handleGoToAppHome}
+                        onScheduleClick={() => { hideTooltip(); setIsScheduleVisible(true); handleGoToAppHome(); setIsSidebarOpen(false); }}
+                        onLoginClick={() => { handleLoginClick(); setIsSidebarOpen(false); }}
+                        allGenres={allGenres}
+                        isHome={view === 'home' && !isDiscoveryView}
+                    />
+                    <Suspense fallback={<FullPageSpinner />}>
+                        {renderContent()}
+                    </Suspense>
+                    <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />
+                    <BackToTopButton />
 
-                <Suspense fallback={null}>
-                    {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
-                    {isFilterModalOpen && <FilterModal 
-                        isOpen={isFilterModalOpen} 
-                        onClose={() => setIsFilterModalOpen(false)} 
-                        allGenres={allGenres} 
-                        onApply={handleApplyFilters}
-                        currentFilters={filters}
-                        initialFilters={initialFilters}
-                    />}
-                    {isLoginModalOpen && <InfoModal 
-                        isOpen={isLoginModalOpen}
-                        onClose={() => setIsLoginModalOpen(false)}
-                        title="Login"
-                    >
-                        <div className="space-y-4">
-                            <p className="text-center text-sm bg-yellow-900/50 text-yellow-300 p-2 rounded-md">
-                                This is a demonstration UI. The login feature is not implemented yet but will be available soon.
-                            </p>
-                            <div>
-                                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="username">Username</label>
-                                <input
-                                    id="username"
-                                    type="text"
-                                    placeholder="demouser"
-                                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                                />
+                    <Suspense fallback={null}>
+                        {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
+                        {isLoginModalOpen && <InfoModal 
+                            isOpen={isLoginModalOpen}
+                            onClose={() => setIsLoginModalOpen(false)}
+                            title="Login"
+                        >
+                            <div className="space-y-4">
+                                <p className="text-center text-sm bg-yellow-900/50 text-yellow-300 p-2 rounded-md">
+                                    This is a demonstration UI. The login feature is not implemented yet but will be available soon.
+                                </p>
+                                <div>
+                                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="username">Username</label>
+                                    <input
+                                        id="username"
+                                        type="text"
+                                        placeholder="demouser"
+                                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="password">Password</label>
+                                    <input
+                                        id="password"
+                                        type="password"
+                                        placeholder="••••••••"
+                                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                    />
+                                </div>
+                                <button type="submit" disabled className="w-full bg-cyan-700 text-white/50 font-bold py-2 px-4 rounded cursor-not-allowed">
+                                    Login
+                                </button>
                             </div>
-                            <div>
-                                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="password">Password</label>
-                                <input
-                                    id="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                                />
-                            </div>
-                            <button type="submit" disabled className="w-full bg-cyan-700 text-white/50 font-bold py-2 px-4 rounded cursor-not-allowed">
-                                Login
-                            </button>
-                        </div>
-                    </InfoModal>}
-                </Suspense>
+                        </InfoModal>}
+                    </Suspense>
+                </TooltipProvider>
             </div>
         </div>
     );

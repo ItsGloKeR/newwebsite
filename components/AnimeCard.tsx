@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Anime } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
+import { useTooltip } from '../contexts/TooltipContext';
+
+const StarIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+    </svg>
+);
 
 interface AnimeCardProps {
   anime: Anime;
@@ -11,50 +18,86 @@ interface AnimeCardProps {
 const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
   const { titleLanguage } = useTitleLanguage();
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+  const { showTooltip, hideTooltip, keepTooltipOpen } = useTooltip();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => {
+    if (cardRef.current) {
+      showTooltip(anime, cardRef.current.getBoundingClientRect());
+    }
+  };
+
+  const episodeText = () => {
+    if (anime.status === 'RELEASING' && anime.totalEpisodes) {
+      return `${anime.episodes || 0}/${anime.totalEpisodes} Eps`;
+    }
+    if (anime.episodes) {
+      return `${anime.episodes} Eps`;
+    }
+    if (anime.totalEpisodes) {
+      return `${anime.totalEpisodes} Eps`;
+    }
+    return null;
+  };
   
   return (
-    <button 
-      className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/30 text-left w-full h-full bg-transparent border-none p-0"
+    <div 
+      ref={cardRef}
+      className="group cursor-pointer text-left w-full h-full flex flex-col" 
       onClick={() => onSelect(anime)}
-      aria-label={`Watch ${title}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={hideTooltip}
+      onFocus={handleMouseEnter}
+      onBlur={hideTooltip}
     >
-      <img
-        src={anime.coverImage}
-        alt={title}
-        className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-100 brightness-90"
-        loading="lazy"
-        onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-      />
-      {anime.isAdult && (
-        <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
-          18+
-        </div>
-      )}
-      {anime.episodes != null && (
-        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
-          {anime.episodes} Ep
-        </div>
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
-      <div className="absolute bottom-0 left-0 p-4 z-20 w-full">
-        <h3 className="text-white text-lg font-bold truncate group-hover:whitespace-normal">{title}</h3>
-        <p className="text-gray-300 text-sm">{anime.year}</p>
-      </div>
-      <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" aria-hidden="true">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-white" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-        </svg>
-      </div>
-      {/* Progress Bar */}
-      {anime.progress > 0 && anime.progress < 95 && (
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-              <div
-                  className="h-full bg-cyan-500"
-                  style={{ width: `${anime.progress}%` }}
-              ></div>
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
+        <img
+          src={anime.coverImage}
+          alt={title}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+        />
+        {anime.isAdult && (
+          <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+            18+
           </div>
-      )}
-    </button>
+        )}
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-white" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+          </svg>
+        </div>
+         {/* Progress Bar */}
+        {anime.progress > 0 && anime.progress < 95 && (
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                <div
+                    className="h-full bg-cyan-500"
+                    style={{ width: `${anime.progress}%` }}
+                ></div>
+            </div>
+        )}
+      </div>
+      <div className="pt-3">
+        <div className="flex items-center gap-2 mb-1">
+          {anime.status === 'RELEASING' && (
+            <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" title="Airing"></div>
+          )}
+          <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
+        </div>
+        <div className="flex items-center gap-3 text-gray-400 text-xs">
+          {anime.format && anime.format !== 'N/A' && <span className="font-semibold">{anime.format}</span>}
+          {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
+          {episodeText() && <span className="font-semibold">{episodeText()}</span>}
+          {anime.rating > 0 && (
+            <span className="flex items-center gap-1 font-semibold ml-auto">
+              <StarIcon className="w-3 h-3 text-yellow-400" />
+              {anime.rating}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

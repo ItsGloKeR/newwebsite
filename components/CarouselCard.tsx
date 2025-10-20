@@ -1,8 +1,16 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Anime } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { useUserData } from '../contexts/UserDataContext';
+import { useTooltip } from '../contexts/TooltipContext';
+
+const StarIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+    </svg>
+);
+
 
 interface CarouselCardProps {
   anime: Anime;
@@ -10,13 +18,23 @@ interface CarouselCardProps {
   rank?: number;
   onRemove?: (animeId: number) => void;
   size?: 'normal' | 'small';
+  isTrending?: boolean;
 }
 
-const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRemove, size = 'normal' }) => {
+const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRemove, size = 'normal', isTrending }) => {
   const { titleLanguage } = useTitleLanguage();
   const { favorites, toggleFavorite } = useUserData();
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
   const isFavorite = favorites.includes(anime.anilistId);
+
+  const { showTooltip, hideTooltip } = useTooltip();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => {
+    if (cardRef.current) {
+      showTooltip(anime, cardRef.current.getBoundingClientRect());
+    }
+  };
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -30,87 +48,103 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
     }
   };
 
-  const widthClass = size === 'small' ? 'w-40' : 'w-48';
-  const rankSizeClass = size === 'small' ? 'text-6xl' : 'text-7xl';
-  const titlePaddingClass = size === 'small' ? 'pl-10' : 'pl-12';
+  const episodeText = () => {
+    if (anime.status === 'RELEASING' && anime.totalEpisodes) {
+      return `${anime.episodes || 0}/${anime.totalEpisodes} Eps`;
+    }
+    if (anime.episodes) {
+      return `${anime.episodes} Eps`;
+    }
+    if (anime.totalEpisodes) {
+      return `${anime.totalEpisodes} Eps`;
+    }
+    return null;
+  };
+
+  const cardWidth = size === 'small' ? 'w-40' : 'w-48';
 
   return (
-    <button
-      className={`group relative cursor-pointer overflow-hidden rounded-lg shadow-lg ${widthClass} flex-shrink-0 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl text-left bg-transparent border-none p-0`}
+    <div 
+      ref={cardRef}
+      className={`relative group cursor-pointer text-left ${cardWidth} flex-shrink-0 flex flex-col`} 
       onClick={() => onSelect(anime)}
-      aria-label={`View details for ${title}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={hideTooltip}
+      onFocus={handleMouseEnter}
+      onBlur={hideTooltip}
     >
-      <img
-        src={anime.coverImage}
-        alt=""
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-        loading="lazy"
-        onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-        aria-hidden="true"
-      />
-
-      <div className="absolute top-2 left-2 z-30 flex flex-col gap-2">
-        {onRemove && (
-          <button
-            onClick={handleRemove}
-            className="bg-gray-900/70 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label={`Remove ${title} from list`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-        <button
-          onClick={handleFavoriteClick}
-          className="bg-gray-900/70 text-white rounded-full p-1.5 hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
-          aria-label={isFavorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-          </svg>
-        </button>
-      </div>
-
-
-      {anime.isAdult && (
-        <div className={`absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20`}>
-          18+
-        </div>
-      )}
-      {anime.episodes != null && (
-        <div className={`absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-20 transition-opacity`}>
-          {anime.episodes} Ep
-        </div>
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
-      
-      {/* Combined overlay for Rank and Title */}
-      <div className="absolute bottom-0 left-0 w-full flex items-end p-2 z-20">
-        {/* Rank number is positioned absolutely but within the card's bounds */}
-        {rank && (
-            <div className="absolute bottom-0 left-0 pointer-events-none" aria-hidden="true">
-            <span className={`${rankSizeClass} font-black text-gray-950/50 -translate-y-2`} style={{ WebkitTextStroke: '2px #22d3ee' }}>
-                {rank}
-            </span>
+       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30 z-10 bg-gray-900">
+        <img
+            src={anime.coverImage}
+            alt={title}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+        />
+        {isTrending && rank && (
+             <div className="absolute top-0 left-0 bg-gradient-to-br from-black/80 to-transparent p-2 rounded-br-2xl pointer-events-none transition-transform duration-300 group-hover:scale-110">
+                <span className="text-4xl font-black text-white" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                    {String(rank).padStart(2, '0')}
+                </span>
             </div>
         )}
-        
-        {/* Title is positioned with a higher z-index and padding to avoid the number */}
-        <h3 className={`relative z-20 text-white text-md font-bold truncate w-full ${rank ? titlePaddingClass : 'pl-2'}`}>
-          {title}
-        </h3>
-      </div>
-       {/* Progress Bar */}
-      {anime.progress > 0 && anime.progress < 95 && (
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-              <div
-                  className="h-full bg-cyan-500"
-                  style={{ width: `${anime.progress}%` }}
-              ></div>
+
+         <div className="absolute top-2 right-2 z-30 flex flex-col gap-2">
+            {onRemove && (
+            <button
+                onClick={handleRemove}
+                className="bg-gray-900/70 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                aria-label={`Remove ${title} from list`}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            )}
+            <button
+            onClick={handleFavoriteClick}
+            className="bg-gray-900/70 text-white rounded-full p-1.5 hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
+            aria-label={isFavorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+            </svg>
+            </button>
+        </div>
+         {anime.isAdult && (
+          <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">
+            18+
           </div>
-      )}
-    </button>
+        )}
+         {anime.progress > 0 && anime.progress < 95 && (
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
+                <div
+                    className="h-full bg-cyan-500"
+                    style={{ width: `${anime.progress}%` }}
+                ></div>
+            </div>
+        )}
+      </div>
+      <div className="pt-3 z-10">
+        <div className="flex items-center gap-2 mb-1">
+          {anime.status === 'RELEASING' && (
+            <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" title="Airing"></div>
+          )}
+          <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
+        </div>
+        <div className="flex items-center gap-3 text-gray-400 text-xs">
+          {anime.format && anime.format !== 'N/A' && <span className="font-semibold">{anime.format}</span>}
+          {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
+          {episodeText() && <span className="font-semibold">{episodeText()}</span>}
+          {anime.rating > 0 && (
+            <span className="flex items-center gap-1 font-semibold ml-auto">
+              <StarIcon className="w-3 h-3 text-yellow-400" />
+              {anime.rating}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

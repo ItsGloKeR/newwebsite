@@ -18,7 +18,7 @@ const SORT_OPTIONS: { value: MediaSort; label: string }[] = [
     { value: MediaSort.START_DATE_DESC, label: 'Newest' },
 ];
 
-const Dropdown: React.FC<{ label: string; children: React.ReactNode, value: string[] | string | undefined }> = ({ label, children, value }) => {
+const Dropdown: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => {
     const [isOpen, setIsOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -33,13 +33,15 @@ const Dropdown: React.FC<{ label: string; children: React.ReactNode, value: stri
     }, []);
 
     const summary = useMemo(() => {
-        if (Array.isArray(value) && value.length > 0) {
-            if (value.length > 2) return `${value.length} Selected`;
-            return value.join(', ').replace(/_/g, ' ');
+        if (React.Children.count(children) > 0) {
+            const selectedChildren = React.Children.toArray(children).filter(
+                (child: any) => child.props.isSelected
+            );
+            if (selectedChildren.length > 2) return `${selectedChildren.length} Selected`;
+            if (selectedChildren.length > 0) return selectedChildren.map((c: any) => c.props.label).join(', ');
         }
-        if (typeof value === 'string' && value) return value.replace(/_/g, ' ');
         return 'Any';
-    }, [value]);
+    }, [children]);
 
     return (
         <div className="relative w-full" ref={ref}>
@@ -52,8 +54,8 @@ const Dropdown: React.FC<{ label: string; children: React.ReactNode, value: stri
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
             </button>
             {isOpen && (
-                <div className="absolute top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto p-2">
-                    {children}
+                <div className="absolute top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-40 max-h-60 overflow-y-auto p-2">
+                    <div className="flex flex-wrap gap-2">{children}</div>
                 </div>
             )}
         </div>
@@ -96,9 +98,9 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFiltersChange, allGenr
     
     return (
         <div className="bg-gray-900/70 p-4 rounded-lg mb-8 backdrop-blur-sm animate-fade-in">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {/* Search */}
-                <div className="sm:col-span-2 md:col-span-2 lg:col-span-2">
+                <div className="sm:col-span-2 md:col-span-3 lg:col-span-1">
                     <label htmlFor="search-bar" className="text-sm font-semibold text-gray-300 mb-2 block">Search</label>
                     <div className="relative">
                         <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
@@ -114,15 +116,13 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFiltersChange, allGenr
                     </div>
                 </div>
                 {/* Other Filters */}
-                <Dropdown label="Genres" value={filters.genres}>
-                    <div className="flex flex-wrap gap-2">
-                        {allGenres.map(g => <button key={g} onClick={() => handleMultiSelectToggle('genres', g)} className={`px-2 py-1 text-xs rounded ${filters.genres.includes(g) ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>{g}</button>)}
-                    </div>
+                <Dropdown label="Genres">
+                    {allGenres.map(g => <CheckboxOption key={g} label={g} isSelected={filters.genres.includes(g)} onClick={() => handleMultiSelectToggle('genres', g)} />)}
                 </Dropdown>
-                <Dropdown label="Format" value={filters.formats}>
+                <Dropdown label="Format">
                     {Object.values(MediaFormat).map(f => <CheckboxOption key={f} label={f.replace('_', ' ')} isSelected={filters.formats.includes(f)} onClick={() => handleMultiSelectToggle('formats', f)} />)}
                 </Dropdown>
-                <Dropdown label="Airing Status" value={filters.statuses}>
+                <Dropdown label="Airing Status">
                      {Object.values(MediaStatus).map(s => <CheckboxOption key={s} label={s.replace('_', ' ')} isSelected={filters.statuses.includes(s)} onClick={() => handleMultiSelectToggle('statuses', s)} />)}
                 </Dropdown>
                 <div>

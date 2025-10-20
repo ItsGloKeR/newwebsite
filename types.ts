@@ -52,7 +52,23 @@ export interface StaffMember {
   id: number;
   name: string;
   role: string;
+  image?: string;
 }
+
+export interface VoiceActor {
+  id: number;
+  name: string;
+  image: string;
+}
+
+export interface Character {
+  id: number;
+  name: string;
+  role: string;
+  image: string;
+  voiceActor?: VoiceActor;
+}
+
 
 export interface RelatedAnime {
   id: number;
@@ -62,6 +78,8 @@ export interface RelatedAnime {
   relationType: string;
   isAdult: boolean;
   episodes: number | null;
+  format: string;
+  year: number;
   progress?: number;
 }
 
@@ -72,6 +90,8 @@ export interface RecommendedAnime {
   coverImage: string;
   isAdult: boolean;
   episodes: number | null;
+  format: string;
+  year: number;
   progress?: number;
 }
 
@@ -96,7 +116,8 @@ export interface Anime {
   coverImageColor?: string;
   bannerImage: string;
   genres: string[];
-  episodes: number;
+  episodes: number; // For finished anime, this is total. For airing, this is latest released.
+  totalEpisodes: number | null; // Total episodes if known.
   duration: number | null;
   year: number;
   rating: number;
@@ -104,6 +125,7 @@ export interface Anime {
   format: string;
   studios: string[];
   staff: StaffMember[];
+  characters: Character[];
   relations: RelatedAnime[];
   trailer?: AnimeTrailer;
   recommendations: RecommendedAnime[];
@@ -122,13 +144,24 @@ export interface SearchSuggestion {
   episodes: number | null;
 }
 
+export interface PageInfo {
+  total: number;
+  perPage: number;
+  currentPage: number;
+  lastPage: number;
+  hasNextPage: boolean;
+}
+
 export interface FilterState {
+  search: string;
   genres: string[];
   year: string;
   season?: MediaSeason;
   formats: MediaFormat[];
   statuses: MediaStatus[];
   sort: MediaSort;
+  scoreRange: [number, number];
+  page: number;
 }
 
 export interface AiringSchedule {

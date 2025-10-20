@@ -1,0 +1,21 @@
+{
+  "name": "AniGloK",
+  "short_name": "AniGloK",
+  "description": "A modern anime streaming web application that allows users to watch their favorite anime from multiple sources.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

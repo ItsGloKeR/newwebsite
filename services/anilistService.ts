@@ -1,7 +1,9 @@
 // services/anilistService.ts
 
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus, Character, VoiceActor, PageInfo } from '../types';
 import * as db from './dbService';
+// FIX: Import PLACEHOLDER_IMAGE_URL for robust object mapping.
+import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 // Cache Durations
 const ANIME_DETAILS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
@@ -11,7 +13,7 @@ const LATEST_EPISODES_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
 const AIRING_SCHEDULE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
 const GENRE_COLLECTION_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 const SEARCH_SUGGESTIONS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
-const DISCOVER_ANIME_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
+const DISCOVER_ANIME_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes for discover to reflect updates
 const ZENSHIN_MAPPINGS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 
 
@@ -61,6 +63,7 @@ const getAnimeFieldsFragment = () => `
   episodes
   duration
   status
+  format
   nextAiringEpisode {
     episode
     airingAt
@@ -73,13 +76,39 @@ const getAnimeFieldsFragment = () => `
       name
     }
   }
-  staff(sort: [RELEVANCE, ID]) {
+  staff(sort: [RELEVANCE, ID], perPage: 15) {
     edges {
       role
       node {
         id
         name {
           full
+        }
+        image {
+          large
+        }
+      }
+    }
+  }
+  characters(sort: [ROLE, RELEVANCE, ID], perPage: 16) {
+    edges {
+      role
+      node {
+        id
+        name {
+          full
+        }
+        image {
+          large
+        }
+      }
+      voiceActors(language: JAPANESE, sort: [RELEVANCE, ID]) {
+        id
+        name {
+          full
+        }
+        image {
+          large
         }
       }
     }
@@ -92,6 +121,8 @@ const getAnimeFieldsFragment = () => `
         type
         isAdult
         episodes
+        format
+        seasonYear
         title {
           romaji
           english
@@ -112,6 +143,8 @@ const getAnimeFieldsFragment = () => `
         id
         isAdult
         episodes
+        format
+        seasonYear
         title {
           romaji
           english
@@ -226,34 +259,57 @@ const mapToAnime = (data: any): Anime => {
     : 'No description available.';
 
   const staff: StaffMember[] = (data.staff?.edges || [])
-    .slice(0, 15) // Limit staff to avoid clutter
     .map((edge: any) => ({
       id: edge.node.id,
       name: edge.node.name.full,
       role: edge.role,
+      image: edge.node.image?.large,
     }));
+  
+  const characters: Character[] = (data.characters?.edges || []).map((edge: any) => {
+    const voiceActorNode = edge.voiceActors?.[0];
+    // FIX: Add optional chaining and fallback for voice actor image to prevent runtime errors.
+    const voiceActor: VoiceActor | undefined = voiceActorNode ? {
+        id: voiceActorNode.id,
+        name: voiceActorNode.name.full,
+        image: voiceActorNode.image?.large || PLACEHOLDER_IMAGE_URL,
+    } : undefined;
+
+    return {
+        id: edge.node.id,
+        name: edge.node.name.full,
+        role: edge.role,
+        // FIX: Add optional chaining and fallback for character image to prevent runtime errors.
+        image: edge.node.image?.large || PLACEHOLDER_IMAGE_URL,
+        voiceActor,
+    };
+  });
   
   const relations: RelatedAnime[] = (data.relations?.edges || [])
     .filter((edge: any) => edge.node.type === 'ANIME') // Only include anime relations
     .map((edge: any) => ({
       id: edge.node.id,
-      englishTitle: edge.node.title.english || edge.node.title.romaji,
-      romajiTitle: edge.node.title.romaji || edge.node.title.english,
-      coverImage: edge.node.coverImage[getImageQuality().cover],
+      englishTitle: edge.node.title?.english || edge.node.title?.romaji,
+      romajiTitle: edge.node.title?.romaji || edge.node.title?.english,
+      coverImage: edge.node.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
       relationType: edge.relationType,
       isAdult: edge.node.isAdult,
       episodes: edge.node.episodes,
+      format: edge.node.format,
+      year: edge.node.seasonYear,
     }));
   
   const recommendations: RecommendedAnime[] = (data.recommendations?.nodes || [])
     .filter((node: any) => node.mediaRecommendation)
     .map((node: any) => ({
       id: node.mediaRecommendation.id,
-      englishTitle: node.mediaRecommendation.title.english || node.mediaRecommendation.title.romaji,
-      romajiTitle: node.mediaRecommendation.title.romaji || node.mediaRecommendation.title.english,
-      coverImage: node.mediaRecommendation.coverImage[getImageQuality().cover],
+      englishTitle: node.mediaRecommendation.title?.english || node.mediaRecommendation.title?.romaji,
+      romajiTitle: node.mediaRecommendation.title?.romaji || node.mediaRecommendation.title?.english,
+      coverImage: node.mediaRecommendation.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
       isAdult: node.mediaRecommendation.isAdult,
       episodes: node.mediaRecommendation.episodes,
+      format: node.mediaRecommendation.format,
+      year: node.mediaRecommendation.seasonYear,
     }));
 
   const trailer: AnimeTrailer | undefined = data.trailer && data.trailer.site === 'youtube'
@@ -268,56 +324,66 @@ const mapToAnime = (data: any): Anime => {
       }
     : undefined;
 
-  let episodeCount = data.episodes;
+  let releasedEpisodes = data.episodes;
   if (data.status === 'RELEASING' && data.nextAiringEpisode) {
     // If it's airing, the number of released episodes is one less than the next to air.
-    episodeCount = data.nextAiringEpisode.episode - 1;
+    releasedEpisodes = data.nextAiringEpisode.episode - 1;
+  }
+  // The anilist API sometimes returns null for episodes, so we need to handle that.
+  if (releasedEpisodes === null && data.nextAiringEpisode) {
+      releasedEpisodes = data.nextAiringEpisode.episode - 1;
   }
 
   return {
     anilistId: data.id,
     malId: data.idMal,
-    englishTitle: data.title.english || data.title.romaji,
-    romajiTitle: data.title.romaji || data.title.english,
+    englishTitle: data.title?.english || data.title?.romaji || "Unknown Title",
+    romajiTitle: data.title?.romaji || data.title?.english || "Unknown Title",
     description,
     format: data.format ? data.format.replace(/_/g, ' ') : 'N/A',
-    coverImage: data.coverImage[getImageQuality().cover],
-    coverImageColor: data.coverImage.color,
-    bannerImage: data.bannerImage || data.coverImage[getImageQuality().cover],
+    coverImage: data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
+    coverImageColor: data.coverImage?.color,
+    bannerImage: data.bannerImage || data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
     genres: data.genres || [],
-    episodes: episodeCount || 0,
+    episodes: releasedEpisodes || 0,
+    totalEpisodes: data.episodes || null,
     duration: data.duration,
-    year: data.seasonYear,
-    rating: data.averageScore,
-    status: data.status,
+    year: data.seasonYear || 0,
+    rating: data.averageScore || 0,
+    status: data.status || 'N/A',
     studios: data.studios?.nodes.map((n: any) => n.name) || [],
     staff,
+    characters,
     relations,
     trailer,
     recommendations,
     nextAiringEpisode,
-    isAdult: data.isAdult,
+    isAdult: data.isAdult ?? false,
   };
 };
 
+// FIX: Made mapToSimpleAnime more robust to prevent type errors.
+// It now safely handles potentially null data from the API and correctly maps seasonYear.
 const mapToSimpleAnime = (data: any): Anime => ({
     anilistId: data.id,
-    englishTitle: data.title.english || data.title.romaji,
-    romajiTitle: data.title.romaji || data.title.english,
-    coverImage: data.coverImage[getImageQuality().cover],
-    isAdult: data.isAdult,
+    englishTitle: data.title?.english || data.title?.romaji || 'Unknown Title',
+    romajiTitle: data.title?.romaji || data.title?.english || 'Unknown Title',
+    coverImage: data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
+    isAdult: data.isAdult ?? false,
     // Add default values for other required Anime fields
     description: '',
-    bannerImage: '',
+    bannerImage: data.bannerImage || data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
     genres: [],
-    episodes: 0,
+    episodes: data.episodes || 0,
+    totalEpisodes: data.episodes || null,
     duration: null,
-    year: 0,
+    year: data.seasonYear || 0,
     rating: 0,
     status: '',
     format: '',
     studios: [],
     staff: [],
+    characters: [],
     relations: [],
     recommendations: [],
 });
@@ -392,6 +458,7 @@ export const getLandingPageData = async () => {
                     media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai") {
                         id
                         isAdult
+                        episodes
                         title {
                             romaji
                             english
@@ -539,6 +606,9 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
                 isAdult
                 episodes
                 genres
+                format
+                seasonYear
+                description(asHtml: false)
                 title {
                     romaji
                     english
@@ -572,10 +642,10 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
 };
 
 
-export const discoverAnime = async (searchTerm: string, filters: FilterState, pageLimit = 2): Promise<Anime[]> => {
-  const cacheKey = `discover_${searchTerm}_${JSON.stringify(filters)}`;
+export const discoverAnime = async (filters: FilterState): Promise<{ results: Anime[], pageInfo: PageInfo | null }> => {
+  const cacheKey = `discover_${JSON.stringify(filters)}`;
   return getOrSetCache(cacheKey, DISCOVER_ANIME_CACHE_DURATION, async () => {
-    const perPage = isDataSaver ? 25 : 50;
+    const perPage = 28; // Divisible by common grid columns (2, 4, 7)
     const query = `
       query (
         $search: String,
@@ -588,9 +658,18 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
         $format_in: [MediaFormat],
         $status_in: [MediaStatus],
         $genre_not_in: [String],
-        $isAdult: Boolean
+        $isAdult: Boolean,
+        $averageScore_greater: Int,
+        $averageScore_lesser: Int
       ) {
         Page(page: $page, perPage: $perPage) {
+          pageInfo {
+            total
+            perPage
+            currentPage
+            lastPage
+            hasNextPage
+          }
           media(
             search: $search,
             type: ANIME,
@@ -601,7 +680,9 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
             format_in: $format_in,
             status_in: $status_in,
             genre_not_in: $genre_not_in,
-            isAdult: $isAdult
+            isAdult: $isAdult,
+            averageScore_greater: $averageScore_greater,
+            averageScore_lesser: $averageScore_lesser
           ) {
             ...animeFields
           }
@@ -612,16 +693,15 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
       }
     `;
 
-    const buildVariables = (page: number) => {
+    const buildVariables = () => {
       const variables: any = {
-        search: searchTerm.trim() ? searchTerm.trim() : undefined,
+        search: filters.search.trim() ? filters.search.trim() : undefined,
         sort: [filters.sort],
-        page,
+        page: filters.page,
         perPage,
       };
 
-      // Only apply Hentai/Adult filter when NOT searching.
-      if (!searchTerm.trim()) {
+      if (!filters.search.trim()) {
         variables.isAdult = false;
         variables.genre_not_in = ['Hentai'];
       }
@@ -631,23 +711,30 @@ export const discoverAnime = async (searchTerm: string, filters: FilterState, pa
       if (filters.season) variables.season = filters.season;
       if (filters.formats.length > 0) variables.format_in = filters.formats;
       if (filters.statuses.length > 0) variables.status_in = filters.statuses;
+
+      if (filters.scoreRange) {
+        if (filters.scoreRange[0] > 0) variables.averageScore_greater = filters.scoreRange[0];
+        if (filters.scoreRange[1] < 100) variables.averageScore_lesser = filters.scoreRange[1];
+      }
+      
       return variables;
     }
-
-    const pagePromises = Array.from({ length: pageLimit }, (_, i) => {
-      const variables = buildVariables(i + 1);
-      return fetchAniListData(query, variables);
-    });
-
+    
     try {
-      const pageResults = await Promise.all(pagePromises);
-      const allMedia = pageResults.flatMap(data => (data.Page && data.Page.media) ? data.Page.media : []);
+      const data = await fetchAniListData(query, buildVariables());
+      const allMedia = (data.Page && data.Page.media) ? data.Page.media.filter(Boolean) : [];
+      // FIX: Use mapToAnime to correctly map the full data set from getAnimeFieldsFragment.
       const mappedAnime = allMedia.map(mapToAnime);
       const uniqueAnime = Array.from(new Map(mappedAnime.map(anime => [anime.anilistId, anime])).values());
-      return uniqueAnime;
+      
+      return {
+          results: uniqueAnime,
+          pageInfo: data.Page.pageInfo || null,
+      };
     } catch (error) {
-      console.error(`Failed to fetch discovery pages in parallel:`, error);
-      return [];
+      console.error(`Failed to fetch discovery page:`, error);
+      const emptyResults: Anime[] = [];
+      return { results: emptyResults, pageInfo: null };
     }
   });
 };

@@ -4,14 +4,44 @@ import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
+import VerticalAnimeList from './VerticalAnimeList';
+import { useTooltip } from '../contexts/TooltipContext';
+import { setLastWatchedEpisode } from '../services/userPreferenceService';
+import LoadingSpinner from './LoadingSpinner';
 
 
 const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => void }> = ({ anime, onSelect }) => {
     const { titleLanguage } = useTitleLanguage();
+    const { showTooltip, hideTooltip } = useTooltip();
+    const cardRef = useRef<HTMLDivElement>(null);
     const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+    const episodeText = anime.episodes ? `${anime.episodes} Eps` : null;
+
+    const handleMouseEnter = () => {
+        if (cardRef.current) {
+            const partialAnime = {
+                anilistId: anime.id,
+                englishTitle: anime.englishTitle,
+                romajiTitle: anime.romajiTitle,
+                coverImage: anime.coverImage,
+                episodes: anime.episodes,
+                totalEpisodes: anime.episodes,
+                format: anime.format,
+                year: anime.year,
+            };
+            showTooltip(partialAnime, cardRef.current.getBoundingClientRect());
+        }
+    };
+
     return (
-        <div className="flex-shrink-0 w-32 cursor-pointer group" onClick={onSelect}>
-            <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
+        <div 
+            ref={cardRef}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={hideTooltip}
+            className="flex-shrink-0 w-40 cursor-pointer group" 
+            onClick={onSelect}
+        >
+            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
                 <img
                     src={anime.coverImage}
                     alt={title}
@@ -27,28 +57,74 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => vo
                     </div>
                 )}
             </div>
-            <p className="text-white text-xs font-semibold line-clamp-2 mt-2 group-hover:text-cyan-400 transition-colors">{title}</p>
+             <div className="pt-3">
+                <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
+                <div className="flex items-center gap-3 text-gray-400 text-xs mt-1">
+                    {anime.format && <span className="font-semibold">{anime.format.replace(/_/g, ' ')}</span>}
+                    {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
+                    {episodeText && <span className="font-semibold">{episodeText}</span>}
+                </div>
+            </div>
         </div>
     );
 };
 
 const RelatedAnimeCard: React.FC<{ anime: RelatedAnime, onSelect: () => void }> = ({ anime, onSelect }) => {
     const { titleLanguage } = useTitleLanguage();
+    const { showTooltip, hideTooltip } = useTooltip();
+    const cardRef = useRef<HTMLDivElement>(null);
     const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+    const episodeText = anime.episodes ? `${anime.episodes} Eps` : null;
+
+     const handleMouseEnter = () => {
+        if (cardRef.current) {
+            const partialAnime = {
+                anilistId: anime.id,
+                englishTitle: anime.englishTitle,
+                romajiTitle: anime.romajiTitle,
+                coverImage: anime.coverImage,
+                episodes: anime.episodes,
+                totalEpisodes: anime.episodes,
+                format: anime.format,
+                year: anime.year,
+            };
+            showTooltip(partialAnime, cardRef.current.getBoundingClientRect());
+        }
+    };
+
     return (
-    <div className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-800/60 transition-colors group" onClick={onSelect}>
-        <img 
-            src={anime.coverImage} 
-            alt={title} 
-            className="w-16 h-24 object-cover rounded-md flex-shrink-0"
-            onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-        />
-        <div className="overflow-hidden">
-            <p className="text-white text-sm font-semibold line-clamp-2 group-hover:text-cyan-400 transition-colors">{title}</p>
-            <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
+    <div 
+        ref={cardRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={hideTooltip}
+        className="w-full cursor-pointer group" 
+        onClick={onSelect}
+    >
+        <div className="flex items-start gap-4 p-2 rounded-lg hover:bg-gray-800/60 transition-colors">
+            <img 
+                src={anime.coverImage} 
+                alt={title} 
+                className="w-20 h-28 object-cover rounded-md flex-shrink-0 shadow-md transform transition-transform duration-300 group-hover:scale-105"
+                onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+            />
+            <div className="overflow-hidden">
+                <h3 className="text-white text-sm font-bold line-clamp-2 group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
+                 <div className="flex flex-col gap-1 text-gray-400 text-xs mt-2">
+                    {anime.format && <span className="font-semibold">{anime.format.replace(/_/g, ' ')}</span>}
+                    {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
+                    {episodeText && <span className="font-semibold">{episodeText}</span>}
+                </div>
+                <p className="text-cyan-400 text-xs mt-2 capitalize font-semibold">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
+            </div>
         </div>
     </div>
 )};
+
+const AiringIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-cyan-400" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9.99 2.05c.53 0 1.04 .08 1.54 .23l-1.28 1.28A5.95 5.95 0 004.28 7.5l-1.28 1.28A7.94 7.94 0 019.99 2.05zM2.06 9.99a7.94 7.94 0 016.71-7.71l-1.28 1.28A5.95 5.95 0 003.5 12.5l-1.28 1.28A7.94 7.94 0 012.06 10zM10 4a6 6 0 100 12 6 6 0 000-12zM10 14a4 4 0 110-8 4 4 0 010 8z" />
+    </svg>
+);
 
 
 const AnimePlayer: React.FC<{
@@ -63,6 +139,7 @@ const AnimePlayer: React.FC<{
   onSelectRelated: (anime: { anilistId: number }) => void;
   onSelectRecommended: (anime: { anilistId: number }) => void;
   onReportIssue: () => void;
+  topAiring: Anime[];
 }> = ({
   anime,
   currentEpisode,
@@ -75,28 +152,57 @@ const AnimePlayer: React.FC<{
   onSelectRelated,
   onSelectRecommended,
   onReportIssue,
+  topAiring,
 }) => {
   const { getStreamUrl } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
   const episodeCount = anime.episodes || 1;
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
+  const [isZenshinLoading, setIsZenshinLoading] = useState(true);
   const [isAiringNotificationVisible, setIsAiringNotificationVisible] = useState(true);
   const [episodeSearch, setEpisodeSearch] = useState('');
   const [isRangeSelectorOpen, setIsRangeSelectorOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
   const rangeSelectorRef = useRef<HTMLDivElement>(null);
+  const [isPlayerLoading, setIsPlayerLoading] = useState(true);
+  const [resumeNotification, setResumeNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    // This effect shows a notification when resuming an episode.
+    // It runs only when the player is first loaded for an anime.
+    if (currentEpisode > 1) {
+        setResumeNotification(`Resuming from Episode ${currentEpisode}`);
+
+        const timer = setTimeout(() => {
+            setResumeNotification(null);
+        }, 4000); // Display for 4 seconds
+
+        return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anime.anilistId]);
 
   useEffect(() => {
     const fetchMappings = async () => {
+        setIsZenshinLoading(true);
         try {
             const data = await getZenshinMappings(anime.anilistId);
             setZenshinData(data);
         } catch (error) {
             console.error("Failed to fetch zenshin mappings", error);
+            setZenshinData(null); // Ensure it's null on error
+        } finally {
+            setIsZenshinLoading(false);
         }
     };
     fetchMappings();
   }, [anime.anilistId]);
+
+  useEffect(() => {
+    if (anime && currentEpisode > 0) {
+      setLastWatchedEpisode(anime.anilistId, currentEpisode);
+    }
+  }, [anime, currentEpisode]);
 
   const episodeRanges = useMemo(() => {
       if (!episodeCount || episodeCount <= 100) return [];
@@ -128,9 +234,18 @@ const AnimePlayer: React.FC<{
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const streamUrl = useMemo(() => getStreamUrl({
-    animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, animeFormat: anime.format
-  }), [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData]);
+  const streamUrl = useMemo(() => {
+    if (isZenshinLoading) {
+      return 'about:blank';
+    }
+    return getStreamUrl({
+        animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, animeFormat: anime.format
+    });
+  }, [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, isZenshinLoading]);
+
+  useEffect(() => {
+    setIsPlayerLoading(true);
+  }, [streamUrl]);
 
   const nextAiringDate = useMemo(() => {
     if (!anime.nextAiringEpisode) return null;
@@ -190,7 +305,7 @@ const AnimePlayer: React.FC<{
 
   return (
     <main className="min-h-screen text-white animate-fade-in">
-      <div className="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="container mx-auto max-w-screen-2xl p-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
             <button 
                 onClick={onBack} 
@@ -209,16 +324,32 @@ const AnimePlayer: React.FC<{
               <p className="text-gray-400 text-sm mt-2 line-clamp-2">{currentZenshinEpisode?.overview}</p>
             </div>
 
-            <div className="aspect-video bg-black rounded-lg shadow-xl overflow-hidden mb-4">
+            <div className="aspect-video bg-black rounded-lg shadow-xl overflow-hidden mb-4 relative">
+              {(isPlayerLoading || isZenshinLoading) && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+                      <LoadingSpinner />
+                  </div>
+              )}
               <iframe
                 key={streamUrl}
                 src={streamUrl}
                 title={`${title} - Episode ${currentEpisode}`}
+                onLoad={() => setIsPlayerLoading(false)}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation allow-fullscreen"
                 allowFullScreen
                 className="w-full h-full border-0"
               ></iframe>
+               {resumeNotification && (
+                <div className="absolute top-4 right-4 z-20 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-fast">
+                    <p className="font-semibold flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-cyan-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        {resumeNotification}
+                    </p>
+                </div>
+              )}
             </div>
 
             <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg mb-4">
@@ -297,7 +428,12 @@ const AnimePlayer: React.FC<{
                                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                             </svg>
                         </button>
-                        <input type="number" value={episodeSearch} onChange={e => setEpisodeSearch(e.target.value)} placeholder="Find Ep..." className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
+                        <input 
+                            type="number" 
+                            value={episodeSearch} 
+                            onChange={e => setEpisodeSearch(e.target.value)} 
+                            placeholder="Find Ep..." 
+                            className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
                     </form>
                 </div>
 
@@ -369,16 +505,27 @@ const AnimePlayer: React.FC<{
         </div>
 
         <div className="lg:col-span-1">
-          {anime.relations && anime.relations.length > 0 && (
-              <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg sticky top-20">
-                  <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Related Anime</h3>
-                  <div className="flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
-                      {anime.relations.map(rel => (
-                          <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />
-                      ))}
-                  </div>
-              </div>
-          )}
+            <div className="sticky top-20 flex flex-col gap-8">
+                {anime.relations && anime.relations.length > 0 && (
+                    <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg">
+                        <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Related Anime</h3>
+                        <div className="flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
+                            {anime.relations.map(rel => (
+                                <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {topAiring && topAiring.length > 0 && (!anime.relations || anime.relations.length < 4) && (
+                    <VerticalAnimeList
+                        title="Top Airing"
+                        animeList={topAiring}
+                        onSelectAnime={(selectedAnime) => onSelectRelated({ anilistId: selectedAnime.anilistId })}
+                        icon={<AiringIcon />}
+                        showRank={true}
+                    />
+                )}
+            </div>
         </div>
       </div>
     </main>

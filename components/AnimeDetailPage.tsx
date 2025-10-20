@@ -1,230 +1,155 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Anime, RelatedAnime, StreamSource, RecommendedAnime, ZenshinMapping } from '../types';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Anime, RelatedAnime, RecommendedAnime, Character, StaffMember } from '../types';
 import GenrePill from './GenrePill';
-import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
-import TrailerModal from './TrailerModal';
-import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { useUserData } from '../contexts/UserDataContext';
+import { useDataSaver } from '../contexts/DataSaverContext';
+import TrailerModal from './TrailerModal';
+import { useTooltip } from '../contexts/TooltipContext';
 
 
-interface RelatedAnimeCardProps {
-  anime: RelatedAnime;
-  onSelect: (id: number) => void;
-}
+// SVG Icons for the details section
+const StarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
+const CalendarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
+const TVIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM4.343 5.757a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM1 12a1 1 0 011-1h16a1 1 0 110 2H2a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" /></svg>;
+const EpisodesIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2-2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>;
+const ClockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>;
+const ExternalLinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>;
+const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>;
 
-const RelatedAnimeCard: React.FC<RelatedAnimeCardProps> = ({ anime, onSelect }) => {
+const RelatedAnimeCard: React.FC<{ anime: RelatedAnime; onSelect: (id: number) => void }> = ({ anime, onSelect }) => {
   const { titleLanguage } = useTitleLanguage();
+  const { showTooltip, hideTooltip } = useTooltip();
+  const cardRef = useRef<HTMLDivElement>(null);
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
-  
+  const episodeText = anime.episodes ? `${anime.episodes} Eps` : null;
+
+  const handleMouseEnter = () => {
+    if (cardRef.current) {
+      const partialAnime = {
+        anilistId: anime.id,
+        englishTitle: anime.englishTitle,
+        romajiTitle: anime.romajiTitle,
+        coverImage: anime.coverImage,
+        episodes: anime.episodes,
+        totalEpisodes: anime.episodes,
+        format: anime.format,
+        year: anime.year,
+      };
+      showTooltip(partialAnime, cardRef.current.getBoundingClientRect());
+    }
+  };
+
   return (
       <div 
-        className="flex-shrink-0 w-32 md:w-40 cursor-pointer group"
+        ref={cardRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={hideTooltip}
+        className="flex-shrink-0 w-40 cursor-pointer group" 
         onClick={() => onSelect(anime.id)}
       >
-        <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
-            <img 
-              src={anime.coverImage} 
-              alt={title} 
-              className="w-full h-full object-cover"
-              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-            />
-            {anime.isAdult && (
-                <div className="absolute top-1 right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-                18+
-                </div>
-            )}
-            {anime.episodes != null && (
-                <div className="absolute top-1 left-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-                {anime.episodes} Ep
-                </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
-            <div className="absolute bottom-0 left-0 p-2 z-20">
-                <p className="text-white text-sm font-bold line-clamp-2">{title}</p>
-            </div>
-            {anime.progress > 0 && anime.progress < 95 && (
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-                    <div
-                        className="h-full bg-cyan-500"
-                        style={{ width: `${anime.progress}%` }}
-                    ></div>
-                </div>
-            )}
+        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
+          <img src={anime.coverImage} alt={title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} />
+          {anime.isAdult && <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">18+</div>}
+          {anime.progress > 0 && anime.progress < 95 && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20"><div className="h-full bg-cyan-500" style={{ width: `${anime.progress}%` }}></div></div>}
         </div>
-        <p className="text-gray-400 text-xs mt-1 capitalize">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
-      </div>
-  );
-};
-
-interface RecommendationCardProps {
-  anime: RecommendedAnime;
-  onSelect: (id: number) => void;
-}
-
-const RecommendationCard: React.FC<RecommendationCardProps> = ({ anime, onSelect }) => {
-  const { titleLanguage } = useTitleLanguage();
-  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
-
-  return (
-      <div 
-        className="flex-shrink-0 w-32 md:w-40 cursor-pointer group"
-        onClick={() => onSelect(anime.id)}
-      >
-        <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 group-hover:scale-105">
-            <img 
-              src={anime.coverImage} 
-              alt={title} 
-              className="w-full h-full object-cover"
-              onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-            />
-            {anime.isAdult && (
-                <div className="absolute top-1 right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-                18+
-                </div>
-            )}
-            {anime.episodes != null && (
-                <div className="absolute top-1 left-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-md z-10">
-                {anime.episodes} Ep
-                </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
-            <div className="absolute bottom-0 left-0 p-2 z-20">
-                <p className="text-white text-sm font-bold line-clamp-2">{title}</p>
-            </div>
-            {anime.progress > 0 && anime.progress < 95 && (
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-                    <div
-                        className="h-full bg-cyan-500"
-                        style={{ width: `${anime.progress}%` }}
-                    ></div>
-                </div>
-            )}
+        <div className="pt-3">
+          <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
+          <div className="flex items-center gap-3 text-gray-400 text-xs mt-1">
+            {anime.format && <span className="font-semibold">{anime.format.replace(/_/g, ' ')}</span>}
+            {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
+            {episodeText && <span className="font-semibold">{episodeText}</span>}
+          </div>
+          <p className="text-cyan-400 text-xs mt-1 capitalize font-semibold">{anime.relationType.toLowerCase().replace(/_/g, ' ')}</p>
         </div>
       </div>
   );
 };
 
+const RecommendationCard: React.FC<{ anime: RecommendedAnime; onSelect: (id: number) => void }> = ({ anime, onSelect }) => {
+  const { titleLanguage } = useTitleLanguage();
+  const { showTooltip, hideTooltip } = useTooltip();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
+  const episodeText = anime.episodes ? `${anime.episodes} Eps` : null;
 
-const TitleEditor: React.FC<{ anime: Anime }> = ({ anime }) => {
-    const { updateTitle } = useAdmin();
-    const { titleLanguage } = useTitleLanguage();
-    const displayTitle = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
-    
-    const [isEditing, setIsEditing] = useState(false);
-    const [title, setTitle] = useState(anime.englishTitle);
+   const handleMouseEnter = () => {
+    if (cardRef.current) {
+      const partialAnime = {
+        anilistId: anime.id,
+        englishTitle: anime.englishTitle,
+        romajiTitle: anime.romajiTitle,
+        coverImage: anime.coverImage,
+        episodes: anime.episodes,
+        totalEpisodes: anime.episodes,
+        format: anime.format,
+        year: anime.year,
+      };
+      showTooltip(partialAnime, cardRef.current.getBoundingClientRect());
+    }
+  };
 
-    useEffect(() => {
-        setTitle(anime.englishTitle);
-    }, [anime.englishTitle]);
+  return (
+      <div 
+        ref={cardRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={hideTooltip}
+        className="flex-shrink-0 w-40 cursor-pointer group" 
+        onClick={() => onSelect(anime.id)}
+      >
+        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
+            <img src={anime.coverImage} alt={title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}/>
+            {anime.isAdult && <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">18+</div>}
+            {anime.progress > 0 && anime.progress < 95 && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20"><div className="h-full bg-cyan-500" style={{ width: `${anime.progress}%` }}></div></div>}
+        </div>
+        <div className="pt-3">
+          <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
+          <div className="flex items-center gap-3 text-gray-400 text-xs mt-1">
+            {anime.format && <span className="font-semibold">{anime.format.replace(/_/g, ' ')}</span>}
+            {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
+            {episodeText && <span className="font-semibold">{episodeText}</span>}
+          </div>
+        </div>
+      </div>
+  );
+};
 
-    const handleSave = () => {
-        updateTitle(anime.anilistId, title);
-        setIsEditing(false);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handleSave();
-        } else if (e.key === 'Escape') {
-            setIsEditing(false);
-            setTitle(anime.englishTitle);
-        }
-    };
-
+const CharacterCard: React.FC<{ character: Character }> = ({ character }) => {
     return (
-        <div className="flex items-center gap-4">
-            {isEditing ? (
-                 <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    onBlur={handleSave}
-                    onKeyDown={handleKeyDown}
-                    className="text-4xl lg:text-6xl font-black bg-gray-800 text-white rounded px-2 -mx-2"
-                    autoFocus
-                />
-            ) : (
-                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{displayTitle}</h1>
+        <div className="bg-gray-800/60 rounded-lg flex justify-between items-center overflow-hidden">
+            <div className="flex items-center gap-3 p-2">
+                <img src={character.image} alt={character.name} className="w-12 h-16 object-cover rounded-md" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} />
+                <div>
+                    <p className="font-semibold text-white text-sm">{character.name}</p>
+                    <p className="text-xs text-gray-400 capitalize">{character.role}</p>
+                </div>
+            </div>
+            {character.voiceActor && (
+                <div className="flex items-center gap-3 p-2 text-right">
+                     <div>
+                        <p className="font-semibold text-white text-sm">{character.voiceActor.name}</p>
+                        <p className="text-xs text-gray-400">Japanese</p>
+                    </div>
+                    <img src={character.voiceActor.image} alt={character.voiceActor.name} className="w-12 h-16 object-cover rounded-md" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} />
+                </div>
             )}
-            <button onClick={() => setIsEditing(!isEditing)} className="text-gray-400 hover:text-white transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536l12.232-12.232z" />
-                </svg>
-            </button>
         </div>
     );
 };
 
-const AdminSettings: React.FC<{ anime: Anime }> = ({ anime }) => {
-    const { overrides, updateAnimeStreamUrlTemplate } = useAdmin();
-    const animeOverrides = overrides.anime[anime.anilistId];
-
-    const [animePaheUrl, setAnimePaheUrl] = useState(animeOverrides?.streamUrlTemplates?.animepahe || '');
-    const [vidnestUrl, setVidnestUrl] = useState(animeOverrides?.streamUrlTemplates?.vidnest || '');
-    const [vidlinkUrl, setVidlinkUrl] = useState(animeOverrides?.streamUrlTemplates?.vidlink || '');
-    const [externalPlayerUrl, setExternalPlayerUrl] = useState(animeOverrides?.streamUrlTemplates?.externalplayer || '');
-
-    
-    useEffect(() => {
-        setAnimePaheUrl(animeOverrides?.streamUrlTemplates?.animepahe || '');
-        setVidnestUrl(animeOverrides?.streamUrlTemplates?.vidnest || '');
-        setVidlinkUrl(animeOverrides?.streamUrlTemplates?.vidlink || '');
-        setExternalPlayerUrl(animeOverrides?.streamUrlTemplates?.externalplayer || '');
-    }, [animeOverrides]);
-
-    const handleBlur = (source: StreamSource, value: string) => {
-        updateAnimeStreamUrlTemplate(anime.anilistId, source, value);
-    };
-
+const StaffCard: React.FC<{ member: StaffMember }> = ({ member }) => {
     return (
-        <div className="mt-8 bg-gray-900/50 border border-cyan-500/30 rounded-lg p-6">
-            <h2 className="text-2xl font-bold text-cyan-400 mb-4">Admin Settings</h2>
-            <div className="text-sm text-gray-400 mb-4 space-y-1">
-                <p>Override the stream URL for this anime.</p>
-                <p>&bull; <b>Simple Mode (Src 1, 2):</b> Enter the base URL. The episode/language will be added automatically.</p>
-                <p>&bull; <b>Advanced Mode (Src 1, 2):</b> Provide a full template with tokens like <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code>.</p>
-            </div>
-            <div className="space-y-4">
-                <div>
-                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="animeSource1">Source 1 URL (AnimePahe)</label>
-                    <input
-                        id="animeSource1"
-                        type="text"
-                        value={animePaheUrl}
-                        onChange={(e) => setAnimePaheUrl(e.target.value)}
-                        onBlur={(e) => handleBlur(StreamSource.AnimePahe, e.target.value)}
-                        placeholder="Enter base URL or full template"
-                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                </div>
-                <div>
-                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="animeSource2">Source 2 URL (Vidnest)</label>
-                    <input
-                        id="animeSource2"
-                        type="text"
-                        value={vidnestUrl}
-                        onChange={(e) => setVidnestUrl(e.target.value)}
-                        onBlur={(e) => handleBlur(StreamSource.Vidnest, e.target.value)}
-                        placeholder="Enter base URL or full template"
-                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                </div>
-                {/*
-                 <div>
-                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="animeSource3">Source 3 URL (Vidlink)</label>
-                    <input
-                        id="animeSource3"
-                        type="text"
-                        value={vidlinkUrl}
-                        onChange={(e) => setVidlinkUrl(e.target.value)}
-                        onBlur={(e) => handleBlur(StreamSource.Vidlink, e.target.value)}
-                        placeholder="Enter base URL or full template"
-                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                </div>
-                */}
+        <div className="bg-gray-800/60 rounded-lg flex items-center gap-3 p-2 overflow-hidden">
+            <img
+                src={member.image || PLACEHOLDER_IMAGE_URL}
+                alt={member.name}
+                className="w-12 h-16 object-cover rounded-md flex-shrink-0"
+                onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
+            />
+            <div className="overflow-hidden">
+                <p className="font-semibold text-white text-sm truncate">{member.name}</p>
+                <p className="text-xs text-gray-400 truncate">{member.role}</p>
             </div>
         </div>
     );
@@ -239,19 +164,76 @@ interface AnimeDetailPageProps {
   setInView: (inView: boolean) => void;
 }
 
-// FIX: Removed an obsolete comment. A limit for related anime is already defined and used.
 const RELATED_ANIME_LIMIT = 15;
+const MIN_RELATED_THRESHOLD = 4;
+type Tab = 'overview' | 'characters' | 'stats';
+type DiscoverView = 'related' | 'recommended';
 
 const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated, setInView }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
-  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
-  const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
-  const { isAdmin } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
   const { watchlist, favorites, toggleWatchlist, toggleFavorite } = useUserData();
   const [isInList, setIsInList] = useState(false);
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
   const bannerRef = useRef<HTMLDivElement>(null);
+  const initialLoad = useRef(true);
+
+  const { isDataSaverActive } = useDataSaver();
+  const hasTrailer = anime.trailer && anime.trailer.site === 'youtube';
+
+  const [backgroundType, setBackgroundType] = useState<'video' | 'image'>('image');
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const playerRef = useRef<HTMLIFrameElement>(null);
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  
+  const hasRelations = anime.relations && anime.relations.length > 0;
+  const hasRecommendations = anime.recommendations && anime.recommendations.length > 0;
+
+  const [activeDiscoverView, setActiveDiscoverView] = useState<DiscoverView>(() => {
+    if (hasRelations && anime.relations.length >= MIN_RELATED_THRESHOLD) {
+      return 'related';
+    }
+    return hasRecommendations ? 'recommended' : 'related';
+  });
+
+  useEffect(() => {
+    if (hasRelations && anime.relations.length >= MIN_RELATED_THRESHOLD) {
+      setActiveDiscoverView('related');
+    } else if (hasRecommendations) {
+      setActiveDiscoverView('recommended');
+    } else {
+      setActiveDiscoverView('related'); // Fallback if no recommendations
+    }
+  }, [anime.anilistId, hasRelations, hasRecommendations, anime.relations.length]);
+
+  const episodeText = useMemo(() => {
+    const released = anime.episodes;
+    const total = anime.totalEpisodes;
+
+    if (anime.status === 'RELEASING') {
+      if (total && total > 0) {
+        return `${released} / ${total}`;
+      }
+      return released > 0 ? `${released}` : null;
+    }
+
+    if (anime.status === 'FINISHED') {
+        return total ? `${total}` : (released ? `${released}` : null);
+    }
+    
+    if (anime.status === 'NOT_YET_RELEASED') {
+        return total ? `${total}` : null;
+    }
+
+    // Default for other statuses
+    if (total) return `${total}`;
+    if (released) return `${released}`;
+
+    return null;
+  }, [anime.episodes, anime.totalEpisodes, anime.status]);
 
   useEffect(() => {
     setIsInList(watchlist.includes(anime.anilistId));
@@ -265,245 +247,270 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
   const isFavorite = favorites.includes(anime.anilistId);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setInView(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
-    );
-
+    const observer = new IntersectionObserver(([entry]) => { setInView(entry.isIntersecting); }, { threshold: 0.1 });
     const currentRef = bannerRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
+    if (currentRef) observer.observe(currentRef);
+    return () => { if (currentRef) observer.unobserve(currentRef); };
   }, [setInView]);
+  
+  const switchToImage = useCallback(() => {
+    setBackgroundType('image');
+    initialLoad.current = false;
+  }, []);
 
   useEffect(() => {
-    if (!anime) return;
-    const fetchMappings = async () => {
+    setBackgroundType('image');
+    initialLoad.current = true;
+    if (hasTrailer && !isDataSaverActive) {
+      const timer = setTimeout(() => {
+        if (initialLoad.current) { setBackgroundType('video'); initialLoad.current = false; }
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [anime.anilistId, hasTrailer, isDataSaverActive]);
+
+  useEffect(() => {
+    if (backgroundType !== 'video' || !hasTrailer) return;
+    const timeoutId = window.setTimeout(switchToImage, 40000);
+    const handlePlayerMessage = (event: MessageEvent) => {
+        if (event.origin !== 'https://www.youtube.com') return;
         try {
-            const data = await getZenshinMappings(anime.anilistId);
-            setZenshinData(data);
-        } catch (error) {
-            console.error("Failed to fetch zenshin mappings for details page", error);
-            setZenshinData(null);
-        }
+            const data = JSON.parse(event.data);
+            if (data.event === 'onError') {
+                console.error('YouTube Player Error:', data.info);
+                setVideoError('Trailer unavailable.');
+                switchToImage();
+                setTimeout(() => setVideoError(null), 5000);
+            }
+        } catch (error) { /* Ignore non-JSON messages */ }
     };
-    fetchMappings();
-  }, [anime]);
+    window.addEventListener('message', handlePlayerMessage);
+    return () => { window.clearTimeout(timeoutId); window.removeEventListener('message', handlePlayerMessage); };
+  }, [backgroundType, hasTrailer, switchToImage]);
   
-  const BackButton = () => (
-    <button 
-      onClick={onBack}
-      className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap bg-gray-800/50 hover:bg-gray-700/60 px-4 py-2 rounded-lg"
-      aria-label="Go back"
+  const postPlayerCommand = (func: string, args: any[] = []) => {
+    playerRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), 'https://www.youtube.com');
+  };
+  
+  const handleTogglePlay = () => {
+    postPlayerCommand(isPlaying ? 'pauseVideo' : 'playVideo');
+    setIsPlaying(prev => !prev);
+  };
+  
+  const handleToggleMute = () => {
+    if (isMuted) {
+      postPlayerCommand('unMute');
+      postPlayerCommand('playVideo');
+      setIsPlaying(true);
+    } else {
+      postPlayerCommand('mute');
+    }
+    setIsMuted(prev => !prev);
+  };
+
+  const switchToVideo = () => { if (hasTrailer) { setBackgroundType('video'); setIsPlaying(true); } };
+
+  const videoSrc = hasTrailer ? `https://www.youtube.com/embed/${anime.trailer.id}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&enablejsapi=1&origin=${window.location.origin}` : '';
+
+  const statusPill = (status: string) => {
+    const s = status.toLowerCase();
+    let colorClass = 'bg-gray-500/80 text-gray-100';
+    if (s === 'releasing') colorClass = 'bg-green-500/80 text-green-100';
+    if (s === 'finished') colorClass = 'bg-blue-500/80 text-blue-100';
+    if (s === 'not_yet_released') colorClass = 'bg-yellow-500/80 text-yellow-100';
+    return (
+      <div className={`px-2.5 py-1 rounded-full text-xs font-bold ${colorClass}`}>
+        {status.replace(/_/g, ' ')}
+      </div>
+    );
+  };
+
+  const TabButton: React.FC<{ tab: Tab, label: string }> = ({ tab, label }) => (
+    <button
+      onClick={() => setActiveTab(tab)}
+      className={`px-4 py-2 text-lg font-bold transition-colors duration-200 ${
+        activeTab === tab ? 'text-white border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'
+      }`}
     >
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-      </svg>
-      <span>Back</span>
+      {label}
     </button>
   );
 
   return (
     <div className="animate-fade-in text-white">
-      <div className="absolute top-20 left-4 md:left-8 z-30">
-        <BackButton />
+      <div ref={bannerRef} className="relative h-[65vh] md:h-[70vh] w-full bg-black flex items-center justify-center">
+        {backgroundType === 'video' && hasTrailer ? (
+          <div className="absolute inset-0 w-full h-full overflow-hidden">
+            <iframe ref={playerRef} src={videoSrc} key={anime.anilistId} title={`${title} Trailer Background`} frameBorder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope;" className="absolute top-1/2 left-1/2 w-[178vh] min-w-full h-[56.25vw] min-h-full -translate-x-1/2 -translate-y-1/2" style={{ pointerEvents: 'none' }}/>
+          </div>
+        ) : (
+          <div className="absolute inset-0 w-full h-full">
+            <img src={anime.bannerImage || anime.coverImage} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}/>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-black/60 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-950/80 via-gray-950/50 to-transparent"></div>
+        
+        {videoError && <div className="absolute bottom-20 right-4 z-30 bg-red-800/80 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg animate-fade-in flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg><span>{videoError}</span></div>}
+
+        <div className="absolute bottom-4 right-4 z-20 flex items-center gap-3">
+            {hasTrailer && (<>
+              {backgroundType === 'video' && (<>
+                <div className="relative group flex justify-center">
+                  <button onClick={handleTogglePlay} className="bg-black/50 p-2.5 rounded-full hover:bg-black/70 transition-colors" aria-label={isPlaying ? 'Pause' : 'Play'}><span className="absolute bottom-full mb-2 w-max bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">{isPlaying ? 'Pause' : 'Play'}</span>{isPlaying ? <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>}</button>
+                </div>
+                <div className="relative group flex justify-center">
+                  <button onClick={handleToggleMute} className="bg-black/50 p-2.5 rounded-full hover:bg-black/70 transition-colors" aria-label={isMuted ? 'Unmute' : 'Mute'}><span className="absolute bottom-full mb-2 w-max bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">{isMuted ? 'Unmute' : 'Mute'}</span>{isMuted ? <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414z" clipRule="evenodd" /></svg>}</button>
+                </div>
+              </>)}
+              <div className="relative group flex justify-center">
+                <button onClick={backgroundType === 'video' ? switchToImage : switchToVideo} className="bg-black/50 p-2.5 rounded-full hover:bg-black/70 transition-colors" aria-label={backgroundType === 'video' ? 'Show image' : 'Play trailer'}><span className="absolute bottom-full mb-2 w-max bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">{backgroundType === 'video' ? 'Show Image' : 'Play Trailer'}</span>{backgroundType === 'video' ? <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 001.553.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>}</button>
+              </div>
+            </>)}
+        </div>
+        
+        <div className="relative container mx-auto max-w-screen-2xl p-4 md:p-8 flex items-center gap-8">
+            <button onClick={onBack} className="absolute top-8 left-4 md:left-8 z-30 group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap bg-gray-800/50 hover:bg-gray-700/60 px-4 py-2 rounded-lg" aria-label="Go back"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg><span>Back</span></button>
+            <div className="flex-shrink-0 w-1/3 max-w-[250px] hidden md:block"><img src={anime.coverImage} alt={title} className="w-full rounded-lg shadow-2xl aspect-[2/3] object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}/></div>
+            <div className="flex flex-col gap-3 md:gap-4 text-left">
+                <h1 className="text-3xl lg:text-5xl font-black text-white drop-shadow-lg">{title}</h1>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-200 text-sm md:text-base">
+                  {anime.rating > 0 && <span className="flex items-center gap-1.5 font-semibold text-yellow-400"><StarIcon /> {anime.rating / 10}</span>}
+                  {anime.year > 0 && <span className="flex items-center gap-1.5"><CalendarIcon /> {anime.year}</span>}
+                  {anime.format && anime.format !== 'N/A' && <span className="flex items-center gap-1.5"><TVIcon /> {anime.format}</span>}
+                  {statusPill(anime.status)}
+                  {episodeText && <span className="flex items-center gap-1.5"><EpisodesIcon /> {episodeText} Episodes</span>}
+                  {anime.duration && <span className="flex items-center gap-1.5"><ClockIcon /> {anime.duration} min</span>}
+                </div>
+                <div className="flex flex-wrap gap-2">{anime.genres.slice(0, 5).map(genre => <GenrePill key={genre} genre={genre} />)}</div>
+                <div className="text-sm"> <span className="font-bold text-gray-300">Studios:</span> <span className="text-gray-400">{anime.studios.join(', ')}</span></div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <a href={`https://anilist.co/anime/${anime.anilistId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-gray-800/70 hover:bg-gray-700/90 text-gray-200 px-3 py-1.5 rounded-md text-sm font-semibold transition-colors">AniList <ExternalLinkIcon /></a>
+                  {anime.malId && <a href={`https://myanimelist.net/anime/${anime.malId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-gray-800/70 hover:bg-gray-700/90 text-gray-200 px-3 py-1.5 rounded-md text-sm font-semibold transition-colors">MAL <ExternalLinkIcon /></a>}
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                  <button onClick={() => onWatchNow(anime)} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-md transition-colors text-lg flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>Watch Now</button>
+                  {hasTrailer && (
+                    <button onClick={() => setIsTrailerOpen(true)} className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-md transition-colors flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 001.553.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+                        Watch Trailer
+                    </button>
+                  )}
+                  <button onClick={handleToggleWatchlist} className={`font-bold py-3 px-6 rounded-md transition-all duration-300 flex items-center gap-2 relative overflow-hidden ${ isInList ? 'bg-green-500 text-white' : 'bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white' }`}>{isInList ? <span className="absolute inset-0 flex items-center justify-center animate-show-check"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg></span> : <PlusIcon />}<span className={`transition-opacity duration-200 ${isInList ? 'opacity-0' : 'opacity-100'}`}>Add to List</span></button>
+                  <button onClick={() => toggleFavorite(anime.anilistId)} className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white p-3.5 rounded-md transition-colors" aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 transition-all duration-300 ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+            </div>
+        </div>
       </div>
 
-      <div ref={bannerRef} className="relative h-[50vh] w-full -mt-16 pt-16">
-        <img
-          src={anime.bannerImage || anime.coverImage}
-          alt={title}
-          className="w-full h-full object-cover"
-          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/80 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-950 to-transparent"></div>
-      </div>
+      <div className="container mx-auto max-w-screen-2xl p-4 md:p-8">
+        <div className="mt-8">
+            <div className="flex border-b border-gray-700 mb-6">
+                <TabButton tab="overview" label="Overview" />
+                <TabButton tab="characters" label="Characters & Staff" />
+                <TabButton tab="stats" label="Stats" />
+            </div>
+            <div className="animate-fade-in-fast">
+                {activeTab === 'overview' && (
+                    <div className="text-gray-300 leading-relaxed whitespace-pre-wrap relative bg-gray-900/50 p-6 rounded-lg">
+                        <p className={`${!showFullDescription && 'line-clamp-5'}`}>{anime.description || "No description available."}</p>
+                        {anime.description && anime.description.length > 300 && <button onClick={() => setShowFullDescription(!showFullDescription)} className="font-semibold text-cyan-400 hover:text-cyan-300 mt-2">{showFullDescription ? 'Show Less' : 'Show More'}</button>}
+                    </div>
+                )}
+                {activeTab === 'characters' && (
+                    <div className="bg-gray-900/50 p-6 rounded-lg">
+                        {anime.characters && anime.characters.length > 0 && (
+                            <div className="mb-8">
+                                <h3 className="text-xl font-bold mb-4">Characters</h3>
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                    {anime.characters.map(character => (
+                                        <CharacterCard key={character.id} character={character} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-      <div className="container mx-auto p-4 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 relative z-10 -mt-32 md:-mt-48">
-          <div className="md:col-span-4 lg:col-span-3">
-            <div className="relative">
-              <img 
-                src={anime.coverImage} 
-                alt={title} 
-                className="w-full rounded-lg shadow-2xl aspect-[2/3] object-cover"
-                onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-              />
-              {anime.isAdult && (
-                <div className="absolute top-3 right-3 bg-red-600 text-white text-sm font-bold px-3 py-1.5 rounded-md shadow-lg z-10">
-                  18+
+                        <h3 className="text-xl font-bold mb-4">Staff</h3>
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            {anime.staff.length > 0 ? (
+                                anime.staff.map(member => (
+                                    <StaffCard key={member.id} member={member} />
+                                ))
+                            ) : ( <p className="text-gray-400 col-span-full">No staff information available.</p> )}
+                        </div>
+                    </div>
+                )}
+                {activeTab === 'stats' && (
+                    <div className="bg-gray-900/50 p-6 rounded-lg">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4 text-sm">
+                            <div><strong className="text-gray-400 font-semibold block">Format</strong> <span className="text-white">{anime.format || 'N/A'}</span></div>
+                            <div><strong className="text-gray-400 font-semibold block">Status</strong> <span className="text-white capitalize">{anime.status.toLowerCase().replace(/_/g, ' ') || 'N/A'}</span></div>
+                            <div><strong className="text-gray-400 font-semibold block">Start Date</strong> <span className="text-white">{anime.year || 'N/A'}</span></div>
+                            <div><strong className="text-gray-400 font-semibold block">Avg. Score</strong> <span className="text-white">{anime.rating ? `${anime.rating}%` : 'N/A'}</span></div>
+                            <div><strong className="text-gray-400 font-semibold block">Duration</strong> <span className="text-white">{anime.duration ? `${anime.duration} min` : 'N/A'}</span></div>
+                            <div className="col-span-2 sm:col-span-1 md:col-span-3"><strong className="text-gray-400 font-semibold block">Studios</strong> <span className="text-white">{anime.studios.join(', ') || 'N/A'}</span></div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+
+        {(hasRelations || hasRecommendations) && (
+          <div className="mt-12">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4">Discover More</h2>
+              {hasRelations && hasRecommendations && (
+                <div className="relative flex w-64 items-center rounded-full bg-gray-800 p-1">
+                  <div
+                    className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-cyan-500 transition-transform duration-300 ease-in-out"
+                    style={{
+                      transform: `translateX(${activeDiscoverView === 'related' ? '2px' : 'calc(100% + 2px)'})`,
+                    }}
+                  />
+                  <button
+                    onClick={() => setActiveDiscoverView('related')}
+                    className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
+                  >
+                    Related
+                  </button>
+                  <button
+                    onClick={() => setActiveDiscoverView('recommended')}
+                    className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
+                  >
+                    Recommended
+                  </button>
                 </div>
               )}
             </div>
-          </div>
-          <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-end md:pb-8">
             
-            {isAdmin ? (
-                <TitleEditor anime={anime} />
-            ) : (
-                <h1 className="text-4xl lg:text-6xl font-black text-white drop-shadow-lg">{title}</h1>
+            {activeDiscoverView === 'related' && hasRelations && (
+                <div className="animate-fade-in-fast">
+                    <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
+                        {anime.relations.slice(0, RELATED_ANIME_LIMIT).map(rel => (
+                            <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={onSelectRelated} />
+                        ))}
+                    </div>
+                </div>
             )}
-            <div className="my-4 flex flex-wrap gap-2">
-              {anime.genres.map(genre => <GenrePill key={genre} genre={genre} />)}
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <button 
-                onClick={() => onWatchNow(anime)}
-                className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                </svg>
-                Watch Now
-              </button>
-              <button
-                onClick={handleToggleWatchlist}
-                className={`font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-full transition-all duration-300 flex items-center gap-2 relative overflow-hidden ${
-                  isInList ? 'bg-green-500 text-white' : 'bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white'
-                }`}
-              >
-                <span className={`transition-opacity duration-200 ${isInList ? 'opacity-0' : 'opacity-100'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-                  </svg>
-                </span>
-                <span className={`transition-opacity duration-200 ${isInList ? 'opacity-0' : 'opacity-100'}`}>
-                  {watchlist.includes(anime.anilistId) ? 'In List' : 'Add to List'}
-                </span>
-                {isInList && (
-                   <span className="absolute inset-0 flex items-center justify-center animate-show-check">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                     <span className="ml-2">In List</span>
-                  </span>
-                )}
-              </button>
-              <button 
-                onClick={() => toggleFavorite(anime.anilistId)}
-                className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white p-3 rounded-full transition-colors"
-                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 transition-all duration-300 ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                </svg>
-              </button>
-              {anime.trailer && anime.trailer.site === 'youtube' && (
-                <button
-                  onClick={() => setIsTrailerOpen(true)}
-                  className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold p-3 rounded-full transition-colors"
-                  aria-label="Play Trailer"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {isAdmin && <AdminSettings anime={anime} />}
-
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4 mb-4">Synopsis</h2>
-            <div className="text-gray-300 leading-relaxed whitespace-pre-wrap relative">
-              <p className={`${!showFullDescription && 'line-clamp-6'}`}>
-                {anime.description || "No description available."}
-              </p>
-              {anime.description && anime.description.length > 400 && (
-                 <button 
-                   onClick={() => setShowFullDescription(!showFullDescription)} 
-                   className="font-semibold text-cyan-400 hover:text-cyan-300 mt-2"
-                 >
-                   {showFullDescription ? 'Show Less' : 'Show More'}
-                 </button>
-              )}
-            </div>
-
-            {anime.staff.length > 0 && (
-                <div className="mt-8">
-                    <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4 mb-4">Staff</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
-                        {anime.staff.map(s => (
-                            <div key={`${s.id}-${s.role}`} className="text-sm">
-                                <p className="text-white font-semibold">{s.name}</p>
-                                <p className="text-gray-400">{s.role}</p>
-                            </div>
+            {activeDiscoverView === 'recommended' && hasRecommendations && (
+                <div className="animate-fade-in-fast">
+                    <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
+                        {anime.recommendations.map(rec => (
+                            <RecommendationCard key={rec.id} anime={rec} onSelect={onSelectRelated} />
                         ))}
                     </div>
                 </div>
             )}
           </div>
-          <div className="lg:col-span-1 flex flex-col gap-6 bg-gray-900/50 p-6 rounded-lg">
-             <div className="flex justify-between items-center">
-                <h3 className="font-bold text-lg text-gray-400">Rating</h3>
-                <p className="text-white font-bold text-lg">{anime.rating ? `${anime.rating} / 100` : 'N/A'}</p>
-             </div>
-             <div className="flex justify-between items-center">
-                <h3 className="font-bold text-lg text-gray-400">Episodes</h3>
-                <p className="text-white font-bold text-lg">{anime.episodes ? `${anime.episodes}` : 'TBA'}</p>
-             </div>
-             <div className="flex justify-between items-center">
-                <h3 className="font-bold text-lg text-gray-400">Status</h3>
-                <p className="text-white font-bold text-lg capitalize">{anime.status.toLowerCase().replace(/_/g, ' ')}</p>
-             </div>
-              {zenshinData?.mappings?.imdb_id && (
-                <a 
-                    href={`https://www.imdb.com/title/${zenshinData.mappings.imdb_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex justify-between items-center group"
-                >
-                    <h3 className="font-bold text-lg text-gray-400 group-hover:text-yellow-400 transition-colors">IMDb</h3>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" className="fill-current text-white group-hover:text-yellow-400 transition-colors">
-                        <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12s4.48 10 10 10 10-4.48 10-10zm-3.32-1.39c.06.19.08.38.08.58v1.62c0 .9-.73 1.63-1.63 1.63h-1.4v-4.87h1.4c.9 0 1.63.73 1.63 1.63 0 .2-.02.39-.08.59zm-5.46 2.26h-1.4V8.13h1.4v4.74zm-3.72 0H8.1V8.13h1.4v4.74zm-2.09-2.26c0-.9.73-1.63 1.63-1.63h.42V8.13h-2.05c-.9 0-1.63.73-1.63 1.63v3.08c0 .9.73 1.63 1.63 1.63h2.05v-1.95h-.42c-.9 0-1.63-.73-1.63-1.63z"/>
-                    </svg>
-                </a>
-              )}
-             <div>
-                <h3 className="font-bold text-lg mb-2 text-gray-400">Studios</h3>
-                <p className="text-white font-semibold">{anime.studios.join(', ')}</p>
-             </div>
-          </div>
-        </div>
-
-        {anime.relations.length > 0 && (
-           <div className="mt-12">
-              <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4 mb-4">Related Anime</h2>
-              <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
-                {anime.relations.slice(0, RELATED_ANIME_LIMIT).map(rel => (
-                  <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={onSelectRelated} />
-                ))}
-              </div>
-           </div>
-        )}
-
-        {anime.recommendations && anime.recommendations.length > 0 && (
-           <div className="mt-12">
-              <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4 mb-4">You Might Also Like</h2>
-              <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
-                {anime.recommendations.map(rec => (
-                  <RecommendationCard key={rec.id} anime={rec} onSelect={onSelectRelated} />
-                ))}
-              </div>
-           </div>
         )}
       </div>
-      
       {isTrailerOpen && anime.trailer && (
-        <TrailerModal 
-          trailerId={anime.trailer.id} 
-          onClose={() => setIsTrailerOpen(false)} 
-        />
+        <TrailerModal trailerId={anime.trailer.id} onClose={() => setIsTrailerOpen(false)} />
       )}
     </div>
   );

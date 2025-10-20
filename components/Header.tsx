@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchSuggestion, FilterState } from '../types';
 import SearchSuggestions from './SearchSuggestions';
-import DropdownMenu from './DropdownMenu';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { getSearchHistory, removeSearchTermFromHistory, clearSearchHistory } from '../services/cacheService';
 
@@ -10,6 +9,7 @@ interface HeaderProps {
   onSearch: (term: string) => void;
   onHomeClick: () => void;
   onLogoClick: () => void;
+  onMenuClick: () => void;
   onFilterClick: () => void;
   onRandomAnime: () => void;
   onLoginClick: () => void;
@@ -32,6 +32,7 @@ const Header: React.FC<HeaderProps> = ({
   onSearch, 
   onHomeClick, 
   onLogoClick,
+  onMenuClick,
   onFilterClick,
   onRandomAnime,
   onLoginClick,
@@ -44,7 +45,6 @@ const Header: React.FC<HeaderProps> = ({
   isBannerInView
 }) => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const { titleLanguage, setTitleLanguage } = useTitleLanguage();
@@ -54,12 +54,11 @@ const Header: React.FC<HeaderProps> = ({
   const showHistory = isSearchFocused && searchTerm.trim() === '' && searchHistory.length > 0;
   const showDropdown = showSuggestions || showHistory;
 
-  // Handle click outside to close suggestions and menu
+  // Handle click outside to close suggestions
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
         setIsSearchFocused(false);
-        setIsMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -101,9 +100,9 @@ const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-50" ref={headerRef}>
       <div className={`absolute inset-0 transition-all duration-300 backdrop-blur-lg ${isBannerInView ? 'bg-transparent' : 'bg-gray-950/80 shadow-lg'}`} />
       
-      <div className="relative container mx-auto flex justify-between items-center p-3">
+      <div className="relative container mx-auto max-w-screen-2xl flex justify-between items-center p-3">
         <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white p-2 rounded-md hover:bg-white/10 transition-colors" aria-label="Open menu">
+            <button onClick={onMenuClick} className="text-white p-2 rounded-md hover:bg-white/10 transition-colors" aria-label="Open menu">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
@@ -179,12 +178,6 @@ const Header: React.FC<HeaderProps> = ({
             <button onClick={onLoginClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">Login</button>
         </div>
       </div>
-      <DropdownMenu 
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        onFilterClick={onFilterClick}
-        onNavigate={onNavigate}
-      />
     </header>
   );
 };

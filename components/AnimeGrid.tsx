@@ -11,10 +11,11 @@ interface AnimeGridProps {
   isLoading?: boolean;
   onViewMore?: () => void;
   onBackClick?: () => void;
+  resultsCount?: number;
 }
 
-const AnimeGrid: React.FC<AnimeGridProps> = ({ title, animeList, onSelectAnime, icon, isLoading, onViewMore, onBackClick }) => {
-  const skeletonCount = 18; // A good number to fill the view
+const AnimeGrid: React.FC<AnimeGridProps> = ({ title, animeList, onSelectAnime, icon, isLoading, onViewMore, onBackClick, resultsCount }) => {
+  const skeletonCount = 28; // A good number to fill the view
 
   return (
     <section className="mb-12">
@@ -32,10 +33,15 @@ const AnimeGrid: React.FC<AnimeGridProps> = ({ title, animeList, onSelectAnime, 
               <span>Back</span>
             </button>
           )}
-          <h2 className="text-3xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
-            {icon && <span className="text-cyan-400">{icon}</span>}
-            <span>{title}</span>
-          </h2>
+          <div>
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
+              {icon && <span className="text-cyan-400">{icon}</span>}
+              <span>{title}</span>
+            </h2>
+            {resultsCount != null && (
+                <p className="text-sm text-gray-400 mt-1">{resultsCount.toLocaleString()} results found</p>
+            )}
+          </div>
         </div>
         {onViewMore && (
           <button 

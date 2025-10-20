@@ -102,7 +102,7 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
       </div>
 
       {/* Content */}
-      <div className="container mx-auto relative z-10 h-full flex items-center p-4 md:p-8">
+      <div className="container mx-auto max-w-screen-2xl relative z-10 h-full flex items-center p-4 md:p-8">
         <div key={currentIndex} className="flex items-center gap-4 md:gap-8 animate-fade-in">
           <img 
             src={currentAnime.coverImage} 
