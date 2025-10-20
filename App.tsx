@@ -316,15 +316,27 @@ const AppContent: React.FC = () => {
         
         if (!startEpisode) {
             const progressData = progressTracker.getMediaData(anime.anilistId);
-            
-            // Get episode from detailed progress tracking (e.g., from player events)
-            const epFromProgress = progressData?.last_episode_watched ? parseInt(progressData.last_episode_watched, 10) : 1;
-            
-            // Get episode from simple cache (last clicked episode button)
             const epFromCache = getLastWatchedEpisode(anime.anilistId) || 1;
-    
-            // Use the more advanced of the two, defaulting to 1. Handles potential NaN from parseInt.
-            startEpisode = Math.max(isNaN(epFromProgress) ? 1 : epFromProgress, epFromCache);
+            let epFromProgress = 1;
+
+            if (progressData?.last_episode_watched) {
+                const lastWatchedNum = parseInt(progressData.last_episode_watched, 10);
+                if (!isNaN(lastWatchedNum)) {
+                    epFromProgress = lastWatchedNum;
+                    const epProgress = progressData.show_progress?.[`s1e${lastWatchedNum}`]?.progress;
+                    
+                    // Check if last watched episode is >95% complete
+                    if (epProgress && epProgress.duration > 0) {
+                        const percentageWatched = (epProgress.watched / epProgress.duration) * 100;
+                        // Auto-advance if episode is finished and there's a next one
+                        const totalEps = anime.totalEpisodes || anime.episodes || 0;
+                        if (percentageWatched > 95 && totalEps > 0 && lastWatchedNum < totalEps) {
+                            epFromProgress = lastWatchedNum + 1;
+                        }
+                    }
+                }
+            }
+            startEpisode = Math.max(epFromProgress, epFromCache);
         }
     
         setPlayerState({

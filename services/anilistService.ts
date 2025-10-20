@@ -69,28 +69,7 @@ const getSimpleAnimeFieldsFragment = () => `
   averageScore
 `;
 
-const getHeroAnimeFieldsFragment = () => `
-  id
-  idMal
-  isAdult
-  title {
-    romaji
-    english
-  }
-  description(asHtml: false)
-  coverImage {
-    ${getImageQuality().cover}
-    color
-  }
-  bannerImage
-  genres
-  episodes
-  duration
-  status
-  format
-  seasonYear
-  averageScore
-`;
+const getHeroAnimeFieldsFragment = () => getSimpleAnimeFieldsFragment();
 
 const getAnimeFieldsFragment = () => `
   id
@@ -575,7 +554,7 @@ export const getHomePageData = async () => {
         const data = await fetchAniListData(query, { season, seasonYear: year });
         
         return {
-            trending: data.trending.media.map(mapToAnime),
+            trending: data.trending.media.map(mapToSimpleAnime),
             popular: data.popular.media.map(mapToSimpleAnime),
             topAiring: data.topAiring.media.map(mapToSimpleAnime),
             topRated: data.topRated.media.map(mapToSimpleAnime),
@@ -775,7 +754,7 @@ export const discoverAnime = async (filters: FilterState): Promise<{ results: An
       // Use simple mapper for faster performance on discover pages.
       const mappedAnime = allMedia.map(mapToSimpleAnime);
       // FIX: Explicitly type uniqueAnime to correct TypeScript's inference from a complex expression involving 'any'.
-      const uniqueAnime: Anime[] = Array.from(new Map(mappedAnime.map(anime => [anime.anilistId, anime])).values());
+      const uniqueAnime: Anime[] = Array.from(new Map<number, Anime>(mappedAnime.map(anime => [anime.anilistId, anime])).values());
       
       return {
           results: uniqueAnime,
