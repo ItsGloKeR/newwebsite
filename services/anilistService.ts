@@ -16,6 +16,8 @@ const SEARCH_SUGGESTIONS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic
 const DISCOVER_ANIME_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes for discover to reflect updates
 const ZENSHIN_MAPPINGS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 
+// A map to store in-flight promises to prevent race conditions.
+const inFlightRequests = new Map<string, Promise<any>>();
 
 const ANILIST_API_URLS = [
   'https://graphql.anilist.co',
@@ -280,24 +282,36 @@ const fetchAniListData = async (query: string, variables: object) => {
  */
 async function getOrSetCache<T>(key: string, maxAgeMs: number, fetchFn: () => Promise<T>): Promise<T> {
     const cacheKeyWithMode = `${key}_${isDataSaver ? 'saver' : 'full'}`;
+
+    if (inFlightRequests.has(cacheKeyWithMode)) {
+        return inFlightRequests.get(cacheKeyWithMode)!;
+    }
+
     const cachedData = await db.get<T>(cacheKeyWithMode);
     if (cachedData) {
         return cachedData;
     }
 
-    try {
-        const freshData = await fetchFn();
-        await db.set(cacheKeyWithMode, freshData, maxAgeMs);
-        return freshData;
-    } catch (error) {
-        console.error(`[API Error] Failed to fetch for key: ${key}.`, error);
-        const staleData = await db.getStale<T>(cacheKeyWithMode);
-        if (staleData) {
-            console.warn(`[Cache] Serving STALE data from DB for key: ${key} due to API error.`);
-            return staleData;
+    const fetchPromise = (async () => {
+        try {
+            const freshData = await fetchFn();
+            await db.set(cacheKeyWithMode, freshData, maxAgeMs);
+            return freshData;
+        } catch (error) {
+            console.error(`[API Error] Failed to fetch for key: ${key}.`, error);
+            const staleData = await db.getStale<T>(cacheKeyWithMode);
+            if (staleData) {
+                console.warn(`[Cache] Serving STALE data from DB for key: ${key} due to API error.`);
+                return staleData;
+            }
+            throw error;
+        } finally {
+            inFlightRequests.delete(cacheKeyWithMode);
         }
-        throw error;
-    }
+    })();
+
+    inFlightRequests.set(cacheKeyWithMode, fetchPromise);
+    return fetchPromise;
 }
 
 

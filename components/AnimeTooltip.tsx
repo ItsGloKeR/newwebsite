@@ -18,12 +18,13 @@ interface AnimeTooltipProps {
     onMouseEnter: () => void;
     watchlist: number[];
     toggleWatchlist: (animeId: number) => void;
+    showWatchButton: boolean;
 }
 
 const TOOLTIP_WIDTH = 300;
 const TOOLTIP_MARGIN = 16;
 
-const AnimeTooltip: React.FC<AnimeTooltipProps> = ({ anime, rect, onWatchNow, onDetails, onClose, onMouseEnter, watchlist, toggleWatchlist }) => {
+const AnimeTooltip: React.FC<AnimeTooltipProps> = ({ anime, rect, onWatchNow, onDetails, onClose, onMouseEnter, watchlist, toggleWatchlist, showWatchButton }) => {
     const { titleLanguage } = useTitleLanguage();
     const [style, setStyle] = useState({});
     const [isVisible, setIsVisible] = useState(false);
@@ -122,13 +123,15 @@ const AnimeTooltip: React.FC<AnimeTooltipProps> = ({ anime, rect, onWatchNow, on
             {description && <p className="text-sm text-gray-400 leading-relaxed line-clamp-4 mb-4">{description}</p>}
             
             <div className="flex items-center gap-2 mt-4">
-                <button
-                    onClick={() => onWatchNow(anime)}
-                    className="flex-grow bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
-                    Watch
-                </button>
+                {showWatchButton && (
+                    <button
+                        onClick={() => onWatchNow(anime)}
+                        className="flex-grow bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 text-sm"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+                        Watch
+                    </button>
+                )}
                 <button
                     onClick={() => onDetails(anime)}
                     className="flex-grow bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-2 text-sm"

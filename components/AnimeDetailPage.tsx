@@ -37,7 +37,7 @@ const RelatedAnimeCard: React.FC<{ anime: RelatedAnime; onSelect: (id: number) =
         format: anime.format,
         year: anime.year,
       };
-      showTooltip(partialAnime, cardRef.current.getBoundingClientRect());
+      showTooltip(partialAnime, cardRef.current.getBoundingClientRect(), { showWatchButton: false });
     }
   };
 
@@ -86,7 +86,7 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime; onSelect: (id: num
         format: anime.format,
         year: anime.year,
       };
-      showTooltip(partialAnime, cardRef.current.getBoundingClientRect());
+      showTooltip(partialAnime, cardRef.current.getBoundingClientRect(), { showWatchButton: false });
     }
   };
 

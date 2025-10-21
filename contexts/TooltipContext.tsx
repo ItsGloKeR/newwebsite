@@ -6,10 +6,11 @@ import { useUserData } from './UserDataContext';
 interface TooltipState {
     anime: Partial<Anime> & { anilistId: number };
     rect: DOMRect;
+    showWatchButton: boolean;
 }
 
 interface TooltipContextType {
-    showTooltip: (anime: Partial<Anime> & { anilistId: number }, rect: DOMRect) => void;
+    showTooltip: (anime: Partial<Anime> & { anilistId: number }, rect: DOMRect, options?: { showWatchButton?: boolean }) => void;
     hideTooltip: () => void;
     keepTooltipOpen: () => void;
 }
@@ -47,11 +48,11 @@ export const TooltipProvider: React.FC<TooltipProviderProps> = ({ children, onWa
         };
     }, [hideTooltipImmediately]);
 
-    const showTooltip = useCallback((anime: Partial<Anime> & { anilistId: number }, rect: DOMRect) => {
+    const showTooltip = useCallback((anime: Partial<Anime> & { anilistId: number }, rect: DOMRect, options?: { showWatchButton?: boolean }) => {
         if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
         if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
         showTimeoutRef.current = window.setTimeout(() => {
-            setTooltipState({ anime, rect });
+            setTooltipState({ anime, rect, showWatchButton: options?.showWatchButton ?? true });
         }, 400); // Delay before showing
     }, []);
 
@@ -94,6 +95,7 @@ export const TooltipProvider: React.FC<TooltipProviderProps> = ({ children, onWa
                     onMouseEnter={keepTooltipOpen}
                     watchlist={watchlist}
                     toggleWatchlist={toggleWatchlist}
+                    showWatchButton={tooltipState.showWatchButton}
                 />
             )}
         </TooltipContext.Provider>
