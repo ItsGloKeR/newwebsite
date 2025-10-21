@@ -86,6 +86,25 @@
       .animate-show-check {
         animation: showCheck 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
+      /* Typing Animation */
+      @keyframes blink {
+        50% { opacity: 0; }
+      }
+      .animate-blink {
+        animation: blink 1s step-end infinite;
+      }
+      /* Bumping Animation */
+      @keyframes bump {
+        0%, 100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+      .animate-bump {
+        animation: bump 2s ease-in-out infinite;
+      }
       /* Accessibility Focus Ring */
       :focus-visible {
         outline: 3px solid #67e8f9;

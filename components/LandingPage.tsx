@@ -37,6 +37,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
     const [imageOpacity, setImageOpacity] = useState([1, 1, 1, 1, 1]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+    const [typedText, setTypedText] = useState('');
+    const [isTyping, setIsTyping] = useState(true);
+
+    const fullText = "The Ultimate Anime Streaming Destination.";
 
     useEffect(() => {
         // Prefetch homepage data when the landing page loads to make the transition faster.
@@ -46,6 +50,26 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
         getLatestEpisodes();
         getAiringSchedule();
     }, []);
+
+    useEffect(() => {
+        let timeoutId: number;
+        const type = (index = 0) => {
+            if (index <= fullText.length) {
+                setTypedText(fullText.substring(0, index));
+                timeoutId = window.setTimeout(() => type(index + 1), 80);
+            } else {
+                setIsTyping(false); // Typing is done
+            }
+        };
+        // Start with a small delay for effect
+        const startTimeout = setTimeout(() => type(), 500);
+
+        return () => {
+            clearTimeout(startTimeout);
+            window.clearTimeout(timeoutId);
+        };
+    }, []);
+
 
     useEffect(() => {
         const fetchData = async () => {
@@ -180,7 +204,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
             <section className="container mx-auto max-w-screen-2xl px-4 py-16 md:py-24">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
                         <div className="text-center lg:text-left animate-fade-in">
-                            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg">The Ultimate Anime Streaming Destination.</h1>
+                            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg min-h-[9rem] lg:min-h-0">
+                                {typedText}
+                                {isTyping && <span className="animate-blink text-cyan-400">|</span>}
+                            </h1>
                             <p className="mt-6 text-lg text-gray-300 max-w-lg mx-auto lg:mx-0">Discover, watch, and track your favorite anime seamlessly. All your shows, all in one place.</p>
                             <form onSubmit={handleSearch} className="mt-10 max-w-lg mx-auto lg:mx-0">
                                 <div className="relative w-full">
@@ -193,7 +220,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
                                 <span className="font-semibold text-white mr-2">Top Searches:</span>
                                 <span className="text-gray-400">{topSearches.map((term, index) => (<React.Fragment key={term}><button onClick={() => onEnter(term)} className="hover:text-cyan-400 transition-colors">{term}</button>{index < topSearches.length - 1 && ', '}</React.Fragment>))}</span>
                             </div>
-                            <div className="mt-10 flex justify-center lg:justify-start"><button onClick={() => onEnter()} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg transition-transform transform hover:scale-105 shadow-lg flex items-center gap-3 text-lg"><span>View Full Site</span><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button></div>
+                            <div className="mt-10 flex justify-center lg:justify-start">
+                                <button onClick={() => onEnter()} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg transition-transform shadow-lg flex items-center gap-3 text-lg animate-bump">
+                                    <span>View Full Site</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                </button>
+                            </div>
                         </div>
                         <div className="relative h-64 md:h-80 lg:h-96 w-full animate-fade-in mt-12 lg:mt-0">
                            {collageAnime.length > 0 && collageImageStyles.map((style, index) => (
