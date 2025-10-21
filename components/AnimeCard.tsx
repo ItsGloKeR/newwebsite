@@ -3,6 +3,7 @@ import { Anime } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { useTooltip } from '../contexts/TooltipContext';
+import { getAnimeDetails } from '../services/anilistService';
 
 const StarIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
@@ -18,12 +19,26 @@ interface AnimeCardProps {
 const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
   const { titleLanguage } = useTitleLanguage();
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
-  const { showTooltip, hideTooltip, keepTooltipOpen } = useTooltip();
+  const { showTooltip, hideTooltip } = useTooltip();
   const cardRef = useRef<HTMLDivElement>(null);
+  const prefetchTimeoutRef = useRef<number | null>(null);
 
   const handleMouseEnter = () => {
     if (cardRef.current) {
       showTooltip(anime, cardRef.current.getBoundingClientRect());
+    }
+    // Prefetch details on hover with a delay
+    prefetchTimeoutRef.current = window.setTimeout(() => {
+      if (!anime.isAdult) {
+        getAnimeDetails(anime.anilistId);
+      }
+    }, 200);
+  };
+
+  const handleMouseLeave = () => {
+    hideTooltip();
+    if (prefetchTimeoutRef.current) {
+      clearTimeout(prefetchTimeoutRef.current);
     }
   };
 
@@ -46,9 +61,9 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
       className="group cursor-pointer text-left w-full h-full flex flex-col" 
       onClick={() => onSelect(anime)}
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={hideTooltip}
+      onMouseLeave={handleMouseLeave}
       onFocus={handleMouseEnter}
-      onBlur={hideTooltip}
+      onBlur={handleMouseLeave}
     >
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
         <img
@@ -85,7 +100,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
           )}
           <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
         </div>
-        <div className="flex items-center gap-3 text-gray-400 text-xs">
+        <div className="flex items-center gap-3 text-gray-300 text-xs">
           {anime.format && anime.format !== 'N/A' && <span className="font-semibold">{anime.format}</span>}
           {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
           {episodeText() && <span className="font-semibold">{episodeText()}</span>}

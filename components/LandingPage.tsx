@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Anime, FilterState, MediaFormat, MediaSort, MediaStatus } from '../types';
-import { getLandingPageData } from '../services/anilistService';
+import { getLandingPageData, getHomePageData, getGenreCollection, getLatestEpisodes, getAiringSchedule } from '../services/anilistService';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import InfoModal from './InfoModal';
 
@@ -37,6 +37,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
     const [imageOpacity, setImageOpacity] = useState([1, 1, 1, 1, 1]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+
+    useEffect(() => {
+        // Prefetch homepage data when the landing page loads to make the transition faster.
+        // The service layer will handle caching, so this won't spam the API.
+        getHomePageData();
+        getGenreCollection();
+        getLatestEpisodes();
+        getAiringSchedule();
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -282,14 +291,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
                     So if you're looking for a trustworthy and safe site for your anime streaming, give AniGloK a try. And if you like us, please help us to spread the word and do not forget to bookmark our site.
                 </p>
 
-                <p className="leading-relaxed mt-4">Thank you!</p>
+                <p className="leading-relaxed mt-4">
+                    Thank you!
+                </p>
             </div>
         </section>
 
 
-        <footer className="text-center py-6 text-gray-500 text-sm border-t border-gray-800/50 mt-auto">
+        <footer className="text-center py-6 text-gray-400 text-sm border-t border-gray-800/50 mt-auto">
             <p>&copy; {new Date().getFullYear()} AniGloK. Your ad-free anime universe.</p>
-            <button onClick={() => setIsInfoModalOpen(true)} className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-cyan-400 transition-colors">
+            <button onClick={() => setIsInfoModalOpen(true)} className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-cyan-400 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                 Disclaimer & Info
             </button>

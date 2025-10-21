@@ -69,6 +69,30 @@ const getSimpleAnimeFieldsFragment = () => `
   averageScore
 `;
 
+const getSmallCardAnimeFieldsFragment = () => `
+  id
+  idMal
+  isAdult
+  title {
+    romaji
+    english
+  }
+  description(asHtml: false)
+  coverImage {
+    ${isDataSaver ? 'medium' : 'large'}
+    color
+  }
+  bannerImage
+  genres
+  episodes
+  totalEpisodes: episodes
+  duration
+  status
+  format
+  seasonYear
+  averageScore
+`;
+
 const getHeroAnimeFieldsFragment = () => getSimpleAnimeFieldsFragment();
 
 const getAnimeFieldsFragment = () => `
@@ -394,10 +418,10 @@ const mapToSimpleAnime = (data: any): Anime => ({
     malId: data.idMal,
     englishTitle: data.title?.english || data.title?.romaji || 'Unknown Title',
     romajiTitle: data.title?.romaji || data.title?.english || 'Unknown Title',
-    coverImage: data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
+    coverImage: data.coverImage?.[getImageQuality().cover] || data.coverImage?.large || data.coverImage?.medium || PLACEHOLDER_IMAGE_URL,
     isAdult: data.isAdult ?? false,
     description: data.description ? data.description.replace(/<br\s*\/?>/gi, '\n').replace(/<i>|<\/i>/g, '') : '',
-    bannerImage: data.bannerImage || data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
+    bannerImage: data.bannerImage || data.coverImage?.[getImageQuality().cover] || data.coverImage?.large || PLACEHOLDER_IMAGE_URL,
     genres: data.genres || [],
     episodes: data.episodes || 0,
     totalEpisodes: data.totalEpisodes || null,
@@ -534,17 +558,20 @@ export const getHomePageData = async () => {
             }
             topUpcoming: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED, genre_not_in: "Hentai", isAdult: false) {
-                    ...simpleAnimeFields
+                    ...smallCardFields
                 }
             }
             popularThisSeason: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear, genre_not_in: "Hentai", isAdult: false) {
-                    ...simpleAnimeFields
+                    ...smallCardFields
                 }
             }
             }
             fragment simpleAnimeFields on Media {
                 ${getSimpleAnimeFieldsFragment()}
+            }
+            fragment smallCardFields on Media {
+                ${getSmallCardAnimeFieldsFragment()}
             }
             fragment heroAnimeFields on Media {
                 ${getHeroAnimeFieldsFragment()}
@@ -642,7 +669,7 @@ export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
                     english
                 }
                 coverImage {
-                    ${getImageQuality().cover}
+                    ${isDataSaver ? 'medium' : 'large'}
                 }
                 }
             }

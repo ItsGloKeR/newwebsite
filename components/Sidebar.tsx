@@ -54,12 +54,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
   ];
 
   return (
-    <div role="dialog" aria-modal="true" className={`fixed inset-0 z-50 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+    <div role="dialog" aria-modal="true" aria-labelledby="sidebar-title" className={`fixed inset-0 z-50 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-lg" onClick={onClose} />
       
       {/* Sidebar */}
       <nav className={`relative w-72 h-full bg-gray-900 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <h2 id="sidebar-title" className="sr-only">Main Menu</h2>
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <svg width="105" height="24" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M16.6923 4.5L2.84615 27.5H30.5385L16.6923 4.5Z" stroke="#22d3ee" strokeWidth="2"/>

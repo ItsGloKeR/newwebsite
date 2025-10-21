@@ -42,7 +42,7 @@ const VerticalAnimeListItem: React.FC<{ anime: Anime; onSelect: (anime: Anime) =
           <h4 className="text-white font-bold truncate group-hover:text-cyan-300 transition-colors text-sm">
               <span className="truncate">{title}</span>
           </h4>
-          <div className="text-gray-400 text-xs mt-2 flex flex-col gap-1">
+          <div className="text-gray-300 text-xs mt-2 flex flex-col gap-1">
              {anime.format && anime.format !== 'N/A' && (
                 <span className="capitalize">{anime.format}</span>
              )}

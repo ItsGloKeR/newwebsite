@@ -2,6 +2,11 @@
 
 // service-worker.ts
 
+// FIX: Explicitly declare the type of `self` to `ServiceWorkerGlobalScope`.
+// This is necessary because this file is treated as a module (due to `export {}`),
+// which can cause TypeScript to incorrectly infer `self` as `Window`.
+declare let self: ServiceWorkerGlobalScope;
+
 // Cache versions. Increment to force updates.
 const STATIC_CACHE_VERSION = 'v4';
 const API_STATIC_CACHE_VERSION = 'api-static-v3';

@@ -4,6 +4,7 @@ import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { useUserData } from '../contexts/UserDataContext';
 import { useTooltip } from '../contexts/TooltipContext';
+import { getAnimeDetails } from '../services/anilistService';
 
 const StarIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
@@ -29,10 +30,24 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
 
   const { showTooltip, hideTooltip } = useTooltip();
   const cardRef = useRef<HTMLDivElement>(null);
+  const prefetchTimeoutRef = useRef<number | null>(null);
 
   const handleMouseEnter = () => {
     if (cardRef.current) {
       showTooltip(anime, cardRef.current.getBoundingClientRect());
+    }
+    // Prefetch details on hover with a delay
+    prefetchTimeoutRef.current = window.setTimeout(() => {
+      if (!anime.isAdult) {
+        getAnimeDetails(anime.anilistId);
+      }
+    }, 200);
+  };
+
+  const handleMouseLeave = () => {
+    hideTooltip();
+    if (prefetchTimeoutRef.current) {
+      clearTimeout(prefetchTimeoutRef.current);
     }
   };
 
@@ -69,9 +84,9 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
       className={`relative group cursor-pointer text-left ${cardWidth} flex-shrink-0 flex flex-col`} 
       onClick={() => onSelect(anime)}
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={hideTooltip}
+      onMouseLeave={handleMouseLeave}
       onFocus={handleMouseEnter}
-      onBlur={hideTooltip}
+      onBlur={handleMouseLeave}
     >
        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30 z-10 bg-gray-900">
         <img
@@ -93,7 +108,7 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
             {onRemove && (
             <button
                 onClick={handleRemove}
-                className="bg-gray-900/70 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                className="bg-gray-900/70 text-white rounded-full p-2 hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"
                 aria-label={`Remove ${title} from list`}
             >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,7 +118,7 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
             )}
             <button
             onClick={handleFavoriteClick}
-            className="bg-gray-900/70 text-white rounded-full p-1.5 hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
+            className="bg-gray-900/70 text-white rounded-full p-2 hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
             aria-label={isFavorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
             >
             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">

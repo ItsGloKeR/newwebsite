@@ -711,7 +711,7 @@ const AppContent: React.FC = () => {
         anilistId: schedule.media.id,
         englishTitle: schedule.media.title.english || schedule.media.title.romaji,
         romajiTitle: schedule.media.title.romaji || schedule.media.title.english,
-        coverImage: schedule.media.coverImage.extraLarge,
+        coverImage: (schedule.media.coverImage as any).large || (schedule.media.coverImage as any).medium || PLACEHOLDER_IMAGE_URL,
         isAdult: schedule.media.isAdult,
         episodes: schedule.episode,
         totalEpisodes: schedule.media.episodes || null,

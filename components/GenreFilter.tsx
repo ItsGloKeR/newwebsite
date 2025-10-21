@@ -110,7 +110,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFiltersChange, allGenr
                             placeholder="Search anime..."
                             className="bg-gray-800 text-white rounded-lg p-2.5 pl-10 w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
                         />
-                        {filters.search && <button onClick={() => handleFieldChange('search', '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">&times;</button>}
+                        {filters.search && <button onClick={() => handleFieldChange('search', '')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">&times;</button>}
                     </div>
                 </div>
                 {/* Other Filters */}
@@ -134,10 +134,10 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFiltersChange, allGenr
             </div>
 
             <div className="flex flex-wrap items-center gap-4 mt-4">
-                {filters.search && <div className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">Search: "{filters.search}" <button onClick={() => removeFilter('search')}>&times;</button></div>}
-                {filters.genres.map(g => <div key={g} className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">{g} <button onClick={() => removeFilter('genres', g)}>&times;</button></div>)}
-                {filters.formats.map(f => <div key={f} className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">{f.replace('_', ' ')} <button onClick={() => removeFilter('formats', f)}>&times;</button></div>)}
-                {filters.statuses.map(s => <div key={s} className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">{s.replace('_', ' ')} <button onClick={() => removeFilter('statuses', s)}>&times;</button></div>)}
+                {filters.search && <div className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">Search: "{filters.search}" <button onClick={() => removeFilter('search')} aria-label={`Remove search term: ${filters.search}`}>&times;</button></div>}
+                {filters.genres.map(g => <div key={g} className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">{g} <button onClick={() => removeFilter('genres', g)} aria-label={`Remove genre: ${g}`}>&times;</button></div>)}
+                {filters.formats.map(f => <div key={f} className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">{f.replace('_', ' ')} <button onClick={() => removeFilter('formats', f)} aria-label={`Remove format: ${f.replace('_', ' ')}`}>&times;</button></div>)}
+                {filters.statuses.map(s => <div key={s} className="bg-cyan-900/50 text-cyan-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">{s.replace('_', ' ')} <button onClick={() => removeFilter('statuses', s)} aria-label={`Remove status: ${s.replace('_', ' ')}`}>&times;</button></div>)}
                 <button onClick={onReset} className="text-sm text-gray-400 hover:text-white flex items-center gap-1"><svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" /></svg> Reset</button>
             </div>
         </div>

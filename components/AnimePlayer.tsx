@@ -469,7 +469,11 @@ const AnimePlayer: React.FC<{
                           })}
                       </div>
                        <div className="h-6 w-px bg-gray-700"></div>
-                        <button onClick={handleFullscreen} className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-4 py-1.5 rounded-md transition-colors">
+                        <button 
+                            onClick={handleFullscreen} 
+                            className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-4 py-1.5 rounded-md transition-colors"
+                            aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                        >
                             {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
                             {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                         </button>
