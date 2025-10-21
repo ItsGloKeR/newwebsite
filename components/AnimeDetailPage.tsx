@@ -36,8 +36,9 @@ const RelatedAnimeCard: React.FC<{ anime: RelatedAnime; onSelect: (id: number) =
         totalEpisodes: anime.episodes,
         format: anime.format,
         year: anime.year,
+        isAdult: anime.isAdult,
       };
-      showTooltip(partialAnime, cardRef.current.getBoundingClientRect(), { showWatchButton: false });
+      showTooltip(partialAnime, cardRef.current.getBoundingClientRect(), { showWatchButton: true });
     }
   };
 
@@ -85,8 +86,9 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime; onSelect: (id: num
         totalEpisodes: anime.episodes,
         format: anime.format,
         year: anime.year,
+        isAdult: anime.isAdult,
       };
-      showTooltip(partialAnime, cardRef.current.getBoundingClientRect(), { showWatchButton: false });
+      showTooltip(partialAnime, cardRef.current.getBoundingClientRect(), { showWatchButton: true });
     }
   };
 

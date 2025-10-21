@@ -308,62 +308,72 @@ const AppContent: React.FC = () => {
         }
     };
     
-    const handleWatchNow = (anime: Anime | Partial<Anime>, episode?: number) => {
-        hideTooltip();
-        progressTracker.addToHistory(anime as Anime);
-        const lastSettings = getLastPlayerSettings();
-        let startEpisode = episode;
-        
-        if (!startEpisode) {
-            const progressData = progressTracker.getMediaData(anime.anilistId);
-            const epFromCache = getLastWatchedEpisode(anime.anilistId) || 1;
-            let epFromProgress = 1;
+    const getStartEpisode = (anime: Anime, preferredEpisode?: number): number => {
+        if (preferredEpisode) {
+            return preferredEpisode;
+        }
+        const progressData = progressTracker.getMediaData(anime.anilistId);
+        const epFromCache = getLastWatchedEpisode(anime.anilistId) || 1;
+        let epFromProgress = 1;
 
-            if (progressData?.last_episode_watched) {
-                const lastWatchedNum = parseInt(progressData.last_episode_watched, 10);
-                if (!isNaN(lastWatchedNum)) {
-                    epFromProgress = lastWatchedNum;
-                    const epProgress = progressData.show_progress?.[`s1e${lastWatchedNum}`]?.progress;
-                    
-                    // Check if last watched episode is >95% complete
-                    if (epProgress && epProgress.duration > 0) {
-                        const percentageWatched = (epProgress.watched / epProgress.duration) * 100;
-                        // Auto-advance if episode is finished and there's a next one
-                        const totalEps = anime.totalEpisodes || anime.episodes || 0;
-                        if (percentageWatched > 95 && totalEps > 0 && lastWatchedNum < totalEps) {
-                            epFromProgress = lastWatchedNum + 1;
-                        }
+        if (progressData?.last_episode_watched) {
+            const lastWatchedNum = parseInt(progressData.last_episode_watched, 10);
+            if (!isNaN(lastWatchedNum)) {
+                epFromProgress = lastWatchedNum;
+                const epProgress = progressData.show_progress?.[`s1e${lastWatchedNum}`]?.progress;
+                
+                if (epProgress && epProgress.duration > 0) {
+                    const percentageWatched = (epProgress.watched / epProgress.duration) * 100;
+                    const totalEps = anime.totalEpisodes || anime.episodes || 0;
+                    if (percentageWatched > 95 && totalEps > 0 && lastWatchedNum < totalEps) {
+                        epFromProgress = lastWatchedNum + 1;
                     }
                 }
             }
-            startEpisode = Math.max(epFromProgress, epFromCache);
         }
-    
-        setPlayerState({
-            anime: applyOverrides(anime as Anime),
-            episode: startEpisode,
-            source: lastSettings.source,
-            language: lastSettings.language,
-        });
-        setView('player');
-        window.scrollTo(0, 0);
-        const fetchLatestDetails = async () => {
-            try {
-                const fullDetails = await getAnimeDetails(anime.anilistId);
-                setPlayerState(prev => {
-                    if (prev.anime?.anilistId === fullDetails.anilistId) {
-                        return { ...prev, anime: applyOverrides(fullDetails) };
-                    }
-                    return prev;
+        return Math.max(epFromProgress, epFromCache);
+    };
+
+    const handleWatchNow = (anime: Anime | Partial<Anime>, episode?: number) => {
+        hideTooltip();
+
+        // If it's a partial object (doesn't have 'studios'), fetch full details first.
+        if (!(anime as Anime).studios) {
+            setPlayerState(prev => ({ ...prev, anime: null })); // Clear anime to show loader
+            setView('player');
+            window.scrollTo(0, 0);
+
+            getAnimeDetails(anime.anilistId).then(fullAnimeDetails => {
+                progressTracker.addToHistory(fullAnimeDetails);
+                const lastSettings = getLastPlayerSettings();
+                const startEpisode = getStartEpisode(fullAnimeDetails, episode);
+                
+                setPlayerState({
+                    anime: applyOverrides(fullAnimeDetails),
+                    episode: startEpisode,
+                    source: lastSettings.source,
+                    language: lastSettings.language,
                 });
-            } catch (error) {
-                console.warn(
-                    "Could not fetch full/fresh details for the player. Using existing data as a fallback.",
-                    error
-                );
-            }
-        };
-        fetchLatestDetails();
+            }).catch(err => {
+                console.error("Could not fetch full details for player", err);
+                setView('home'); // On error, go back home
+            });
+        } else {
+            // It's a full object, proceed as before
+            const fullAnime = anime as Anime;
+            progressTracker.addToHistory(fullAnime);
+            const lastSettings = getLastPlayerSettings();
+            const startEpisode = getStartEpisode(fullAnime, episode);
+            
+            setPlayerState({
+                anime: applyOverrides(fullAnime),
+                episode: startEpisode,
+                source: lastSettings.source,
+                language: lastSettings.language,
+            });
+            setView('player');
+            window.scrollTo(0, 0);
+        }
     };
 
     const handleSourceChange = (source: StreamSource) => {
@@ -398,8 +408,8 @@ const AppContent: React.FC = () => {
                     await handleSelectAnime({ anilistId: savedSession.animeId });
                 } else if (savedSession.view === 'player' && savedSession.animeId) {
                     try {
-                        const animeForPlayer = await getAnimeDetails(savedSession.animeId);
-                        handleWatchNow(animeForPlayer, savedSession.episode || 1);
+                        // For player, we need full details, so we use handleWatchNow which fetches them.
+                        handleWatchNow({ anilistId: savedSession.animeId }, savedSession.episode || 1);
                     } catch (error) {
                         console.error("Failed to fetch anime details for session restore:", error);
                         setView('home');
@@ -911,10 +921,12 @@ const AppContent: React.FC = () => {
                 );
                 break;
             case 'player':
-                content = (
+                content = !playerState.anime ? (
+                    <FullPageSpinner />
+                ) : (
                   <Suspense fallback={<FullPageSpinner />}>
                     <AnimePlayer
-                        anime={playerState.anime!}
+                        anime={playerState.anime}
                         currentEpisode={playerState.episode}
                         currentSource={playerState.source}
                         currentLanguage={playerState.language}
