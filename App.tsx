@@ -375,7 +375,7 @@ const AppContent: React.FC = () => {
 
     const handleLanguageChange = (language: StreamLanguage) => {
         setPlayerState(prev => {
-            setLastPlayerSettings(prev.source, language);
+            setLastPlayerSettings(prev.source, prev.language);
             return { ...prev, language };
         });
     };
@@ -393,21 +393,17 @@ const AppContent: React.FC = () => {
                 const savedSessionJSON = localStorage.getItem(SESSION_STORAGE_KEY);
                 if (!savedSessionJSON) return;
                 const savedSession = JSON.parse(savedSessionJSON);
-                const now = Date.now();
-                if (savedSession.timestamp && now - savedSession.timestamp < 5000) {
-                    if (savedSession.view === 'details' && savedSession.animeId) {
-                        await handleSelectAnime({ anilistId: savedSession.animeId });
-                    } else if (savedSession.view === 'player' && savedSession.animeId) {
-                        try {
-                            const animeForPlayer = await getAnimeDetails(savedSession.animeId);
-                            handleWatchNow(animeForPlayer, savedSession.episode || 1);
-                        } catch (error) {
-                            console.error("Failed to fetch anime details for session restore:", error);
-                            setView('home');
-                        }
+
+                if (savedSession.view === 'details' && savedSession.animeId) {
+                    await handleSelectAnime({ anilistId: savedSession.animeId });
+                } else if (savedSession.view === 'player' && savedSession.animeId) {
+                    try {
+                        const animeForPlayer = await getAnimeDetails(savedSession.animeId);
+                        handleWatchNow(animeForPlayer, savedSession.episode || 1);
+                    } catch (error) {
+                        console.error("Failed to fetch anime details for session restore:", error);
+                        setView('home');
                     }
-                } else {
-                    localStorage.removeItem(SESSION_STORAGE_KEY);
                 }
             } catch (error) {
                 console.error("Failed to restore session:", error);
@@ -423,10 +419,10 @@ const AppContent: React.FC = () => {
     useEffect(() => {
         try {
             if (view === 'details' && selectedAnime) {
-                const session = { view: 'details', animeId: selectedAnime.anilistId, timestamp: Date.now() };
+                const session = { view: 'details', animeId: selectedAnime.anilistId };
                 localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
             } else if (view === 'player' && playerState.anime) {
-                const session = { view: 'player', animeId: playerState.anime.anilistId, episode: playerState.episode, timestamp: Date.now() };
+                const session = { view: 'player', animeId: playerState.anime.anilistId, episode: playerState.episode };
                 localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
             } else if (view === 'home') {
                 localStorage.removeItem(SESSION_STORAGE_KEY);
