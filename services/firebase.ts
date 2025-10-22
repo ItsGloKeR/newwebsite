@@ -6,7 +6,7 @@ import {
   User,
   Auth
 } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getFirestore, Firestore, deleteField } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
 // User provided Firebase project configuration.
@@ -46,5 +46,5 @@ if (isFirebaseConfigured) {
     console.warn("Firebase is not configured. Please add your Firebase project configuration to services/firebase.ts. The app will run in offline/guest mode.");
 }
 
-export { auth, db, storage, onAuthStateChanged, isFirebaseConfigured };
+export { auth, db, storage, onAuthStateChanged, isFirebaseConfigured, deleteField };
 export type { User };

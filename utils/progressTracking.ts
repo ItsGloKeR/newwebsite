@@ -1,5 +1,5 @@
 import { MediaProgress, PlayerEventCallback, MediaProgressEntry, Anime } from '../types';
-import { updateUserProgress } from '../services/firebaseService';
+import { updateUserProgress, removeProgressForAnime } from '../services/firebaseService';
 
 const PROGRESS_STORAGE_KEY = 'vidLinkProgress';
 
@@ -46,7 +46,8 @@ class ProgressTracker {
       if (hasChanged) {
         this.saveProgress(currentProgress);
         if (this.userId) {
-          updateUserProgress(this.userId, currentProgress);
+          // Send only the updated media data, not the whole progress object
+          updateUserProgress(this.userId, newMediaData);
         }
       }
     }
@@ -94,10 +95,7 @@ class ProgressTracker {
       delete allData[anilistId];
       this.saveProgress(allData);
       if (this.userId) {
-        // To remove a field in firestore, we would need a specific function
-        // For now, we sync the whole progress object which will remove it.
-        // A more optimized way is to use FieldValue.delete()
-        updateUserProgress(this.userId, allData);
+        removeProgressForAnime(this.userId, anilistId);
       }
     }
   }

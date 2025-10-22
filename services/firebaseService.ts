@@ -18,7 +18,7 @@ import {
     updateProfile,
     User as FirebaseUser
 } from "firebase/auth";
-import { db, auth, isFirebaseConfigured } from './firebase';
+import { db, auth, isFirebaseConfigured, deleteField } from './firebase';
 import { UserProfile, MediaProgress } from '../types';
 import { progressTracker } from '../utils/progressTracking';
 
@@ -116,13 +116,35 @@ export const updateUserData = async (uid: string, data: Partial<UserProfile>): P
 };
 
 export const updateUserProgress = async (uid: string, progress: MediaProgress): Promise<void> => {
+    if (!db || Object.keys(progress).length === 0) return;
+    const userRef = doc(db, 'users', uid);
+    try {
+        const updates: { [key: string]: any } = {};
+        for (const anilistId in progress) {
+            if (Object.prototype.hasOwnProperty.call(progress, anilistId)) {
+                updates[`progress.${anilistId}`] = progress[anilistId];
+            }
+        }
+        await updateDoc(userRef, updates);
+    } catch (error) {
+        console.warn("updateDoc failed for progress, trying setDoc with merge as fallback:", error);
+        try {
+            await setDoc(userRef, { progress }, { merge: true });
+        } catch (setError) {
+            console.error("Error updating user progress with both updateDoc and setDoc", setError);
+        }
+    }
+};
+
+export const removeProgressForAnime = async (uid: string, anilistId: number): Promise<void> => {
     if (!db) return;
     const userRef = doc(db, 'users', uid);
     try {
-        // This will merge the progress data, not overwrite the whole user doc
-        await setDoc(userRef, { progress }, { merge: true });
+        await updateDoc(userRef, {
+            [`progress.${anilistId}`]: deleteField()
+        });
     } catch (error) {
-        console.error("Error updating user progress", error);
+        console.error("Error removing user progress for anime:", anilistId, error);
     }
 };
 
@@ -131,33 +153,26 @@ export const syncProgressOnLogin = async (uid: string): Promise<void> => {
 
     const localProgress = progressTracker.getAllMediaData();
     const localProgressExists = Object.keys(localProgress).length > 0;
-    const userRef = doc(db, 'users', uid);
-
+    
     try {
+        const userRef = doc(db, 'users', uid);
         const userDoc = await getDoc(userRef);
         const remoteProgress = (userDoc.exists() ? userDoc.data()?.progress : {}) || {};
 
         if (localProgressExists) {
-            // If local (guest) data exists, merge it with remote data.
-            // Local data takes precedence, overwriting remote for any conflicting entries.
             const mergedProgress = { ...remoteProgress, ...localProgress };
-
-            // Only write to Firestore if the merged data is different from remote data
-            if (JSON.stringify(mergedProgress) !== JSON.stringify(remoteProgress)) {
-                await setDoc(userRef, { progress: mergedProgress }, { merge: true });
-            }
-
-            // Update the in-memory tracker with the definitive merged data.
+            
+            await updateUserProgress(uid, mergedProgress);
             progressTracker.replaceAllProgress(mergedProgress);
-
-            // Once synced, clear the local storage for guest progress.
+            
+            // Clear local guest data ONLY after a successful sync.
             localStorage.removeItem('vidLinkProgress');
         } else {
-            // No local data, so just load the remote data into the tracker.
+            // No local data, just load the remote data into the tracker.
             progressTracker.replaceAllProgress(remoteProgress as MediaProgress);
         }
     } catch(error) {
-        console.error("Error syncing progress on login", error);
+        console.error("Error syncing progress on login. Local data will be preserved for next attempt.", error);
     }
 };
 

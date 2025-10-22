@@ -42,35 +42,32 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
             const firestoreWatchlist = userData?.watchlist || [];
             const firestoreFavorites = userData?.favorites || [];
 
-            // Determine if there is local data to merge
             const hasLocalDataToMerge = localWatchlist.length > 0 || localFavorites.length > 0;
 
             if (hasLocalDataToMerge) {
                 const mergedWatchlist = Array.from(new Set([...firestoreWatchlist, ...localWatchlist]));
                 const mergedFavorites = Array.from(new Set([...firestoreFavorites, ...localFavorites]));
                 
-                // Update state immediately for responsiveness
                 setWatchlist(mergedWatchlist);
                 setFavorites(mergedFavorites);
                 
-                // Persist merged data to Firestore
                 await updateUserData(user.uid, { watchlist: mergedWatchlist, favorites: mergedFavorites });
                 
-                // Clear local data after successful sync
+                // Clear local data ONLY after successful sync
                 localStorage.removeItem(WATCHLIST_STORAGE_KEY);
                 localStorage.removeItem(FAVORITES_STORAGE_KEY);
             } else {
-                // No local data, just load from Firestore
                 setWatchlist(firestoreWatchlist);
                 setFavorites(firestoreFavorites);
             }
+            // Set synced flag only after all operations complete successfully
+            setIsSynced(true);
         } catch (error) {
             console.error("Error during user data sync, falling back to local data if available.", error);
-            // If sync fails, we can choose to keep the local data in state
+            // If sync fails, fall back to whatever is local and do NOT set isSynced to true,
+            // allowing the sync to be re-attempted on the next render.
             setWatchlist(localWatchlist);
             setFavorites(localFavorites);
-        } finally {
-            setIsSynced(true);
         }
     } else if (!user) {
         // When user logs out, revert to local storage and reset sync status.
