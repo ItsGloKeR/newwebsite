@@ -53,8 +53,6 @@ const initialFilters: FilterState = {
     page: 1,
 };
 
-const SESSION_STORAGE_KEY = 'aniGlokSession';
-
 const SchedulePreview: React.FC<{ schedule: AiringSchedule[]; onSelectAnime: (anime: { anilistId: number }) => void; onShowMore: () => void }> = ({ schedule, onSelectAnime, onShowMore }) => {
     const today = new Date();
     // FIX: Define the `startOfDay` variable before using it to prevent a reference error.
@@ -219,11 +217,9 @@ const AppContent: React.FC = () => {
         sessionStorage.setItem('hasVisitedAniGloK', 'true');
         setShowLanding(false);
         if (searchTerm) {
-            setFilters({ ...initialFilters, search: searchTerm, page: 1 });
             addSearchTermToHistory(searchTerm);
-            setIsFullSearchView(true);
-            setIsDiscoverViewForced(true);
-            setView('home');
+            // We set the hash, and the router will handle the state change
+            window.location.hash = `#/search?query=${encodeURIComponent(searchTerm)}`;
         }
     };
     
@@ -241,22 +237,8 @@ const AppContent: React.FC = () => {
         return list.map(applyOverrides);
     }, [applyOverrides]);
 
-    const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
-        hideTooltip();
-        setIsLoading(true);
-        setIsBannerInView(true);
-        setView('details');
-        window.scrollTo(0, 0);
-        try {
-            const fullDetails = await getAnimeDetails(anime.anilistId);
-            setSelectedAnime(applyOverrides(fullDetails));
-        } catch (error) {
-            console.error("Failed to get anime details:", error);
-            setSelectedAnime(null);
-            setView('home');
-        } finally {
-            setIsLoading(false);
-        }
+    const handleSelectAnime = (anime: { anilistId: number }) => {
+        window.location.hash = `#/anime/${anime.anilistId}`;
     };
     
     const getStartEpisode = (anime: Anime, preferredEpisode?: number): number => {
@@ -268,45 +250,8 @@ const AppContent: React.FC = () => {
     };
 
     const handleWatchNow = (anime: Anime | Partial<Anime>, episode?: number) => {
-        hideTooltip();
-
-        // If it's a partial object (doesn't have 'studios'), fetch full details first.
-        if (!(anime as Anime).studios) {
-            setPlayerState(prev => ({ ...prev, anime: null })); // Clear anime to show loader
-            setView('player');
-            window.scrollTo(0, 0);
-
-            getAnimeDetails(anime.anilistId).then(fullAnimeDetails => {
-                progressTracker.addToHistory(fullAnimeDetails);
-                const lastSettings = getLastPlayerSettings();
-                const startEpisode = getStartEpisode(fullAnimeDetails, episode);
-                
-                setPlayerState({
-                    anime: applyOverrides(fullAnimeDetails),
-                    episode: startEpisode,
-                    source: lastSettings.source,
-                    language: lastSettings.language,
-                });
-            }).catch(err => {
-                console.error("Could not fetch full details for player", err);
-                setView('home'); // On error, go back home
-            });
-        } else {
-            // It's a full object, proceed as before
-            const fullAnime = anime as Anime;
-            progressTracker.addToHistory(fullAnime);
-            const lastSettings = getLastPlayerSettings();
-            const startEpisode = getStartEpisode(fullAnime, episode);
-            
-            setPlayerState({
-                anime: applyOverrides(fullAnime),
-                episode: startEpisode,
-                source: lastSettings.source,
-                language: lastSettings.language,
-            });
-            setView('player');
-            window.scrollTo(0, 0);
-        }
+        const startEpisode = getStartEpisode(anime as Anime, episode);
+        window.location.hash = `#/watch/${anime.anilistId}/${startEpisode}`;
     };
 
     const handleSourceChange = (source: StreamSource) => {
@@ -353,52 +298,116 @@ const AppContent: React.FC = () => {
         setContinueWatching(applyOverridesToList(sortedAnimeDetails));
     }, [applyOverridesToList]);
 
-
     useEffect(() => {
-        const restoreSession = async () => {
-            try {
-                const savedSessionJSON = localStorage.getItem(SESSION_STORAGE_KEY);
-                if (!savedSessionJSON) return;
-                const savedSession = JSON.parse(savedSessionJSON);
+        if (!showLanding) {
+          loadContinueWatching();
+        }
+    }, [showLanding, loadContinueWatching]);
 
-                if (savedSession.view === 'details' && savedSession.animeId) {
-                    await handleSelectAnime({ anilistId: savedSession.animeId });
-                } else if (savedSession.view === 'player' && savedSession.animeId) {
-                    try {
-                        // For player, we need full details, so we use handleWatchNow which fetches them.
-                        handleWatchNow({ anilistId: savedSession.animeId }, savedSession.episode || 1);
-                    } catch (error) {
-                        console.error("Failed to fetch anime details for session restore:", error);
-                        setView('home');
-                    }
+
+    // URL Hash Routing
+    useEffect(() => {
+        const handleRouteChange = async () => {
+            hideTooltip();
+            const hash = window.location.hash;
+
+            const animeDetailsMatch = hash.match(/^#\/anime\/(\d+)/);
+            if (animeDetailsMatch) {
+                const animeId = parseInt(animeDetailsMatch[1], 10);
+                if (view === 'details' && selectedAnime?.anilistId === animeId) return;
+
+                setIsLoading(true);
+                setView('details');
+                window.scrollTo(0, 0);
+                try {
+                    const fullDetails = await getAnimeDetails(animeId);
+                    setSelectedAnime(applyOverrides(fullDetails));
+                } catch (error) {
+                    console.error("Failed to get anime details:", error);
+                    window.location.hash = '#/';
+                } finally {
+                    setIsLoading(false);
                 }
-            } catch (error) {
-                console.error("Failed to restore session:", error);
-                localStorage.removeItem(SESSION_STORAGE_KEY);
+                return;
+            }
+
+            const watchMatch = hash.match(/^#\/watch\/(\d+)\/(\d+)/);
+            if (watchMatch) {
+                const animeId = parseInt(watchMatch[1], 10);
+                const episode = parseInt(watchMatch[2], 10);
+                if (view === 'player' && playerState.anime?.anilistId === animeId && playerState.episode === episode) return;
+
+                setView('player');
+                setPlayerState(prev => ({ ...prev, anime: null }));
+                window.scrollTo(0, 0);
+                try {
+                    const fullAnimeDetails = await getAnimeDetails(animeId);
+                    progressTracker.addToHistory(fullAnimeDetails);
+                    const lastSettings = getLastPlayerSettings();
+                    setPlayerState({
+                        anime: applyOverrides(fullAnimeDetails),
+                        episode: episode,
+                        source: lastSettings.source,
+                        language: lastSettings.language,
+                    });
+                } catch (err) {
+                    console.error("Could not fetch player details", err);
+                    window.location.hash = '#/';
+                }
+                return;
+            }
+
+            const reportMatch = hash.match(/^#\/report/);
+            if (reportMatch) {
+                if (view === 'report') return;
+                setView('report');
+                window.scrollTo(0, 0);
+                return;
+            }
+            
+            const scheduleMatch = hash.match(/^#\/schedule/);
+            if(scheduleMatch) {
+                if (view !== 'home' || isDiscoveryView) {
+                    setFilters(initialFilters);
+                    setIsDiscoverViewForced(false);
+                    setIsFullSearchView(false);
+                    setView('home');
+                }
+                setIsScheduleVisible(true);
+                window.scrollTo(0, 0);
+                return;
+            }
+
+            // Default Route: Home
+            if (view !== 'home' || isDiscoveryView || isScheduleVisible) {
+                setSearchTerm('');
+                setFilters(initialFilters);
+                setSearchResults([]);
+                setPageInfo(null);
+                setSelectedAnime(null);
+                setIsBannerInView(true);
+                setIsListView(false);
+                setIsDiscoverViewForced(false);
+                setIsFullSearchView(false);
+                setDiscoverListTitle('');
+                setIsScheduleVisible(false);
+                setView('home');
+                window.scrollTo(0, 0);
             }
         };
-        if (!showLanding) {
-            restoreSession();
-            loadContinueWatching();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showLanding]);
 
-    useEffect(() => {
-        try {
-            if (view === 'details' && selectedAnime) {
-                const session = { view: 'details', animeId: selectedAnime.anilistId };
-                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-            } else if (view === 'player' && playerState.anime) {
-                const session = { view: 'player', animeId: playerState.anime.anilistId, episode: playerState.episode };
-                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-            } else if (view === 'home') {
-                localStorage.removeItem(SESSION_STORAGE_KEY);
-            }
-        } catch (error) {
-            console.error("Failed to save session:", error);
+        if (!showLanding) {
+            window.addEventListener('hashchange', handleRouteChange);
+            handleRouteChange(); // Handle initial route
         }
-    }, [view, selectedAnime, playerState.anime, playerState.episode]);
+
+        return () => {
+            if (!showLanding) {
+                window.removeEventListener('hashchange', handleRouteChange);
+            }
+        };
+    }, [showLanding, applyOverrides]);
+
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -545,43 +554,33 @@ const AppContent: React.FC = () => {
 
     const handleBackToDetails = () => {
         if (playerState.anime) {
-            setSelectedAnime(playerState.anime);
-            setIsBannerInView(true);
-            setView('details');
+            window.location.hash = `#/anime/${playerState.anime.anilistId}`;
         } else {
-            setView('home');
+            window.history.back(); // Fallback
         }
     };
     
     const handleBackFromDetails = () => {
-        setSelectedAnime(null);
-        setIsBannerInView(true);
-        setView('home');
+        window.history.back();
     };
 
     const handleGoToReport = () => {
-        setView('report');
-        window.scrollTo(0, 0);
+        window.location.hash = '#/report';
     };
 
     const handleBackFromReport = () => {
-        setView('player');
+        window.history.back();
     };
     
     const handleGoToAppHome = () => {
-        hideTooltip();
-        setSearchTerm('');
-        setFilters(initialFilters);
-        setSearchResults([]);
-        setPageInfo(null);
-        setSelectedAnime(null);
-        setIsBannerInView(true);
-        setIsListView(false);
-        setIsDiscoverViewForced(false);
-        setIsFullSearchView(false);
-        setDiscoverListTitle('');
-        setView('home');
+        window.location.hash = '#/';
     };
+
+    const handleScheduleClick = () => {
+        hideTooltip();
+        setIsSidebarOpen(false);
+        window.location.hash = '#/schedule';
+    }
 
     const handleLoginClick = () => {
         hideTooltip();
@@ -854,7 +853,7 @@ const AppContent: React.FC = () => {
                             <SchedulePreview 
                                 schedule={scheduleList}
                                 onSelectAnime={handleSelectAnime}
-                                onShowMore={() => setIsScheduleVisible(true)}
+                                onShowMore={() => window.location.hash = '#/schedule'}
                             />
                         )}
                     </div>
@@ -964,7 +963,7 @@ const AppContent: React.FC = () => {
                         onClose={() => setIsSidebarOpen(false)}
                         onNavigate={handleViewMore}
                         onHomeClick={handleGoToAppHome}
-                        onScheduleClick={() => { hideTooltip(); setIsScheduleVisible(true); handleGoToAppHome(); setIsSidebarOpen(false); }}
+                        onScheduleClick={handleScheduleClick}
                         onLoginClick={() => { handleLoginClick(); setIsSidebarOpen(false); }}
                         onProfileClick={() => { setIsProfileModalOpen(true); setIsSidebarOpen(false); }}
                         allGenres={allGenres}
