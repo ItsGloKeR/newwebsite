@@ -1,10 +1,12 @@
 import { MediaProgress, PlayerEventCallback, MediaProgressEntry, Anime } from '../types';
+import { updateUserProgress } from '../services/firebaseService';
 
-const PROGRESS_STORAGE_key = 'vidLinkProgress';
+const PROGRESS_STORAGE_KEY = 'vidLinkProgress';
 
 class ProgressTracker {
   private listeners: Set<PlayerEventCallback> = new Set();
   private isInitialized = false;
+  private userId: string | null = null;
 
   public init() {
     if (this.isInitialized || typeof window === 'undefined') {
@@ -13,6 +15,10 @@ class ProgressTracker {
 
     window.addEventListener('message', this.handleMessage.bind(this));
     this.isInitialized = true;
+  }
+
+  public setUserId(userId: string | null) {
+    this.userId = userId;
   }
 
   private handleMessage(event: MessageEvent) {
@@ -24,12 +30,12 @@ class ProgressTracker {
       const newMediaData: MediaProgress = event.data.data;
       const currentProgress = this.getAllMediaData();
 
-      // Merge new data, preserving lastAccessed
+      let hasChanged = false;
       for (const anilistId in newMediaData) {
         if (Object.prototype.hasOwnProperty.call(newMediaData, anilistId)) {
+          hasChanged = true;
           const newEntry = newMediaData[anilistId];
           const existingEntry = currentProgress[anilistId];
-          // Preserve the lastAccessed timestamp if it exists on the old entry
           currentProgress[anilistId] = {
             ...newEntry,
             lastAccessed: existingEntry?.lastAccessed || Date.now(),
@@ -37,13 +43,26 @@ class ProgressTracker {
         }
       }
       
-      localStorage.setItem(PROGRESS_STORAGE_key, JSON.stringify(currentProgress));
-      window.dispatchEvent(new CustomEvent('progressUpdated'));
+      if (hasChanged) {
+        this.saveProgress(currentProgress);
+        if (this.userId) {
+          updateUserProgress(this.userId, currentProgress);
+        }
+      }
     }
 
     if (event.data?.type === 'PLAYER_EVENT') {
       this.listeners.forEach(callback => callback(event.data.data));
     }
+  }
+
+  private saveProgress(progress: MediaProgress) {
+      localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+      window.dispatchEvent(new CustomEvent('progressUpdated'));
+  }
+  
+  public replaceAllProgress(progress: MediaProgress) {
+    this.saveProgress(progress);
   }
 
   public addToHistory(anime: Anime) {
@@ -53,7 +72,6 @@ class ProgressTracker {
     const newEntry: MediaProgressEntry = {
       id: anime.anilistId,
       type: 'tv',
-      // FIX: The original comment was obsolete as the code correctly uses `anime.englishTitle`.
       title: anime.englishTitle,
       poster_path: anime.coverImage,
       progress: existingEntry?.progress || { watched: 0, duration: 0 },
@@ -64,16 +82,23 @@ class ProgressTracker {
     };
 
     allData[anime.anilistId] = newEntry;
-    localStorage.setItem(PROGRESS_STORAGE_key, JSON.stringify(allData));
-    window.dispatchEvent(new CustomEvent('progressUpdated'));
+    this.saveProgress(allData);
+    if (this.userId) {
+      updateUserProgress(this.userId, { [anime.anilistId]: newEntry });
+    }
   }
 
   public removeFromHistory(anilistId: number) {
     const allData = this.getAllMediaData();
     if (allData[anilistId]) {
       delete allData[anilistId];
-      localStorage.setItem(PROGRESS_STORAGE_key, JSON.stringify(allData));
-      window.dispatchEvent(new CustomEvent('progressUpdated'));
+      this.saveProgress(allData);
+      if (this.userId) {
+        // To remove a field in firestore, we would need a specific function
+        // For now, we sync the whole progress object which will remove it.
+        // A more optimized way is to use FieldValue.delete()
+        updateUserProgress(this.userId, allData);
+      }
     }
   }
 
@@ -87,7 +112,7 @@ class ProgressTracker {
 
   public getAllMediaData(): MediaProgress {
     try {
-      const data = localStorage.getItem(PROGRESS_STORAGE_key);
+      const data = localStorage.getItem(PROGRESS_STORAGE_KEY);
       return data ? JSON.parse(data) : {};
     } catch (error) {
       console.error('Failed to parse progress data:', error);
@@ -103,11 +128,9 @@ class ProgressTracker {
     const mediaData = this.getMediaData(anilistId);
     if (!mediaData) return null;
 
-    // Assuming season 1 as the app doesn't manage seasons in the player.
     const episodeProgress = mediaData.show_progress?.[`s1e${episode}`];
     
     if (episodeProgress?.progress?.watched && episodeProgress?.progress?.duration) {
-        // Don't resume if watched is very close to the end (e.g., last 15 seconds)
         if (episodeProgress.progress.duration - episodeProgress.progress.watched < 15) {
             return null;
         }

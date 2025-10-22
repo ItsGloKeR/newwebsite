@@ -26,13 +26,16 @@ import Sidebar from './components/Sidebar';
 import FilterBar from './components/GenreFilter'; // Re-using GenreFilter file for FilterBar
 import Pagination from './components/SidebarMenu'; // Re-using SidebarMenu file for Pagination
 import LandingPageSkeleton from './components/LandingPageSkeleton';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { syncProgressOnLogin } from './services/firebaseService';
 
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const AnimeDetailPage = React.lazy(() => import('./components/AnimeDetailPage'));
 const AnimePlayer = React.lazy(() => import('./components/AnimePlayer'));
 const SchedulePage = React.lazy(() => import('./components/SchedulePage'));
 const AdminModal = React.lazy(() => import('./components/AdminModal'));
-const InfoModal = React.lazy(() => import('./components/InfoModal'));
+const LoginModal = React.lazy(() => import('./components/LoginModal'));
+const ProfileModal = React.lazy(() => import('./components/ProfileModal'));
 const ReportPage = React.lazy(() => import('./components/ReportPage'));
 
 
@@ -124,6 +127,7 @@ const FullPageSpinner: React.FC = () => (
 );
 
 const AppContent: React.FC = () => {
+    const { user, loading: authLoading } = useAuth();
     const [showLanding, setShowLanding] = useState(true);
     const [view, setView] = useState<View>('home');
     const [trending, setTrending] = useState<Anime[]>([]);
@@ -156,6 +160,7 @@ const AppContent: React.FC = () => {
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [currentSeason, setCurrentSeason] = useState<MediaSeason | null>(null);
     const [currentYear, setCurrentYear] = useState<number | null>(null);
     const [heroBannerUrl, setHeroBannerUrl] = useState<string | null>(null);
@@ -168,8 +173,20 @@ const AppContent: React.FC = () => {
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
-    const { watchlist, favorites } = useUserData();
+    const { watchlist, favorites, reSync } = useUserData();
     const { isDataSaverActive } = useDataSaver();
+
+    useEffect(() => {
+        if (user) {
+            syncProgressOnLogin(user.uid).then(() => {
+                progressTracker.setUserId(user.uid);
+                reSync(); // Re-sync user data context after progress merge
+            });
+        } else {
+            progressTracker.setUserId(null);
+        }
+    }, [user, reSync]);
+
 
     const hideTooltip = () => window.dispatchEvent(new CustomEvent('hideTooltip'));
 
@@ -1002,6 +1019,7 @@ const AppContent: React.FC = () => {
                         isSuggestionsLoading={isSuggestionsLoading}
                         onNavigate={handleViewMore}
                         isBannerInView={isBannerInView}
+                        onProfileClick={() => setIsProfileModalOpen(true)}
                     />
                     <Sidebar 
                         isOpen={isSidebarOpen}
@@ -1010,6 +1028,7 @@ const AppContent: React.FC = () => {
                         onHomeClick={handleGoToAppHome}
                         onScheduleClick={() => { hideTooltip(); setIsScheduleVisible(true); handleGoToAppHome(); setIsSidebarOpen(false); }}
                         onLoginClick={() => { handleLoginClick(); setIsSidebarOpen(false); }}
+                        onProfileClick={() => { setIsProfileModalOpen(true); setIsSidebarOpen(false); }}
                         allGenres={allGenres}
                         isHome={view === 'home' && !isDiscoveryView}
                     />
@@ -1019,38 +1038,8 @@ const AppContent: React.FC = () => {
 
                     <Suspense fallback={null}>
                         {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
-                        {isLoginModalOpen && <InfoModal 
-                            isOpen={isLoginModalOpen}
-                            onClose={() => setIsLoginModalOpen(false)}
-                            title="Login"
-                        >
-                            <div className="space-y-4">
-                                <p className="text-center text-sm bg-yellow-900/50 text-yellow-300 p-2 rounded-md">
-                                    This is a demonstration UI. The login feature is not implemented yet but will be available soon.
-                                </p>
-                                <div>
-                                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="username">Username</label>
-                                    <input
-                                        id="username"
-                                        type="text"
-                                        placeholder="demouser"
-                                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="password">Password</label>
-                                    <input
-                                        id="password"
-                                        type="password"
-                                        placeholder="••••••••"
-                                        className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                                    />
-                                </div>
-                                <button type="submit" disabled className="w-full bg-cyan-700 text-white/50 font-bold py-2 px-4 rounded cursor-not-allowed">
-                                    Login
-                                </button>
-                            </div>
-                        </InfoModal>}
+                        {isLoginModalOpen && <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />}
+                        {isProfileModalOpen && <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />}
                     </Suspense>
                 </TooltipProvider>
             </div>
@@ -1059,15 +1048,17 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-    <AdminProvider>
-        <TitleLanguageProvider>
-            <UserDataProvider>
-                <DataSaverProvider>
-                    <AppContent />
-                </DataSaverProvider>
-            </UserDataProvider>
-        </TitleLanguageProvider>
-    </AdminProvider>
+    <AuthProvider>
+        <AdminProvider>
+            <TitleLanguageProvider>
+                <UserDataProvider>
+                    <DataSaverProvider>
+                        <AppContent />
+                    </DataSaverProvider>
+                </UserDataProvider>
+            </TitleLanguageProvider>
+        </AdminProvider>
+    </AuthProvider>
 );
 
 export default App;

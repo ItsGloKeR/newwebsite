@@ -1,4 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
+import { useAuth } from './AuthContext';
+import { getUserData, updateUserData } from '../services/firebaseService';
 
 const WATCHLIST_STORAGE_KEY = 'aniGlokWatchlist';
 const FAVORITES_STORAGE_KEY = 'aniGlokFavorites';
@@ -8,6 +10,7 @@ interface UserDataContextType {
   favorites: number[];
   toggleWatchlist: (animeId: number) => void;
   toggleFavorite: (animeId: number) => void;
+  reSync: () => void;
 }
 
 const UserDataContext = createContext<UserDataContextType | undefined>(undefined);
@@ -23,46 +26,80 @@ const getFromStorage = (key: string): number[] => {
 };
 
 export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [watchlist, setWatchlist] = useState<number[]>(() => getFromStorage(WATCHLIST_STORAGE_KEY));
   const [favorites, setFavorites] = useState<number[]>(() => getFromStorage(FAVORITES_STORAGE_KEY));
+  const [isSynced, setIsSynced] = useState(false);
+
+  const syncData = useCallback(async () => {
+    if (user && !isSynced) {
+      const localWatchlist = getFromStorage(WATCHLIST_STORAGE_KEY);
+      const localFavorites = getFromStorage(FAVORITES_STORAGE_KEY);
+      
+      const userData = await getUserData(user.uid);
+      const firestoreWatchlist = userData?.watchlist || [];
+      const firestoreFavorites = userData?.favorites || [];
+
+      const mergedWatchlist = [...new Set([...localWatchlist, ...firestoreWatchlist])];
+      const mergedFavorites = [...new Set([...localFavorites, ...firestoreFavorites])];
+
+      setWatchlist(mergedWatchlist);
+      setFavorites(mergedFavorites);
+
+      if (localWatchlist.length > 0 || localFavorites.length > 0) {
+        await updateUserData(user.uid, { watchlist: mergedWatchlist, favorites: mergedFavorites });
+        localStorage.removeItem(WATCHLIST_STORAGE_KEY);
+        localStorage.removeItem(FAVORITES_STORAGE_KEY);
+      }
+      setIsSynced(true);
+    } else if (!user) {
+      setWatchlist(getFromStorage(WATCHLIST_STORAGE_KEY));
+      setFavorites(getFromStorage(FAVORITES_STORAGE_KEY));
+      setIsSynced(false);
+    }
+  }, [user, isSynced]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist));
-    } catch (error) {
-      console.error("Failed to save watchlist to localStorage", error);
+    syncData();
+  }, [user, syncData]);
+
+  const toggleWatchlist = useCallback(async (animeId: number) => {
+    const newWatchlist = watchlist.includes(animeId)
+      ? watchlist.filter(id => id !== animeId)
+      : [...watchlist, animeId];
+    setWatchlist(newWatchlist);
+
+    if (user) {
+      await updateUserData(user.uid, { watchlist: newWatchlist });
+    } else {
+      localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(newWatchlist));
     }
-  }, [watchlist]);
+  }, [watchlist, user]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
-    } catch (error) {
-      console.error("Failed to save favorites to localStorage", error);
+  const toggleFavorite = useCallback(async (animeId: number) => {
+    const newFavorites = favorites.includes(animeId)
+      ? favorites.filter(id => id !== animeId)
+      : [...favorites, animeId];
+    setFavorites(newFavorites);
+
+    if (user) {
+      await updateUserData(user.uid, { favorites: newFavorites });
+    } else {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
     }
-  }, [favorites]);
-
-  const toggleWatchlist = useCallback((animeId: number) => {
-    setWatchlist(prev => 
-      prev.includes(animeId) 
-        ? prev.filter(id => id !== animeId) 
-        : [...prev, animeId]
-    );
-  }, []);
-
-  const toggleFavorite = useCallback((animeId: number) => {
-    setFavorites(prev =>
-      prev.includes(animeId)
-        ? prev.filter(id => id !== animeId)
-        : [...prev, animeId]
-    );
-  }, []);
+  }, [favorites, user]);
+  
+  const reSync = useCallback(() => {
+    setIsSynced(false);
+    syncData();
+  }, [syncData]);
 
   const value = {
     watchlist,
     favorites,
     toggleWatchlist,
     toggleFavorite,
+    reSync,
   };
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>;

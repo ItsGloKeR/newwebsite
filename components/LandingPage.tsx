@@ -202,32 +202,32 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
         
         <main className="flex-grow flex flex-col justify-center">
             <section className="container mx-auto max-w-screen-2xl px-4 py-16 md:py-24">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-                        <div className="text-center lg:text-left animate-fade-in">
+                <div className="grid grid-cols-1 gap-8 lg:gap-16 items-center justify-items-center">
+                        <div className="text-center animate-fade-in">
                             <h1 className="text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg min-h-[9rem] lg:min-h-0">
                                 {typedText}
                                 {isTyping && <span className="animate-blink text-cyan-400">|</span>}
                             </h1>
-                            <p className="mt-6 text-lg text-gray-300 max-w-lg mx-auto lg:mx-0">Discover, watch, and track your favorite anime seamlessly. All your shows, all in one place.</p>
-                            <form onSubmit={handleSearch} className="mt-10 max-w-lg mx-auto lg:mx-0">
+                            <p className="mt-6 text-lg text-gray-300 max-w-lg mx-auto">Discover, watch, and track your favorite anime seamlessly. All your shows, all in one place.</p>
+                            <form onSubmit={handleSearch} className="mt-10 max-w-lg mx-auto">
                                 <div className="relative w-full">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                     <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search anime..." className="w-full bg-gray-900/80 text-white rounded-full py-3 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all border border-gray-700" />
                                     <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 p-2 rounded-full hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors" aria-label="Submit search"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" /></svg></button>
                                 </div>
                             </form>
-                            <div className="mt-4 text-sm max-w-lg mx-auto lg:mx-0">
+                            <div className="mt-4 text-sm max-w-lg mx-auto">
                                 <span className="font-semibold text-white mr-2">Top Searches:</span>
                                 <span className="text-gray-400">{topSearches.map((term, index) => (<React.Fragment key={term}><button onClick={() => onEnter(term)} className="hover:text-cyan-400 transition-colors">{term}</button>{index < topSearches.length - 1 && ', '}</React.Fragment>))}</span>
                             </div>
-                            <div className="mt-10 flex justify-center lg:justify-start">
+                            <div className="mt-10 flex justify-center">
                                 <button onClick={() => onEnter()} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg transition-transform shadow-lg flex items-center gap-3 text-lg animate-bump">
                                     <span>View Full Site</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                 </button>
                             </div>
                         </div>
-                        <div className="relative h-64 md:h-80 lg:h-96 w-full animate-fade-in mt-12 lg:mt-0">
+                        <div className="relative h-64 md:h-80 lg:h-96 w-full max-w-2xl animate-fade-in mt-12 lg:mt-0">
                            {collageAnime.length > 0 && collageImageStyles.map((style, index) => (
                                 <div
                                     key={collageAnime[index]?.anilistId || index}

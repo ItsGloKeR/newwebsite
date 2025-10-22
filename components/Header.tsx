@@ -3,6 +3,9 @@ import { SearchSuggestion, FilterState } from '../types';
 import SearchSuggestions from './SearchSuggestions';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { getSearchHistory, removeSearchTermFromHistory, clearSearchHistory } from '../services/cacheService';
+import { useAuth } from '../contexts/AuthContext';
+import { logout } from '../services/firebaseService';
+import UserMenu from './UserMenu';
 
 
 interface HeaderProps {
@@ -13,6 +16,7 @@ interface HeaderProps {
   onFilterClick: () => void;
   onRandomAnime: () => void;
   onLoginClick: () => void;
+  onProfileClick: () => void;
   onSearchSubmit: () => void;
   searchTerm: string;
   suggestions: SearchSuggestion[];
@@ -36,6 +40,7 @@ const Header: React.FC<HeaderProps> = ({
   onFilterClick,
   onRandomAnime,
   onLoginClick,
+  onProfileClick,
   onSearchSubmit,
   searchTerm,
   suggestions,
@@ -49,6 +54,7 @@ const Header: React.FC<HeaderProps> = ({
   const headerRef = useRef<HTMLElement>(null);
   const { titleLanguage, setTitleLanguage } = useTitleLanguage();
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const { user } = useAuth();
   
   const showSuggestions = isSearchFocused && searchTerm.trim() !== '';
   const showHistory = isSearchFocused && searchTerm.trim() === '' && searchHistory.length > 0;
@@ -175,7 +181,11 @@ const Header: React.FC<HeaderProps> = ({
               <button onClick={() => setTitleLanguage('romaji')} className={`px-2 py-0.5 rounded-full ${titleLanguage === 'romaji' ? 'bg-cyan-500 text-white' : 'text-gray-400'}`}>JP</button>
             </div>
             <div className="h-5 w-px bg-gray-700 mx-1"></div>
-            <button onClick={onLoginClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">Login</button>
+            {user ? (
+                <UserMenu user={user} onLogout={logout} onProfileClick={onProfileClick} />
+            ) : (
+                <button onClick={onLoginClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">Login</button>
+            )}
         </div>
       </div>
     </header>

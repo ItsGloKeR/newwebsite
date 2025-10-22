@@ -265,3 +265,14 @@ export interface MediaProgress {
 
 export type PlayerEventCallback = (data: any) => void;
 export type TitleLanguage = 'english' | 'romaji';
+
+// Firebase User Data
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  watchlist?: number[];
+  favorites?: number[];
+  progress?: MediaProgress;
+}
