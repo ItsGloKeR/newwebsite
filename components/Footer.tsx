@@ -29,7 +29,7 @@ const DataSaverIndicator: React.FC = () => (
 
 interface FooterProps {
   onAdminClick: () => void;
-  onNavigate: (filters: Partial<FilterState>, title: string) => void;
+  onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => void;
   onLogoClick: () => void;
   isDataSaverActive: boolean;
 }

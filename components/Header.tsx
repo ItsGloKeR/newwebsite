@@ -22,7 +22,7 @@ interface HeaderProps {
   suggestions: SearchSuggestion[];
   onSuggestionClick: (anime: { anilistId: number }) => void;
   isSuggestionsLoading: boolean;
-  onNavigate: (filters: Partial<FilterState>, title: string) => void;
+  onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => void;
   isBannerInView: boolean;
 }
 
@@ -182,7 +182,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="h-5 w-px bg-gray-700 mx-1"></div>
             {user ? (
-                <UserMenu user={user} onLogout={logout} onProfileClick={onProfileClick} />
+                <UserMenu user={user} onLogout={logout} onProfileClick={onProfileClick} onNavigate={onNavigate} />
             ) : (
                 <button onClick={onLoginClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">Login</button>
             )}

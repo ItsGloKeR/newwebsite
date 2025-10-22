@@ -687,7 +687,7 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
     };
 
-    const handleViewMore = async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' }, title: string) => {
+    const handleViewMore = async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => {
         hideTooltip();
         setDiscoverListTitle(title);
         setIsFullSearchView(false);
@@ -700,12 +700,16 @@ const AppContent: React.FC = () => {
             setView('home');
             window.scrollTo(0, 0);
 
-            const ids = partialFilters.list === 'watchlist' ? watchlist : favorites;
-            if (ids.length > 0) {
-                const results = await getMultipleAnimeDetails(ids);
-                setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
+            if (partialFilters.list === 'continueWatching') {
+                setSearchResults(continueWatching);
             } else {
-                setSearchResults([]);
+                 const ids = partialFilters.list === 'watchlist' ? watchlist : favorites;
+                if (ids.length > 0) {
+                    const results = await getMultipleAnimeDetails(ids);
+                    setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
+                } else {
+                    setSearchResults([]);
+                }
             }
             setIsDiscoverLoading(false);
         } else {

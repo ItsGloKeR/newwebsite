@@ -97,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
           <ul className="space-y-2">
             <NavItem icon={<ListIcon />} label="My List" onClick={() => handleLinkClick({ list: 'watchlist' }, 'My Watchlist')} />
             <NavItem icon={<HeartIcon />} label="Favorites" onClick={() => handleLinkClick({ list: 'favorites' }, 'My Favorites')} />
-            <NavItem icon={<HistoryIcon />} label="Continue Watching" onClick={() => handleLinkClick({ list: 'continueWatching' as any }, 'Continue Watching')} />
+            <NavItem icon={<HistoryIcon />} label="Continue Watching" onClick={() => handleLinkClick({ list: 'continueWatching' }, 'Continue Watching')} />
             {user && <NavItem icon={<SettingsIcon />} label="Profile" onClick={onProfileClick} />}
           </ul>
 
