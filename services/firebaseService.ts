@@ -9,7 +9,6 @@ import {
     writeBatch,
     DocumentData
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { 
     GoogleAuthProvider, 
     signInWithPopup, 
@@ -19,7 +18,7 @@ import {
     updateProfile,
     User as FirebaseUser
 } from "firebase/auth";
-import { db, storage, auth, isFirebaseConfigured } from './firebase';
+import { db, auth, isFirebaseConfigured } from './firebase';
 import { UserProfile, MediaProgress } from '../types';
 import { progressTracker } from '../utils/progressTracking';
 
@@ -184,20 +183,5 @@ export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: 
     } catch(error) {
         console.error("Error updating user profile", error);
         throw error;
-    }
-};
-
-
-// STORAGE FUNCTIONS
-export const uploadAvatar = async (userId: string, file: File): Promise<string | null> => {
-    if (!storage) return null;
-    const avatarRef = ref(storage, `avatars/${userId}/${file.name}`);
-    try {
-        await uploadBytes(avatarRef, file);
-        const url = await getDownloadURL(avatarRef);
-        return url;
-    } catch (error) {
-        console.error("Error uploading avatar", error);
-        return null;
     }
 };

@@ -1,9 +1,9 @@
 // components/ProfileModal.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { uploadAvatar, updateUserProfileAndAuth } from '../services/firebaseService';
+import { updateUserProfileAndAuth } from '../services/firebaseService';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { DEFAULT_AVATAR_URL } from '../constants';
+import { DEFAULT_AVATAR_URL, PREDEFINED_AVATARS } from '../constants';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -13,8 +13,7 @@ interface ProfileModalProps {
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const { user, firebaseUser, reloadUser } = useAuth();
     const [displayName, setDisplayName] = useState(user?.displayName || '');
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(user?.photoURL || null);
+    const [selectedAvatar, setSelectedAvatar] = useState<string>(user?.photoURL || DEFAULT_AVATAR_URL);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const modalRef = useRef<HTMLDivElement>(null);
@@ -23,19 +22,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     useEffect(() => {
         if (isOpen && user) {
             setDisplayName(user.displayName || '');
-            setPreview(user.photoURL || null);
-            setAvatarFile(null); // Reset file on open
+            setSelectedAvatar(user.photoURL || DEFAULT_AVATAR_URL);
             setError('');
         }
     }, [isOpen, user]);
-    
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setAvatarFile(file);
-            setPreview(URL.createObjectURL(file));
-        }
-    };
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,22 +34,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         setError('');
 
         try {
-            let newAvatarUrl: string | undefined = undefined;
-            if (avatarFile) {
-                const uploadedUrl = await uploadAvatar(firebaseUser.uid, avatarFile);
-                if (!uploadedUrl) {
-                    throw new Error("Avatar upload failed.");
-                }
-                newAvatarUrl = uploadedUrl;
-            }
+            await updateUserProfileAndAuth(firebaseUser, displayName, selectedAvatar);
             
-            await updateUserProfileAndAuth(firebaseUser, displayName, newAvatarUrl);
-            
-            // Success: close modal immediately for better UX
             setLoading(false);
             onClose();
-
-            // Reload user data in the background to update UI across the app
             reloadUser();
 
         } catch (err: any) {
@@ -82,14 +60,28 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="flex flex-col items-center mb-6">
                         <img 
-                            src={preview || DEFAULT_AVATAR_URL} 
+                            src={selectedAvatar || DEFAULT_AVATAR_URL} 
                             alt="Avatar Preview"
-                            className="w-24 h-24 rounded-full object-cover mb-4 border-2 border-gray-700"
+                            className="w-24 h-24 rounded-full object-cover mb-6 border-2 border-gray-700 bg-gray-800"
                         />
-                        <label htmlFor="avatar-upload" className="cursor-pointer bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors text-sm">
-                            Change Avatar
-                        </label>
-                        <input id="avatar-upload" type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                        <div className="w-full">
+                            <label className="block mb-3 text-sm font-bold text-gray-400 text-center">Choose an Avatar</label>
+                            <div className="flex flex-wrap justify-center gap-3">
+                                {PREDEFINED_AVATARS.map((avatarUrl, index) => (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        onClick={() => setSelectedAvatar(avatarUrl)}
+                                        className={`w-14 h-14 rounded-full p-1 transition-all duration-200 focus:outline-none ring-2 ring-offset-2 ring-offset-gray-900 ${
+                                            selectedAvatar === avatarUrl ? 'ring-cyan-500' : 'ring-transparent hover:ring-cyan-400'
+                                        }`}
+                                        aria-label={`Select avatar ${index + 1}`}
+                                    >
+                                        <img src={avatarUrl} alt={`Avatar ${index + 1}`} className="w-full h-full rounded-full object-cover bg-gray-800" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="mb-4">
