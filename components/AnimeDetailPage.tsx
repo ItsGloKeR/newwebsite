@@ -163,6 +163,7 @@ interface AnimeDetailPageProps {
   onWatchNow: (anime: Anime) => void;
   onBack: () => void;
   onSelectRelated: (id: number) => void;
+  onViewMore: (filters: { animeList: (RelatedAnime | RecommendedAnime)[] }, title: string) => void;
   setInView: (inView: boolean) => void;
 }
 
@@ -171,7 +172,7 @@ const MIN_RELATED_THRESHOLD = 4;
 type Tab = 'overview' | 'characters' | 'stats';
 type DiscoverView = 'related' | 'recommended';
 
-const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated, setInView }) => {
+const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, onBack, onSelectRelated, onViewMore, setInView }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const { titleLanguage } = useTitleLanguage();
   const { watchlist, favorites, toggleWatchlist, toggleFavorite } = useUserData();
@@ -200,6 +201,36 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
     }
     return hasRecommendations ? 'recommended' : 'related';
   });
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (scrollContainerRef.current) {
+        const { scrollWidth, clientWidth } = scrollContainerRef.current;
+        setShowScrollButtons(scrollWidth > clientWidth);
+      }
+    };
+    // A small timeout allows the browser to render and calculate dimensions correctly
+    const timer = setTimeout(checkOverflow, 150);
+    window.addEventListener('resize', checkOverflow);
+
+    return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', checkOverflow);
+    };
+  }, [activeDiscoverView, anime]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = scrollContainerRef.current.clientWidth * 0.8;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   useEffect(() => {
     if (hasRelations && anime.relations.length >= MIN_RELATED_THRESHOLD) {
@@ -465,49 +496,81 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
           <div className="mt-12">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4">Discover More</h2>
-              {hasRelations && hasRecommendations && (
-                <div className="relative flex w-64 items-center rounded-full bg-gray-800 p-1">
-                  <div
-                    className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-cyan-500 transition-transform duration-300 ease-in-out"
-                    style={{
-                      transform: `translateX(${activeDiscoverView === 'related' ? '2px' : 'calc(100% + 2px)'})`,
-                    }}
-                  />
-                  <button
-                    onClick={() => setActiveDiscoverView('related')}
-                    className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
-                  >
-                    Related
-                  </button>
-                  <button
-                    onClick={() => setActiveDiscoverView('recommended')}
-                    className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
-                  >
-                    Recommended
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                {hasRelations && hasRecommendations && (
+                    <div className="relative flex w-64 items-center rounded-full bg-gray-800 p-1">
+                    <div
+                        className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-cyan-500 transition-transform duration-300 ease-in-out"
+                        style={{
+                        transform: `translateX(${activeDiscoverView === 'related' ? '2px' : 'calc(100% + 2px)'})`,
+                        }}
+                    />
+                    <button
+                        onClick={() => setActiveDiscoverView('related')}
+                        className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
+                    >
+                        Related
+                    </button>
+                    <button
+                        onClick={() => setActiveDiscoverView('recommended')}
+                        className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
+                    >
+                        Recommended
+                    </button>
+                    </div>
+                )}
+                <button
+                    onClick={() => onViewMore({ animeList: activeDiscoverView === 'related' ? anime.relations : anime.recommendations }, activeDiscoverView === 'related' ? 'Related Anime' : 'Recommended Anime')}
+                    className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+                >
+                    <span>View All</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </button>
+              </div>
             </div>
             
-            {activeDiscoverView === 'related' && hasRelations && (
-                <div className="animate-fade-in-fast">
-                    <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
-                        {anime.relations.slice(0, RELATED_ANIME_LIMIT).map(rel => (
-                            <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={onSelectRelated} />
-                        ))}
+            <div className="relative">
+                {showScrollButtons && (
+                <>
+                    <button 
+                        onClick={() => scroll('left')}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
+                        aria-label="Scroll Left"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <button 
+                        onClick={() => scroll('right')}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
+                        aria-label="Scroll Right"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </>
+                )}
+            
+                {activeDiscoverView === 'related' && hasRelations && (
+                    <div className="animate-fade-in-fast">
+                        <div ref={scrollContainerRef} className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
+                            {anime.relations.slice(0, RELATED_ANIME_LIMIT).map(rel => (
+                                <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={onSelectRelated} />
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {activeDiscoverView === 'recommended' && hasRecommendations && (
-                <div className="animate-fade-in-fast">
-                    <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
-                        {anime.recommendations.map(rec => (
-                            <RecommendationCard key={rec.id} anime={rec} onSelect={onSelectRelated} />
-                        ))}
+                {activeDiscoverView === 'recommended' && hasRecommendations && (
+                    <div className="animate-fade-in-fast">
+                        <div ref={scrollContainerRef} className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
+                            {anime.recommendations.map(rec => (
+                                <RecommendationCard key={rec.id} anime={rec} onSelect={onSelectRelated} />
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
           </div>
         )}
       </div>

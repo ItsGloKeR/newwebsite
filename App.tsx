@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo } from './types';
+import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
 import { getLastPlayerSettings, setLastPlayerSettings, getLastWatchedEpisode } from './services/userPreferenceService';
@@ -695,12 +695,33 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
     };
 
-    const handleViewMore = async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => {
+    const handleViewMore = async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching', animeList?: (RelatedAnime | RecommendedAnime)[] }, title: string) => {
         hideTooltip();
         setDiscoverListTitle(title);
         setIsFullSearchView(false);
 
-        if (partialFilters.list) {
+        if (partialFilters.animeList) {
+            setIsDiscoverLoading(true);
+            setIsListView(true);
+            setPageInfo(null);
+            setView('home');
+            window.scrollTo(0, 0);
+
+            const animeListAsAnime: Anime[] = partialFilters.animeList.map((item: any) => ({
+                anilistId: item.id,
+                englishTitle: item.englishTitle,
+                romajiTitle: item.romajiTitle,
+                coverImage: item.coverImage,
+                isAdult: item.isAdult,
+                episodes: item.episodes,
+                totalEpisodes: item.episodes,
+                format: item.format,
+                year: item.year,
+                description: '', bannerImage: '', genres: [], duration: null, rating: 0, status: '', studios: [], staff: [], characters: [], relations: [], recommendations: [], progress: item.progress || 0,
+            }));
+            setSearchResults(enrichAnimeWithProgress(applyOverridesToList(animeListAsAnime)));
+            setIsDiscoverLoading(false);
+        } else if (partialFilters.list) {
             setIsDiscoverLoading(true);
             // By setting isListView to true, we prevent the main search useEffect from firing
             // and overwriting our list data. This is the key to fixing the navigation bug.
@@ -966,6 +987,7 @@ const AppContent: React.FC = () => {
                         onBack={handleBackToDetails}
                         onSelectRecommended={handleSelectAnime}
                         onSelectRelated={handleSelectAnime}
+                        onViewMore={handleViewMore}
                         onReportIssue={handleGoToReport}
                         topAiring={topAiring}
                     />
@@ -983,6 +1005,7 @@ const AppContent: React.FC = () => {
                               onWatchNow={handleWatchNow}
                               onBack={handleBackFromDetails}
                               onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
+                              onViewMore={handleViewMore}
                               setInView={setIsBannerInView}
                           />
                       )}

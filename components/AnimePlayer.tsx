@@ -150,6 +150,7 @@ const AnimePlayer: React.FC<{
   onBack: () => void;
   onSelectRelated: (anime: { anilistId: number }) => void;
   onSelectRecommended: (anime: { anilistId: number }) => void;
+  onViewMore: (filters: { animeList: (RelatedAnime | RecommendedAnime)[] }, title: string) => void;
   onReportIssue: () => void;
   topAiring: Anime[];
 }> = ({
@@ -163,6 +164,7 @@ const AnimePlayer: React.FC<{
   onBack,
   onSelectRelated,
   onSelectRecommended,
+  onViewMore,
   onReportIssue,
   topAiring,
 }) => {
@@ -184,6 +186,34 @@ const AnimePlayer: React.FC<{
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const inactivityTimeoutRef = useRef<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  const recsScrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showRecsScrollButtons, setShowRecsScrollButtons] = useState(false);
+
+  useEffect(() => {
+    const checkRecsOverflow = () => {
+        if (recsScrollContainerRef.current) {
+            const { scrollWidth, clientWidth } = recsScrollContainerRef.current;
+            setShowRecsScrollButtons(scrollWidth > clientWidth);
+        }
+    };
+    const timer = setTimeout(checkRecsOverflow, 100);
+    window.addEventListener('resize', checkRecsOverflow);
+    return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', checkRecsOverflow);
+    };
+  }, [anime.recommendations]);
+
+  const scrollRecs = (direction: 'left' | 'right') => {
+    if (recsScrollContainerRef.current) {
+        const scrollAmount = recsScrollContainerRef.current.clientWidth * 0.8;
+        recsScrollContainerRef.current.scrollBy({
+            left: direction === 'left' ? -scrollAmount : scrollAmount,
+            behavior: 'smooth',
+        });
+    }
+  };
 
   // --- Overlay and Fullscreen Logic ---
   
@@ -564,19 +594,61 @@ const AnimePlayer: React.FC<{
               </div>
             </div>
             {anime.recommendations && anime.recommendations.length > 0 && (
-              <div className="mt-8">
-                  <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">You Might Also Like</h3>
-                  <div className="flex gap-4 overflow-x-auto carousel-scrollbar pb-2">
-                      {anime.recommendations.map(rec => (<RecommendationCard key={rec.id} anime={rec} onSelect={() => onSelectRecommended({ anilistId: rec.id })} />))}
-                  </div>
-              </div>
+                <div className="mt-8">
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-xl font-semibold text-white border-l-4 border-cyan-400 pl-3">You Might Also Like</h3>
+                        <button
+                            onClick={() => onViewMore({ animeList: anime.recommendations }, 'You Might Also Like')}
+                            className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm"
+                        >
+                            <span>View All</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div className="relative">
+                        {showRecsScrollButtons && (
+                            <>
+                                <button 
+                                    onClick={() => scrollRecs('left')}
+                                    className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
+                                    aria-label="Scroll Left"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                </button>
+                                <button 
+                                    onClick={() => scrollRecs('right')}
+                                    className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
+                                    aria-label="Scroll Right"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                </button>
+                            </>
+                        )}
+                        <div ref={recsScrollContainerRef} className="flex gap-4 overflow-x-auto carousel-scrollbar pb-2">
+                            {anime.recommendations.map(rec => (<RecommendationCard key={rec.id} anime={rec} onSelect={() => onSelectRecommended({ anilistId: rec.id })} />))}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
         <div className="lg:col-span-1">
             <div className="sticky top-20 flex flex-col gap-8">
                 {anime.relations && anime.relations.length > 0 && (
                     <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg">
-                        <h3 className="text-xl font-semibold text-white mb-3 border-l-4 border-cyan-400 pl-3">Related Anime</h3>
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-xl font-semibold text-white border-l-4 border-cyan-400 pl-3">Related Anime</h3>
+                             <button
+                                onClick={() => onViewMore({ animeList: anime.relations }, 'Related Anime')}
+                                className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-xs"
+                            >
+                                <span>View All</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                            </button>
+                        </div>
                         <div className="flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
                             {anime.relations.map(rel => (<RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />))}
                         </div>
