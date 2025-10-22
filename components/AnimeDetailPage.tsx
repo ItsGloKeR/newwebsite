@@ -53,7 +53,6 @@ const RelatedAnimeCard: React.FC<{ anime: RelatedAnime; onSelect: (id: number) =
         <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
           <img src={anime.coverImage} alt={title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} />
           {anime.isAdult && <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">18+</div>}
-          {anime.progress > 0 && anime.progress < 95 && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20"><div className="h-full bg-cyan-500" style={{ width: `${anime.progress}%` }}></div></div>}
         </div>
         <div className="pt-3">
           <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
@@ -103,7 +102,6 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime; onSelect: (id: num
         <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
             <img src={anime.coverImage} alt={title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}/>
             {anime.isAdult && <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-md z-10">18+</div>}
-            {anime.progress > 0 && anime.progress < 95 && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20"><div className="h-full bg-cyan-500" style={{ width: `${anime.progress}%` }}></div></div>}
         </div>
         <div className="pt-3">
           <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>

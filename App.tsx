@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'reac
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
-import { getLastPlayerSettings, setLastPlayerSettings, getLastWatchedEpisode } from './services/userPreferenceService';
+import { getLastPlayerSettings, setLastPlayerSettings } from './services/userPreferenceService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -236,58 +236,11 @@ const AppContent: React.FC = () => {
         const overriddenTitle = overrides.anime[anime.anilistId]?.title;
         return overriddenTitle ? { ...anime, englishTitle: overriddenTitle } : anime;
     }, [overrides.anime]);
-    
-    const enrichAnimeWithProgress = useCallback((animeList: Anime[]): Anime[] => {
-        const allProgress = progressTracker.getAllMediaData();
-        return animeList.map(anime => {
-            const progressData = allProgress[anime.anilistId];
-            if (progressData?.progress?.watched && progressData?.progress?.duration) {
-            const percentage = (progressData.progress.watched / progressData.progress.duration) * 100;
-            return { ...anime, progress: percentage };
-            }
-            return { ...anime, progress: 0 };
-        });
-    }, []);
-
-    const enrichScheduleWithProgress = useCallback((scheduleList: AiringSchedule[]): EnrichedAiringSchedule[] => {
-        const allProgress = progressTracker.getAllMediaData();
-        return scheduleList.map(schedule => {
-            const progressData = allProgress[schedule.media.id];
-            if (progressData?.progress?.watched && progressData?.progress?.duration) {
-                const percentage = (progressData.progress.watched / progressData.progress.duration) * 100;
-                return { ...schedule, progress: percentage };
-            }
-            return schedule;
-        });
-    }, []);
-
 
     const applyOverridesToList = useCallback((list: Anime[]): Anime[] => {
         return list.map(applyOverrides);
     }, [applyOverrides]);
 
-    const refreshDataWithProgress = useCallback(() => {
-        setTrending(prev => enrichAnimeWithProgress(prev));
-        setPopular(prev => enrichAnimeWithProgress(prev));
-        setTopAiring(prev => enrichAnimeWithProgress(prev));
-        setTopRated(prev => enrichAnimeWithProgress(prev));
-        setTopUpcoming(prev => enrichAnimeWithProgress(prev));
-        setPopularThisSeason(prev => enrichAnimeWithProgress(prev));
-        setSearchResults(prev => enrichAnimeWithProgress(prev));
-        setLatestEpisodes(prev => enrichScheduleWithProgress(prev));
-        setContinueWatching(prev => enrichAnimeWithProgress(prev));
-
-        if (selectedAnime) {
-            const progressData = progressTracker.getMediaData(selectedAnime.anilistId);
-            let updatedAnime = { ...selectedAnime };
-            if (progressData?.progress?.watched && progressData?.progress?.duration) {
-                const percentage = (progressData.progress.watched / progressData.progress.duration) * 100;
-                updatedAnime.progress = percentage;
-            }
-            setSelectedAnime(updatedAnime);
-        }
-    }, [enrichAnimeWithProgress, enrichScheduleWithProgress, selectedAnime]);
-    
     const handleSelectAnime = async (anime: Anime | { anilistId: number }) => {
         hideTooltip();
         setIsLoading(true);
@@ -296,27 +249,7 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
         try {
             const fullDetails = await getAnimeDetails(anime.anilistId);
-            const allProgress = progressTracker.getAllMediaData();
-
-            if (fullDetails.relations) {
-                fullDetails.relations = fullDetails.relations.map(rel => {
-                    const progressData = allProgress[rel.id];
-                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
-                        return { ...rel, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
-                    }
-                    return rel;
-                });
-            }
-            if (fullDetails.recommendations) {
-                fullDetails.recommendations = fullDetails.recommendations.map(rec => {
-                    const progressData = allProgress[rec.id];
-                    if (progressData?.progress?.watched && progressData?.progress?.duration) {
-                        return { ...rec, progress: (progressData.progress.watched / progressData.progress.duration) * 100 };
-                    }
-                    return rec;
-                });
-            }
-            setSelectedAnime(enrichAnimeWithProgress([applyOverrides(fullDetails)])[0]);
+            setSelectedAnime(applyOverrides(fullDetails));
         } catch (error) {
             console.error("Failed to get anime details:", error);
             setSelectedAnime(null);
@@ -331,25 +264,7 @@ const AppContent: React.FC = () => {
             return preferredEpisode;
         }
         const progressData = progressTracker.getMediaData(anime.anilistId);
-        const epFromCache = getLastWatchedEpisode(anime.anilistId) || 1;
-        let epFromProgress = 1;
-
-        if (progressData?.last_episode_watched) {
-            const lastWatchedNum = parseInt(progressData.last_episode_watched, 10);
-            if (!isNaN(lastWatchedNum)) {
-                epFromProgress = lastWatchedNum;
-                const epProgress = progressData.show_progress?.[`s1e${lastWatchedNum}`]?.progress;
-                
-                if (epProgress && epProgress.duration > 0) {
-                    const percentageWatched = (epProgress.watched / epProgress.duration) * 100;
-                    const totalEps = anime.totalEpisodes || anime.episodes || 0;
-                    if (percentageWatched > 95 && totalEps > 0 && lastWatchedNum < totalEps) {
-                        epFromProgress = lastWatchedNum + 1;
-                    }
-                }
-            }
-        }
-        return Math.max(epFromProgress, epFromCache);
+        return progressData?.last_episode_watched || 1;
     };
 
     const handleWatchNow = (anime: Anime | Partial<Anime>, episode?: number) => {
@@ -410,10 +325,34 @@ const AppContent: React.FC = () => {
 
     useEffect(() => {
         progressTracker.init();
-        const handleProgressUpdate = () => refreshDataWithProgress();
+        const handleProgressUpdate = () => {
+            if (!showLanding) {
+                loadContinueWatching();
+            }
+        };
         window.addEventListener('progressUpdated', handleProgressUpdate);
         return () => window.removeEventListener('progressUpdated', handleProgressUpdate);
-    }, [refreshDataWithProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showLanding]);
+
+    const loadContinueWatching = useCallback(async () => {
+        const progressData = progressTracker.getAllMediaData();
+        const inProgress = Object.values(progressData)
+            .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
+        if (inProgress.length === 0) {
+            setContinueWatching([]);
+            return;
+        }
+        const ids = inProgress.map(p => p.id);
+        const animeDetails = await getMultipleAnimeDetails(ids);
+        const animeDetailsMap = new Map(animeDetails.map(a => [a.anilistId, a]));
+        const sortedAnimeDetails = inProgress
+            .map(p => animeDetailsMap.get(p.id))
+            .filter((a): a is Anime => !!a)
+            .filter(a => !a.genres.includes("Hentai") && !a.isAdult);
+        setContinueWatching(applyOverridesToList(sortedAnimeDetails));
+    }, [applyOverridesToList]);
+
 
     useEffect(() => {
         const restoreSession = async () => {
@@ -440,6 +379,7 @@ const AppContent: React.FC = () => {
         };
         if (!showLanding) {
             restoreSession();
+            loadContinueWatching();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showLanding]);
@@ -470,14 +410,14 @@ const AppContent: React.FC = () => {
                     getLatestEpisodes(),
                     getAiringSchedule()
                 ]);
-                setTrending(enrichAnimeWithProgress(applyOverridesToList(trending)));
-                setPopular(enrichAnimeWithProgress(applyOverridesToList(popular)));
-                setTopAiring(enrichAnimeWithProgress(applyOverridesToList(topAiring)));
-                setTopRated(enrichAnimeWithProgress(applyOverridesToList(topRated)));
-                setTopUpcoming(enrichAnimeWithProgress(applyOverridesToList(topUpcoming)));
-                setPopularThisSeason(enrichAnimeWithProgress(applyOverridesToList(popularThisSeason)));
+                setTrending(applyOverridesToList(trending));
+                setPopular(applyOverridesToList(popular));
+                setTopAiring(applyOverridesToList(topAiring));
+                setTopRated(applyOverridesToList(topRated));
+                setTopUpcoming(applyOverridesToList(topUpcoming));
+                setPopularThisSeason(applyOverridesToList(popularThisSeason));
                 setAllGenres(genres);
-                setLatestEpisodes(enrichScheduleWithProgress(latest));
+                setLatestEpisodes(latest);
                 setScheduleList(schedules);
                 setCurrentSeason(currentSeason);
                 setCurrentYear(currentYear);
@@ -490,7 +430,7 @@ const AppContent: React.FC = () => {
         if (view === 'home' && !showLanding) {
           fetchInitialData();
         }
-    }, [applyOverridesToList, enrichAnimeWithProgress, enrichScheduleWithProgress, view, showLanding]);
+    }, [applyOverridesToList, view, showLanding]);
 
     useEffect(() => {
         setTrending(applyOverridesToList);
@@ -505,39 +445,6 @@ const AppContent: React.FC = () => {
         }
     }, [overrides, applyOverridesToList, applyOverrides, selectedAnime]);
 
-    useEffect(() => {
-        const loadContinueWatching = async () => {
-            const progressData = progressTracker.getAllMediaData();
-            const inProgress = Object.values(progressData)
-                .filter(p => {
-                    if (p.progress?.duration > 0) {
-                        const percentage = (p.progress.watched / p.progress.duration) * 100;
-                        return percentage < 95;
-                    }
-                    return true;
-                })
-                .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
-            if (inProgress.length === 0) {
-                setContinueWatching([]);
-                return;
-            }
-            const ids = inProgress.map(p => p.id);
-            const animeDetails = await getMultipleAnimeDetails(ids);
-            const animeDetailsMap = new Map(animeDetails.map(a => [a.anilistId, a]));
-            const sortedAnimeDetails = inProgress
-                .map(p => animeDetailsMap.get(p.id))
-                .filter((a): a is Anime => !!a)
-                .filter(a => !a.genres.includes("Hentai") && !a.isAdult);
-            const enrichedList = enrichAnimeWithProgress(applyOverridesToList(sortedAnimeDetails));
-            setContinueWatching(enrichedList);
-        };
-        if (!showLanding) {
-            loadContinueWatching();
-        }
-        window.addEventListener('progressUpdated', loadContinueWatching);
-        return () => window.removeEventListener('progressUpdated', loadContinueWatching);
-    }, [applyOverridesToList, enrichAnimeWithProgress, showLanding]);
-    
     const debouncedFilters = useDebounce(filters, 500);
 
     useEffect(() => {
@@ -557,7 +464,7 @@ const AppContent: React.FC = () => {
             setIsDiscoverLoading(true);
             try {
                 const { results, pageInfo: newPageInfo } = await discoverAnime(debouncedFilters);
-                setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
+                setSearchResults(applyOverridesToList(results));
                 setPageInfo(newPageInfo);
             } catch (error) {
                 console.error("Failed to discover anime:", error);
@@ -568,7 +475,7 @@ const AppContent: React.FC = () => {
             }
         };
         performSearch();
-    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress, isListView]);
+    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, isListView]);
     
     useEffect(() => {
         if (debouncedSuggestionsTerm.trim() === '') {
@@ -630,11 +537,7 @@ const AppContent: React.FC = () => {
     
     const handleContinueWatching = (anime: Anime) => {
         const progressData = progressTracker.getMediaData(anime.anilistId);
-        if (!progressData) {
-            handleWatchNow(anime, 1);
-            return;
-        }
-        const lastEpisode = parseInt(progressData.last_episode_watched, 10) || 1;
+        const lastEpisode = progressData?.last_episode_watched || 1;
         handleWatchNow(anime, lastEpisode);
     };
 
@@ -717,9 +620,9 @@ const AppContent: React.FC = () => {
                 totalEpisodes: item.episodes,
                 format: item.format,
                 year: item.year,
-                description: '', bannerImage: '', genres: [], duration: null, rating: 0, status: '', studios: [], staff: [], characters: [], relations: [], recommendations: [], progress: item.progress || 0,
+                description: '', bannerImage: '', genres: [], duration: null, rating: 0, status: '', studios: [], staff: [], characters: [], relations: [], recommendations: [],
             }));
-            setSearchResults(enrichAnimeWithProgress(applyOverridesToList(animeListAsAnime)));
+            setSearchResults(applyOverridesToList(animeListAsAnime));
             setIsDiscoverLoading(false);
         } else if (partialFilters.list) {
             setIsDiscoverLoading(true);
@@ -736,7 +639,7 @@ const AppContent: React.FC = () => {
                  const ids = partialFilters.list === 'watchlist' ? watchlist : favorites;
                 if (ids.length > 0) {
                     const results = await getMultipleAnimeDetails(ids);
-                    setSearchResults(enrichAnimeWithProgress(applyOverridesToList(results)));
+                    setSearchResults(applyOverridesToList(results));
                 } else {
                     setSearchResults([]);
                 }
@@ -789,7 +692,6 @@ const AppContent: React.FC = () => {
         characters: [], 
         relations: [], 
         recommendations: [],
-        progress: schedule.progress,
     })), [latestEpisodes]);
     
     const iconProps = { className: "h-7 w-7" };

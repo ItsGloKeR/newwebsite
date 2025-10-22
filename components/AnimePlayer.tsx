@@ -7,7 +7,6 @@ import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import VerticalAnimeList from './VerticalAnimeList';
 import { useTooltip } from '../contexts/TooltipContext';
-import { setLastWatchedEpisode, getLastWatchedEpisode } from '../services/userPreferenceService';
 import LoadingSpinner from './LoadingSpinner';
 import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
@@ -59,14 +58,6 @@ const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => vo
                     className="w-full h-full object-cover"
                     onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
                 />
-                 {anime.progress > 0 && anime.progress < 95 && (
-                    <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-                        <div
-                            className="h-full bg-cyan-500"
-                            style={{ width: `${anime.progress}%` }}
-                        ></div>
-                    </div>
-                )}
             </div>
              <div className="pt-3">
                 <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
@@ -180,7 +171,7 @@ const AnimePlayer: React.FC<{
   const rangeSelectorRef = useRef<HTMLDivElement>(null);
   const [isPlayerLoading, setIsPlayerLoading] = useState(true);
   const [resumeNotification, setResumeNotification] = useState<string | null>(null);
-  const lastWatchedEp = useMemo(() => getLastWatchedEpisode(anime.anilistId), [anime.anilistId]);
+  const lastWatchedEp = useMemo(() => progressTracker.getMediaData(anime.anilistId)?.last_episode_watched, [anime.anilistId]);
   
   const playerWrapperRef = useRef<HTMLDivElement>(null);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
@@ -300,12 +291,12 @@ const AnimePlayer: React.FC<{
 
   useEffect(() => {
     // This effect shows a notification when resuming an episode.
-    if (currentEpisode > 1) {
+    if (lastWatchedEp && currentEpisode === lastWatchedEp && lastWatchedEp > 1) {
         setResumeNotification(`Resuming from Episode ${currentEpisode}`);
         const timer = setTimeout(() => setResumeNotification(null), 4000);
         return () => clearTimeout(timer);
     }
-  }, [anime.anilistId, currentEpisode]);
+  }, [anime.anilistId, currentEpisode, lastWatchedEp]);
 
   useEffect(() => {
     const fetchMappings = async () => {
@@ -325,7 +316,7 @@ const AnimePlayer: React.FC<{
 
   useEffect(() => {
     if (anime && currentEpisode > 0) {
-      setLastWatchedEpisode(anime.anilistId, currentEpisode);
+      progressTracker.setLastWatchedEpisode(anime, currentEpisode);
     }
     // Hide overlay on episode change
     hideOverlay();

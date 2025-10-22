@@ -25,6 +25,14 @@ const getFromStorage = (key: string): number[] => {
   }
 };
 
+const saveToStorage = (key: string, data: number[]) => {
+    try {
+        localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+        console.error(`Failed to save ${key} to localStorage`, error);
+    }
+}
+
 export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [watchlist, setWatchlist] = useState<number[]>(() => getFromStorage(WATCHLIST_STORAGE_KEY));
@@ -33,41 +41,30 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const syncData = useCallback(async () => {
     if (user && !isSynced) {
-        const localWatchlist = getFromStorage(WATCHLIST_STORAGE_KEY);
-        const localFavorites = getFromStorage(FAVORITES_STORAGE_KEY);
-        
+        setIsSynced(true); // Attempt sync only once per login
         try {
             const userData = await getUserData(user.uid);
             
-            const firestoreWatchlist = userData?.watchlist || [];
-            const firestoreFavorites = userData?.favorites || [];
+            const remoteWatchlist = userData?.watchlist;
+            const remoteFavorites = userData?.favorites;
 
-            const hasLocalDataToMerge = localWatchlist.length > 0 || localFavorites.length > 0;
-
-            if (hasLocalDataToMerge) {
-                const mergedWatchlist = Array.from(new Set([...firestoreWatchlist, ...localWatchlist]));
-                const mergedFavorites = Array.from(new Set([...firestoreFavorites, ...localFavorites]));
-                
-                setWatchlist(mergedWatchlist);
-                setFavorites(mergedFavorites);
-                
-                await updateUserData(user.uid, { watchlist: mergedWatchlist, favorites: mergedFavorites });
-                
-                // Clear local data ONLY after successful sync
-                localStorage.removeItem(WATCHLIST_STORAGE_KEY);
-                localStorage.removeItem(FAVORITES_STORAGE_KEY);
+            if (remoteWatchlist !== undefined && remoteFavorites !== undefined) {
+                // Remote data exists, this is the source of truth.
+                setWatchlist(remoteWatchlist);
+                setFavorites(remoteFavorites);
+                saveToStorage(WATCHLIST_STORAGE_KEY, remoteWatchlist);
+                saveToStorage(FAVORITES_STORAGE_KEY, remoteFavorites);
             } else {
-                setWatchlist(firestoreWatchlist);
-                setFavorites(firestoreFavorites);
+                // No remote data, so this is likely a new user. Upload local guest data if it exists.
+                const localWatchlist = getFromStorage(WATCHLIST_STORAGE_KEY);
+                const localFavorites = getFromStorage(FAVORITES_STORAGE_KEY);
+                if (localWatchlist.length > 0 || localFavorites.length > 0) {
+                    await updateUserData(user.uid, { watchlist: localWatchlist, favorites: localFavorites });
+                }
             }
-            // Set synced flag only after all operations complete successfully
-            setIsSynced(true);
         } catch (error) {
-            console.error("Error during user data sync, falling back to local data if available.", error);
-            // If sync fails, fall back to whatever is local and do NOT set isSynced to true,
-            // allowing the sync to be re-attempted on the next render.
-            setWatchlist(localWatchlist);
-            setFavorites(localFavorites);
+            console.error("Error during user data sync. Using local data as fallback.", error);
+            // If sync fails, the context will continue to use the data loaded from localStorage.
         }
     } else if (!user) {
         // When user logs out, revert to local storage and reset sync status.
@@ -86,12 +83,12 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
     const newWatchlist = watchlist.includes(animeId)
       ? watchlist.filter(id => id !== animeId)
       : [...watchlist, animeId];
+    
     setWatchlist(newWatchlist);
+    saveToStorage(WATCHLIST_STORAGE_KEY, newWatchlist);
 
     if (user) {
       await updateUserData(user.uid, { watchlist: newWatchlist });
-    } else {
-      localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(newWatchlist));
     }
   }, [watchlist, user]);
 
@@ -99,19 +96,19 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
     const newFavorites = favorites.includes(animeId)
       ? favorites.filter(id => id !== animeId)
       : [...favorites, animeId];
+    
     setFavorites(newFavorites);
+    saveToStorage(FAVORITES_STORAGE_KEY, newFavorites);
 
     if (user) {
       await updateUserData(user.uid, { favorites: newFavorites });
-    } else {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
     }
   }, [favorites, user]);
   
   const reSync = useCallback(() => {
     setIsSynced(false);
-    syncData();
-  }, [syncData]);
+    // syncData will be called by the useEffect when isSynced changes to false.
+  }, []);
 
   const value = {
     watchlist,

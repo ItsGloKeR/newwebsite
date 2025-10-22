@@ -131,14 +131,6 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
             18+
           </div>
         )}
-         {anime.progress > 0 && anime.progress < 95 && (
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-                <div
-                    className="h-full bg-cyan-500"
-                    style={{ width: `${anime.progress}%` }}
-                ></div>
-            </div>
-        )}
       </div>
       <div className="pt-3 z-10">
         <div className="flex items-center gap-2 mb-1">

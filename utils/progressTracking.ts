@@ -22,36 +22,12 @@ class ProgressTracker {
   }
 
   private handleMessage(event: MessageEvent) {
+    // We no longer listen for MEDIA_DATA to reduce writes.
+    // This listener is now only for other player events like video controls.
     if (event.origin !== 'https://vidnest.fun' && event.origin !== 'https://vidlink.pro') {
       return;
     }
-
-    if (event.data?.type === 'MEDIA_DATA') {
-      const newMediaData: MediaProgress = event.data.data;
-      const currentProgress = this.getAllMediaData();
-
-      let hasChanged = false;
-      for (const anilistId in newMediaData) {
-        if (Object.prototype.hasOwnProperty.call(newMediaData, anilistId)) {
-          hasChanged = true;
-          const newEntry = newMediaData[anilistId];
-          const existingEntry = currentProgress[anilistId];
-          currentProgress[anilistId] = {
-            ...newEntry,
-            lastAccessed: existingEntry?.lastAccessed || Date.now(),
-          };
-        }
-      }
-      
-      if (hasChanged) {
-        this.saveProgress(currentProgress);
-        if (this.userId) {
-          // Send only the updated media data, not the whole progress object
-          updateUserProgress(this.userId, newMediaData);
-        }
-      }
-    }
-
+    
     if (event.data?.type === 'PLAYER_EVENT') {
       this.listeners.forEach(callback => callback(event.data.data));
     }
@@ -66,34 +42,61 @@ class ProgressTracker {
     this.saveProgress(progress);
   }
 
-  public addToHistory(anime: Anime) {
+  public setLastWatchedEpisode(anime: Anime, episode: number) {
     const allData = this.getAllMediaData();
-    const existingEntry = allData[anime.anilistId];
+    const animeIdString = String(anime.anilistId);
 
-    const newEntry: MediaProgressEntry = {
+    // FIX: Ensure new entry conforms to MediaProgressEntry and use string keys for object access to match MediaProgress type.
+    const entry: MediaProgressEntry = allData[animeIdString] || {
       id: anime.anilistId,
-      type: 'tv',
+      type: anime.format === 'MOVIE' ? 'movie' : 'tv',
       title: anime.englishTitle,
       poster_path: anime.coverImage,
-      progress: existingEntry?.progress || { watched: 0, duration: 0 },
-      last_season_watched: existingEntry?.last_season_watched || '1',
-      last_episode_watched: existingEntry?.last_episode_watched || '1',
-      show_progress: existingEntry?.show_progress || {},
-      lastAccessed: Date.now(),
+      last_episode_watched: 0, // Provide default to satisfy the type.
     };
 
-    allData[anime.anilistId] = newEntry;
+    entry.last_episode_watched = episode;
+    entry.lastAccessed = Date.now();
+    
+    allData[animeIdString] = entry;
     this.saveProgress(allData);
+
     if (this.userId) {
-      updateUserProgress(this.userId, { [anime.anilistId]: newEntry });
+      updateUserProgress(this.userId, { [animeIdString]: entry });
+    }
+  }
+
+  public addToHistory(anime: Anime) {
+    const allData = this.getAllMediaData();
+    const existingEntry = allData[String(anime.anilistId)];
+
+    // Only add if it doesn't exist. Don't overwrite last_episode_watched.
+    if (!existingEntry) {
+        const newEntry: MediaProgressEntry = {
+            id: anime.anilistId,
+            type: anime.format === 'MOVIE' ? 'movie' : 'tv',
+            title: anime.englishTitle,
+            poster_path: anime.coverImage,
+            last_episode_watched: 1,
+            lastAccessed: Date.now(),
+        };
+
+        allData[String(anime.anilistId)] = newEntry;
+        this.saveProgress(allData);
+
+        if (this.userId) {
+            updateUserProgress(this.userId, { [String(anime.anilistId)]: newEntry });
+        }
     }
   }
 
   public removeFromHistory(anilistId: number) {
     const allData = this.getAllMediaData();
-    if (allData[anilistId]) {
-      delete allData[anilistId];
+    const anilistIdString = String(anilistId);
+    if (allData[anilistIdString]) {
+      delete allData[anilistIdString];
       this.saveProgress(allData);
+      
       if (this.userId) {
         removeProgressForAnime(this.userId, anilistId);
       }
@@ -119,23 +122,7 @@ class ProgressTracker {
   }
 
   public getMediaData(anilistId: number): MediaProgressEntry | null {
-    return this.getAllMediaData()[anilistId] || null;
-  }
-  
-  public getResumeTime(anilistId: number, episode: number): number | null {
-    const mediaData = this.getMediaData(anilistId);
-    if (!mediaData) return null;
-
-    const episodeProgress = mediaData.show_progress?.[`s1e${episode}`];
-    
-    if (episodeProgress?.progress?.watched && episodeProgress?.progress?.duration) {
-        if (episodeProgress.progress.duration - episodeProgress.progress.watched < 15) {
-            return null;
-        }
-        return Math.floor(episodeProgress.progress.watched);
-    }
-
-    return null;
+    return this.getAllMediaData()[String(anilistId)] || null;
   }
 }
 

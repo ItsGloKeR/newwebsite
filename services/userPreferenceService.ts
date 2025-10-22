@@ -1,15 +1,10 @@
 import { StreamSource, StreamLanguage } from '../types';
 
 const PLAYER_SETTINGS_KEY = 'aniGlokPlayerSettings';
-const LAST_WATCHED_EPISODE_KEY = 'aniGlokLastWatchedEpisodes';
 
 interface PlayerSettings {
   source: StreamSource;
   language: StreamLanguage;
-}
-
-interface LastWatchedEpisodes {
-  [anilistId: number]: number;
 }
 
 /**
@@ -47,43 +42,5 @@ export const setLastPlayerSettings = (source: StreamSource, language: StreamLang
     localStorage.setItem(PLAYER_SETTINGS_KEY, JSON.stringify(settings));
   } catch (error) {
     console.error("Failed to save player settings to localStorage", error);
-  }
-};
-
-/**
- * Retrieves all last watched episode numbers from localStorage.
- */
-const getLastWatchedEpisodes = (): LastWatchedEpisodes => {
-  try {
-    const stored = localStorage.getItem(LAST_WATCHED_EPISODE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch (error) {
-    console.error("Failed to get last watched episodes from localStorage", error);
-    return {};
-  }
-};
-
-/**
- * Retrieves the last watched episode for a specific anime.
- * @param anilistId The anilist ID of the anime.
- * @returns The episode number or null if not found.
- */
-export const getLastWatchedEpisode = (anilistId: number): number | null => {
-  const allEpisodes = getLastWatchedEpisodes();
-  return allEpisodes[anilistId] || null;
-};
-
-/**
- * Saves the last watched episode for a specific anime.
- * @param anilistId The anilist ID of the anime.
- * @param episode The episode number.
- */
-export const setLastWatchedEpisode = (anilistId: number, episode: number): void => {
-  try {
-    const allEpisodes = getLastWatchedEpisodes();
-    allEpisodes[anilistId] = episode;
-    localStorage.setItem(LAST_WATCHED_EPISODE_KEY, JSON.stringify(allEpisodes));
-  } catch (error) {
-    console.error("Failed to save last watched episode to localStorage", error);
   }
 };

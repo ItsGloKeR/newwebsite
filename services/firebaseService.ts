@@ -157,22 +157,27 @@ export const syncProgressOnLogin = async (uid: string): Promise<void> => {
     try {
         const userRef = doc(db, 'users', uid);
         const userDoc = await getDoc(userRef);
-        const remoteProgress = (userDoc.exists() ? userDoc.data()?.progress : {}) || {};
+        
+        let remoteProgress: MediaProgress = {};
+        let remoteProgressExists = false;
 
-        if (localProgressExists) {
-            const mergedProgress = { ...remoteProgress, ...localProgress };
-            
-            await updateUserProgress(uid, mergedProgress);
-            progressTracker.replaceAllProgress(mergedProgress);
-            
-            // Clear local guest data ONLY after a successful sync.
-            localStorage.removeItem('vidLinkProgress');
+        if (userDoc.exists() && userDoc.data()?.progress) {
+            remoteProgress = userDoc.data().progress as MediaProgress;
+            remoteProgressExists = Object.keys(remoteProgress).length > 0;
+        }
+
+        if (remoteProgressExists) {
+            // Priority 1: Remote data exists. Overwrite local state with it.
+            progressTracker.replaceAllProgress(remoteProgress);
+        } else if (localProgressExists) {
+            // Priority 2: No remote data, but local (guest) data exists. Upload it.
+            await updateUserProgress(uid, localProgress);
         } else {
-            // No local data, just load the remote data into the tracker.
-            progressTracker.replaceAllProgress(remoteProgress as MediaProgress);
+            // Priority 3: No remote or local data. Ensure tracker is empty.
+            progressTracker.replaceAllProgress({});
         }
     } catch(error) {
-        console.error("Error syncing progress on login. Local data will be preserved for next attempt.", error);
+        console.error("Error syncing progress on login. App will use local data as fallback.", error);
     }
 };
 

@@ -80,7 +80,6 @@ export interface RelatedAnime {
   episodes: number | null;
   format: string;
   year: number;
-  progress?: number;
 }
 
 export interface RecommendedAnime {
@@ -92,7 +91,6 @@ export interface RecommendedAnime {
   episodes: number | null;
   format: string;
   year: number;
-  progress?: number;
 }
 
 export interface AnimeTrailer {
@@ -131,7 +129,6 @@ export interface Anime {
   recommendations: RecommendedAnime[];
   nextAiringEpisode?: NextAiringEpisode;
   isAdult: boolean;
-  progress?: number;
 }
 
 export interface SearchSuggestion {
@@ -183,9 +180,7 @@ export interface AiringSchedule {
   };
 }
 
-export interface EnrichedAiringSchedule extends AiringSchedule {
-  progress?: number;
-}
+export interface EnrichedAiringSchedule extends AiringSchedule {}
 
 export interface ZenshinMapping {
   mappings: {
@@ -242,20 +237,7 @@ export interface MediaProgressEntry {
   type: 'tv' | 'movie';
   title: string;
   poster_path: string;
-  progress: {
-    watched: number;
-    duration: number;
-  };
-  last_season_watched: string;
-  last_episode_watched: string;
-  show_progress: {
-    [seasonEpisodeKey: string]: {
-        progress: {
-            watched: number;
-            duration: number;
-        }
-    }
-  };
+  last_episode_watched: number;
   lastAccessed?: number;
 }
 

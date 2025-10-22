@@ -37,14 +37,6 @@ const LatestEpisodeCard: React.FC<LatestEpisodeCardProps> = ({ schedule, onSelec
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
           </svg>
         </div>
-        {schedule.progress > 0 && schedule.progress < 95 && (
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-500/50 z-20">
-                <div
-                    className="h-full bg-cyan-500"
-                    style={{ width: `${schedule.progress}%` }}
-                ></div>
-            </div>
-        )}
       </div>
       <div className="pt-3">
         <div className="flex items-center gap-2 mb-1">
