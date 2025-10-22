@@ -57,6 +57,7 @@ const SESSION_STORAGE_KEY = 'aniGlokSession';
 
 const SchedulePreview: React.FC<{ schedule: AiringSchedule[]; onSelectAnime: (anime: { anilistId: number }) => void; onShowMore: () => void }> = ({ schedule, onSelectAnime, onShowMore }) => {
     const today = new Date();
+    // FIX: Define the `startOfDay` variable before using it to prevent a reference error.
     const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(today);
@@ -540,12 +541,10 @@ const AppContent: React.FC = () => {
     const debouncedFilters = useDebounce(filters, 500);
 
     useEffect(() => {
+        // This effect performs searches based on filters. It has a guard to prevent
+        // it from running when viewing a special list (watchlist, favorites, etc.)
+        // to avoid overwriting the list with search results.
         if (isListView) {
-            // For special list views (watchlist, favorites, etc.), data is loaded directly
-            // into searchResults by `handleViewMore`. We should not trigger a `discoverAnime`
-            // call which would overwrite it. These lists are also not paginated via the API,
-            // so we clear any existing page info.
-            setPageInfo(null);
             return;
         }
 
@@ -703,9 +702,10 @@ const AppContent: React.FC = () => {
 
         if (partialFilters.list) {
             setIsDiscoverLoading(true);
-            setFilters({ ...initialFilters, page: 1 });
+            // By setting isListView to true, we prevent the main search useEffect from firing
+            // and overwriting our list data. This is the key to fixing the navigation bug.
+            setIsListView(true); 
             setPageInfo(null);
-            setIsListView(true);
             setView('home');
             window.scrollTo(0, 0);
 

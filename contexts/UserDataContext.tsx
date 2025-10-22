@@ -33,29 +33,40 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const syncData = useCallback(async () => {
     if (user && !isSynced) {
-      const localWatchlist = getFromStorage(WATCHLIST_STORAGE_KEY);
-      const localFavorites = getFromStorage(FAVORITES_STORAGE_KEY);
-      
-      const userData = await getUserData(user.uid);
-      const firestoreWatchlist = userData?.watchlist || [];
-      const firestoreFavorites = userData?.favorites || [];
+        const localWatchlist = getFromStorage(WATCHLIST_STORAGE_KEY);
+        const localFavorites = getFromStorage(FAVORITES_STORAGE_KEY);
+        
+        const userData = await getUserData(user.uid);
+        const firestoreWatchlist = userData?.watchlist || [];
+        const firestoreFavorites = userData?.favorites || [];
 
-      const mergedWatchlist = [...new Set([...localWatchlist, ...firestoreWatchlist])];
-      const mergedFavorites = [...new Set([...localFavorites, ...firestoreFavorites])];
+        // If guest data exists, merge it with Firestore data. Otherwise, just load from Firestore.
+        if (localWatchlist.length > 0 || localFavorites.length > 0) {
+            // Use a Set to merge and remove duplicates.
+            const mergedWatchlist = [...new Set([...firestoreWatchlist, ...localWatchlist])];
+            const mergedFavorites = [...new Set([...firestoreFavorites, ...localFavorites])];
+            
+            setWatchlist(mergedWatchlist);
+            setFavorites(mergedFavorites);
 
-      setWatchlist(mergedWatchlist);
-      setFavorites(mergedFavorites);
+            // Save the merged data back to Firestore.
+            await updateUserData(user.uid, { watchlist: mergedWatchlist, favorites: mergedFavorites });
 
-      if (localWatchlist.length > 0 || localFavorites.length > 0) {
-        await updateUserData(user.uid, { watchlist: mergedWatchlist, favorites: mergedFavorites });
-        localStorage.removeItem(WATCHLIST_STORAGE_KEY);
-        localStorage.removeItem(FAVORITES_STORAGE_KEY);
-      }
-      setIsSynced(true);
+            // Clear local storage after successful merge to prevent re-merging.
+            localStorage.removeItem(WATCHLIST_STORAGE_KEY);
+            localStorage.removeItem(FAVORITES_STORAGE_KEY);
+        } else {
+            // No local (guest) data, so just load the user's data from Firestore.
+            setWatchlist(firestoreWatchlist);
+            setFavorites(firestoreFavorites);
+        }
+        
+        setIsSynced(true);
     } else if (!user) {
-      setWatchlist(getFromStorage(WATCHLIST_STORAGE_KEY));
-      setFavorites(getFromStorage(FAVORITES_STORAGE_KEY));
-      setIsSynced(false);
+        // When user logs out, revert to local storage and reset sync status.
+        setWatchlist(getFromStorage(WATCHLIST_STORAGE_KEY));
+        setFavorites(getFromStorage(FAVORITES_STORAGE_KEY));
+        setIsSynced(false);
     }
   }, [user, isSynced]);
 
