@@ -494,7 +494,14 @@ export const getRandomAnime = async (): Promise<Anime | null> => {
     const randomAnimeData = await fetchAniListData(randomAnimeQuery, { page: randomPage });
     
     if (randomAnimeData.Page && randomAnimeData.Page.media && randomAnimeData.Page.media.length > 0) {
-        return mapToAnime(randomAnimeData.Page.media[0]);
+        const animeData = randomAnimeData.Page.media[0];
+        const anime = mapToAnime(animeData);
+
+        // Manually cache the result so getAnimeDetails on the next page is instant
+        const cacheKey = `anime_details_${anime.anilistId}`;
+        await db.set(cacheKey, anime, ANIME_DETAILS_CACHE_DURATION);
+
+        return anime;
     }
 
     return null;

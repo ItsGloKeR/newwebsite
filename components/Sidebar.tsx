@@ -20,23 +20,24 @@ const LogoutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => void;
+  onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continue-watching' }, title: string) => void;
   onHomeClick: () => void;
   onScheduleClick: () => void;
   onLoginClick: () => void;
   onProfileClick: () => void;
   onRandomAnime: () => void;
+  isRandomLoading?: boolean;
   allGenres: string[];
   isHome: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeClick, onScheduleClick, onLoginClick, onProfileClick, onRandomAnime, allGenres, isHome }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeClick, onScheduleClick, onLoginClick, onProfileClick, onRandomAnime, isRandomLoading, allGenres, isHome }) => {
   const [isGenresOpen, setIsGenresOpen] = useState(false);
   const [isTypesOpen, setIsTypesOpen] = useState(false);
   const { user } = useAuth();
   const { titleLanguage, setTitleLanguage } = useTitleLanguage();
 
-  const handleLinkClick = (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => {
+  const handleLinkClick = (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continue-watching' }, title: string) => {
     onNavigate(filters, title);
     onClose();
   };
@@ -52,14 +53,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
   };
   
   const handleRandomClick = () => {
+    if (isRandomLoading) return;
     onRandomAnime();
     onClose();
   };
 
-  const NavItem: React.FC<{ icon: React.ReactNode, label: string, onClick: () => void, isActive?: boolean }> = ({ icon, label, onClick, isActive }) => (
+  const NavItem: React.FC<{ icon: React.ReactNode, label: string, onClick: () => void, isActive?: boolean, disabled?: boolean }> = ({ icon, label, onClick, isActive, disabled }) => (
     <li>
-      <button onClick={onClick} className={`w-full flex items-center gap-4 p-3 rounded-lg text-left transition-colors ${isActive ? 'bg-cyan-500/20 text-cyan-300' : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'}`}>
-        {icon}
+      <button 
+        onClick={onClick} 
+        disabled={disabled}
+        className={`w-full flex items-center gap-4 p-3 rounded-lg text-left transition-colors ${isActive ? 'bg-cyan-500/20 text-cyan-300' : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'} disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        {disabled ? <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-cyan-400"></div> : icon}
         <span className="font-semibold">{label}</span>
       </button>
     </li>
@@ -99,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
             <NavItem icon={<HomeIcon />} label="Home" onClick={handleHomeClick} isActive={isHome} />
             <NavItem icon={<TrendingIcon />} label="Trending" onClick={() => handleLinkClick({ sort: MediaSort.TRENDING_DESC }, "Trending Anime")} />
             <NavItem icon={<ScheduleIcon />} label="Schedule" onClick={onScheduleClick} />
-            <NavItem icon={<RandomIcon />} label="Random" onClick={handleRandomClick} />
+            <NavItem icon={<RandomIcon />} label="Random" onClick={handleRandomClick} disabled={isRandomLoading} />
           </ul>
           
           <hr className="border-gray-800 my-4" />
@@ -107,7 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
           <ul className="space-y-2">
             <NavItem icon={<ListIcon />} label="My List" onClick={() => handleLinkClick({ list: 'watchlist' }, 'My Watchlist')} />
             <NavItem icon={<HeartIcon />} label="Favorites" onClick={() => handleLinkClick({ list: 'favorites' }, 'My Favorites')} />
-            <NavItem icon={<HistoryIcon />} label="Continue Watching" onClick={() => handleLinkClick({ list: 'continueWatching' }, 'Continue Watching')} />
+            <NavItem icon={<HistoryIcon />} label="Continue Watching" onClick={() => handleLinkClick({ list: 'continue-watching' }, 'Continue Watching')} />
             {user && <NavItem icon={<SettingsIcon />} label="Profile" onClick={onProfileClick} />}
           </ul>
 

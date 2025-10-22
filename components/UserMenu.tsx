@@ -15,7 +15,7 @@ interface UserMenuProps {
     user: UserProfile;
     onLogout: () => void;
     onProfileClick: () => void;
-    onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching' }, title: string) => void;
+    onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continue-watching' }, title: string) => void;
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ user, onLogout, onProfileClick, onNavigate }) => {
@@ -32,7 +32,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onLogout, onProfileClick, onN
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
     
-    const handleNavigation = (list: 'watchlist' | 'favorites' | 'continueWatching', title: string) => {
+    const handleNavigation = (list: 'watchlist' | 'favorites' | 'continue-watching', title: string) => {
         setIsOpen(false);
         onNavigate({ list }, title);
     };
@@ -65,7 +65,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onLogout, onProfileClick, onN
                     <ul>
                         <li><button onClick={() => handleNavigation('watchlist', 'My List')} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-3"><ListIcon /> My List</button></li>
                         <li><button onClick={() => handleNavigation('favorites', 'My Favorites')} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-3"><HeartIcon /> Favorites</button></li>
-                        <li><button onClick={() => handleNavigation('continueWatching', 'Continue Watching')} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-3"><HistoryIcon /> Continue Watching</button></li>
+                        <li><button onClick={() => handleNavigation('continue-watching', 'Continue Watching')} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors flex items-center gap-3"><HistoryIcon /> Continue Watching</button></li>
                     </ul>
                     <div className="border-t border-gray-700">
                         <ul>

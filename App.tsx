@@ -39,7 +39,7 @@ const ProfileModal = React.lazy(() => import('./components/ProfileModal'));
 const ReportPage = React.lazy(() => import('./components/ReportPage'));
 
 
-type View = 'home' | 'details' | 'player' | 'report';
+type View = 'home' | 'details' | 'player' | 'report' | 'schedule';
 
 const initialFilters: FilterState = {
     search: '',
@@ -164,16 +164,33 @@ const AppContent: React.FC = () => {
     const [currentYear, setCurrentYear] = useState<number | null>(null);
     const [heroBannerUrl, setHeroBannerUrl] = useState<string | null>(null);
     const [isBannerInView, setIsBannerInView] = useState(true);
-    const [isScheduleVisible, setIsScheduleVisible] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isDiscoverViewForced, setIsDiscoverViewForced] = useState(false);
     const [isFullSearchView, setIsFullSearchView] = useState(false);
     const [discoverListTitle, setDiscoverListTitle] = useState('');
+    const [isScheduleVisibleOnHome, setIsScheduleVisibleOnHome] = useState(false);
+    const [isRandomLoading, setIsRandomLoading] = useState(false);
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
     const { watchlist, favorites, reSync } = useUserData();
     const { isDataSaverActive } = useDataSaver();
+
+    const generateDiscoverUrl = useCallback((currentFilters: FilterState): string => {
+        const params = new URLSearchParams();
+        const searchTerm = currentFilters.search.trim();
+        if (searchTerm) params.set('query', searchTerm);
+        if (currentFilters.genres.length > 0) params.set('genres', currentFilters.genres.join(','));
+        if (currentFilters.year) params.set('year', currentFilters.year);
+        if (currentFilters.season) params.set('season', currentFilters.season);
+        if (currentFilters.formats.length > 0) params.set('formats', currentFilters.formats.join(','));
+        if (currentFilters.statuses.length > 0) params.set('statuses', currentFilters.statuses.join(','));
+        if (currentFilters.sort !== MediaSort.POPULARITY_DESC) params.set('sort', currentFilters.sort);
+        if (currentFilters.page > 1) params.set('page', String(currentFilters.page));
+        
+        const queryString = params.toString();
+        return `#/discover${queryString ? `?${queryString}` : ''}`;
+    }, []);
 
     useEffect(() => {
         if (user) {
@@ -218,8 +235,11 @@ const AppContent: React.FC = () => {
         setShowLanding(false);
         if (searchTerm) {
             addSearchTermToHistory(searchTerm);
-            // We set the hash, and the router will handle the state change
-            window.location.hash = `#/search?query=${encodeURIComponent(searchTerm)}`;
+            window.location.hash = generateDiscoverUrl({ ...initialFilters, search: searchTerm });
+        } else {
+            if (window.location.hash && window.location.hash !== '#/') {
+                window.location.hash = '#/';
+            }
         }
     };
     
@@ -309,6 +329,7 @@ const AppContent: React.FC = () => {
     useEffect(() => {
         const handleRouteChange = async () => {
             hideTooltip();
+            setIsScheduleVisibleOnHome(false);
             const hash = window.location.hash;
 
             const animeDetailsMatch = hash.match(/^#\/anime\/(\d+)/);
@@ -366,20 +387,93 @@ const AppContent: React.FC = () => {
             }
             
             const scheduleMatch = hash.match(/^#\/schedule/);
-            if(scheduleMatch) {
-                if (view !== 'home' || isDiscoveryView) {
-                    setFilters(initialFilters);
-                    setIsDiscoverViewForced(false);
-                    setIsFullSearchView(false);
-                    setView('home');
-                }
-                setIsScheduleVisible(true);
+            if (scheduleMatch) {
+                if (view === 'schedule') return;
+                setView('schedule');
                 window.scrollTo(0, 0);
                 return;
             }
 
+            const listMatch = hash.match(/^#\/list\/(watchlist|favorites|continue-watching)/);
+            if (listMatch) {
+                const listType = listMatch[1] as 'watchlist' | 'favorites' | 'continue-watching';
+    
+                const titleMap = {
+                    'watchlist': 'My Watchlist',
+                    'favorites': 'My Favorites',
+                    'continue-watching': 'Continue Watching'
+                };
+                const newTitle = titleMap[listType];
+    
+                if (view === 'home' && isListView && discoverListTitle === newTitle) {
+                    return;
+                }
+    
+                setDiscoverListTitle(newTitle);
+                setIsFullSearchView(false);
+                setIsDiscoverLoading(true);
+                setIsListView(true);
+                setPageInfo(null);
+                setView('home');
+                setSelectedAnime(null);
+                window.scrollTo(0, 0);
+    
+                let animeToDisplay: Anime[] = [];
+                if (listType === 'watchlist') {
+                    if (watchlist.length > 0) {
+                        animeToDisplay = await getMultipleAnimeDetails(watchlist);
+                    }
+                } else if (listType === 'favorites') {
+                    if (favorites.length > 0) {
+                        animeToDisplay = await getMultipleAnimeDetails(favorites);
+                    }
+                } else if (listType === 'continue-watching') {
+                    animeToDisplay = continueWatching;
+                }
+                
+                setSearchResults(applyOverridesToList(animeToDisplay));
+                setIsDiscoverLoading(false);
+                return;
+            }
+
+            const discoverMatch = hash.match(/^#\/discover/);
+            if (discoverMatch) {
+                const params = new URLSearchParams(hash.split('?')[1] || '');
+                const newFilters: FilterState = {
+                    search: params.get('query') || '',
+                    genres: params.get('genres')?.split(',').filter(Boolean) || [],
+                    year: params.get('year') || '',
+                    season: (params.get('season') as MediaSeason) || undefined,
+                    formats: (params.get('formats')?.split(',').filter(Boolean) as MediaFormat[]) || [],
+                    statuses: (params.get('statuses')?.split(',').filter(Boolean) as MediaStatus[]) || [],
+                    sort: (params.get('sort') as MediaSort) || MediaSort.POPULARITY_DESC,
+                    scoreRange: [0, 100], // Not in URL for now
+                    page: parseInt(params.get('page') || '1', 10),
+                };
+
+                if (!isEqual(newFilters, filters)) {
+                    setFilters(newFilters);
+                }
+                
+                setIsDiscoverViewForced(true);
+                setIsFullSearchView(true);
+                
+                if (newFilters.search) {
+                    setDiscoverListTitle(`Search results for: "${newFilters.search}"`);
+                } else {
+                    setDiscoverListTitle('Filtered Results');
+                }
+                
+                setIsListView(false);
+                setSelectedAnime(null);
+                if (view !== 'home') setView('home');
+                
+                return;
+            }
+
+
             // Default Route: Home
-            if (view !== 'home' || isDiscoveryView || isScheduleVisible) {
+            if (view !== 'home' || isDiscoveryView) {
                 setSearchTerm('');
                 setFilters(initialFilters);
                 setSearchResults([]);
@@ -390,7 +484,6 @@ const AppContent: React.FC = () => {
                 setIsDiscoverViewForced(false);
                 setIsFullSearchView(false);
                 setDiscoverListTitle('');
-                setIsScheduleVisible(false);
                 setView('home');
                 window.scrollTo(0, 0);
             }
@@ -406,7 +499,7 @@ const AppContent: React.FC = () => {
                 window.removeEventListener('hashchange', handleRouteChange);
             }
         };
-    }, [showLanding, applyOverrides]);
+    }, [showLanding, applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, filters, watchlist, favorites, continueWatching, discoverListTitle]);
 
 
     useEffect(() => {
@@ -436,10 +529,10 @@ const AppContent: React.FC = () => {
                 setIsLoading(false);
             }
         };
-        if (view === 'home' && !showLanding) {
+        if (!showLanding && (view === 'home' || view === 'schedule') && trending.length === 0) {
           fetchInitialData();
         }
-    }, [applyOverridesToList, view, showLanding]);
+    }, [applyOverridesToList, view, showLanding, trending.length]);
 
     useEffect(() => {
         setTrending(applyOverridesToList);
@@ -457,9 +550,6 @@ const AppContent: React.FC = () => {
     const debouncedFilters = useDebounce(filters, 500);
 
     useEffect(() => {
-        // This effect performs searches based on filters. It has a guard to prevent
-        // it from running when viewing a special list (watchlist, favorites, etc.)
-        // to avoid overwriting the list with search results.
         if (isListView) {
             return;
         }
@@ -506,15 +596,18 @@ const AppContent: React.FC = () => {
     }, [debouncedSuggestionsTerm]);
 
     const handleRandomAnime = async () => {
+        if (isRandomLoading) return;
         hideTooltip();
-        setIsLoading(true);
+        setIsRandomLoading(true);
         try {
             const randomAnime = await getRandomAnime();
-            if (randomAnime) handleSelectAnime(randomAnime);
+            if (randomAnime) {
+                handleSelectAnime(randomAnime);
+            }
         } catch (error) {
             console.error("Failed to get random anime:", error);
         } finally {
-            setIsLoading(false);
+            setIsRandomLoading(false);
         }
     }
     
@@ -525,11 +618,9 @@ const AppContent: React.FC = () => {
         const termToSubmit = searchTerm.trim();
         if (termToSubmit === '') return;
         addSearchTermToHistory(termToSubmit);
-        setFilters({ ...initialFilters, search: termToSubmit, page: 1 });
-        setIsListView(false);
-        setIsFullSearchView(true);
-        setIsDiscoverViewForced(true);
-        setView('home');
+        
+        window.location.hash = generateDiscoverUrl({ ...initialFilters, search: termToSubmit, page: 1 });
+
         setSearchTerm('');
         setSearchSuggestions([]);
         const activeElement = document.activeElement as HTMLElement;
@@ -539,7 +630,6 @@ const AppContent: React.FC = () => {
     const handleSuggestionClick = (anime: { anilistId: number }) => {
         hideTooltip();
         setSearchTerm(''); 
-        setFilters(initialFilters);
         setSearchSuggestions([]);
         handleSelectAnime(anime);
     };
@@ -572,9 +662,9 @@ const AppContent: React.FC = () => {
         window.history.back();
     };
     
-    const handleGoToAppHome = () => {
+    const handleGoToAppHome = useCallback(() => {
         window.location.hash = '#/';
-    };
+    }, []);
 
     const handleScheduleClick = () => {
         hideTooltip();
@@ -589,26 +679,30 @@ const AppContent: React.FC = () => {
     
     const handleOpenDiscoverView = () => {
         hideTooltip();
-        setFilters(prev => ({ ...prev, search: '', page: 1 }));
-        setIsListView(false);
-        setIsFullSearchView(true);
-        setIsDiscoverViewForced(true);
-        setView('home');
-        window.scrollTo(0, 0);
+        window.location.hash = generateDiscoverUrl({ ...filters, search: '', page: 1 });
     };
 
-    const handleViewMore = async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continueWatching', animeList?: (RelatedAnime | RecommendedAnime)[] }, title: string) => {
+    const handleViewMore = useCallback(async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continue-watching', animeList?: (RelatedAnime | RecommendedAnime)[] }, title: string) => {
         hideTooltip();
-        setDiscoverListTitle(title);
-        setIsFullSearchView(false);
-
+    
+        if (partialFilters.list) {
+            window.location.hash = `#/list/${partialFilters.list}`;
+            return;
+        }
+        
         if (partialFilters.animeList) {
+            setDiscoverListTitle(title);
+            if (window.location.hash.startsWith('#/discover')) {
+                window.history.pushState(null, '', '#/');
+            }
+            
+            setIsFullSearchView(false);
             setIsDiscoverLoading(true);
             setIsListView(true);
             setPageInfo(null);
             setView('home');
             window.scrollTo(0, 0);
-
+    
             const animeListAsAnime: Anime[] = partialFilters.animeList.map((item: any) => ({
                 anilistId: item.id,
                 englishTitle: item.englishTitle,
@@ -623,50 +717,24 @@ const AppContent: React.FC = () => {
             }));
             setSearchResults(applyOverridesToList(animeListAsAnime));
             setIsDiscoverLoading(false);
-        } else if (partialFilters.list) {
-            setIsDiscoverLoading(true);
-            // By setting isListView to true, we prevent the main search useEffect from firing
-            // and overwriting our list data. This is the key to fixing the navigation bug.
-            setIsListView(true); 
-            setPageInfo(null);
-            setView('home');
-            window.scrollTo(0, 0);
-
-            if (partialFilters.list === 'continueWatching') {
-                setSearchResults(continueWatching);
-            } else {
-                 const ids = partialFilters.list === 'watchlist' ? watchlist : favorites;
-                if (ids.length > 0) {
-                    const results = await getMultipleAnimeDetails(ids);
-                    setSearchResults(applyOverridesToList(results));
-                } else {
-                    setSearchResults([]);
-                }
-            }
-            setIsDiscoverLoading(false);
         } else {
-            setSearchTerm('');
-            setFilters({ ...initialFilters, ...partialFilters, page: 1 });
-            setIsListView(false);
-            setIsDiscoverViewForced(true);
-            setIsFullSearchView(false);
-            setView('home');
-            window.scrollTo(0, 0);
+            const newFilters = { ...initialFilters, ...partialFilters, page: 1 };
+            window.location.hash = generateDiscoverUrl(newFilters);
         }
-    };
+    }, [applyOverridesToList, generateDiscoverUrl]);
+
 
     const handleFilterBarChange = (newFilters: FilterState) => {
-        if (!isFullSearchView) setIsFullSearchView(true);
-        // Reset page to 1 on any filter change except pagination itself
         const hasFilterChanged = !isEqual(
             { ...filters, page: 1 }, 
             { ...newFilters, page: 1 }
         );
-        setFilters(hasFilterChanged ? { ...newFilters, page: 1 } : newFilters);
+        const finalFilters = hasFilterChanged ? { ...newFilters, page: 1 } : newFilters;
+        window.location.hash = generateDiscoverUrl(finalFilters);
     };
 
     const handlePageChange = (newPage: number) => {
-        setFilters(prev => ({ ...prev, page: newPage }));
+        window.location.hash = generateDiscoverUrl({ ...filters, page: newPage });
         window.scrollTo(0, 0);
     };
 
@@ -707,15 +775,13 @@ const AppContent: React.FC = () => {
 
     const renderHomePage = () => {
         if (isDiscoveryView) {
-            let title = '';
-            if (showFilterBar) {
+            let title = discoverListTitle;
+            if (isFullSearchView) {
                 if(filters.search) {
                     title = `Search results for: "${filters.search}"`;
                 } else {
                     title = 'Filtered Results';
                 }
-            } else {
-                title = discoverListTitle;
             }
             if (isListView) { // watchlist/favorites are special cases of list view
                 title = discoverListTitle;
@@ -728,7 +794,7 @@ const AppContent: React.FC = () => {
                             filters={filters}
                             onFiltersChange={handleFilterBarChange}
                             allGenres={allGenres}
-                            onReset={() => setFilters(initialFilters)}
+                            onReset={() => { setFilters(initialFilters); window.location.hash = '#/'; }}
                         />
                     )}
                     <AnimeGrid
@@ -746,6 +812,20 @@ const AppContent: React.FC = () => {
                             onPageChange={handlePageChange}
                         />
                     )}
+                </main>
+            );
+        }
+
+        if (isScheduleVisibleOnHome) {
+            return (
+                 <main className="container mx-auto max-w-screen-2xl p-4 md:p-8">
+                    <Suspense fallback={<FullPageSpinner />}>
+                        <SchedulePage 
+                            schedule={scheduleList}
+                            onSelectAnime={handleSelectAnime} 
+                            onClose={() => setIsScheduleVisibleOnHome(false)} 
+                        />
+                    </Suspense>
                 </main>
             );
         }
@@ -841,21 +921,11 @@ const AppContent: React.FC = () => {
                     </div>
                                         
                     <div className="mt-16">
-                        {isScheduleVisible ? (
-                            <Suspense fallback={<FullPageSpinner />}>
-                                <SchedulePage 
-                                    schedule={scheduleList}
-                                    onSelectAnime={handleSelectAnime} 
-                                    onClose={() => setIsScheduleVisible(false)}
-                                />
-                            </Suspense>
-                        ) : (
-                            <SchedulePreview 
-                                schedule={scheduleList}
-                                onSelectAnime={handleSelectAnime}
-                                onShowMore={() => window.location.hash = '#/schedule'}
-                            />
-                        )}
+                        <SchedulePreview 
+                            schedule={scheduleList}
+                            onSelectAnime={handleSelectAnime}
+                            onShowMore={() => setIsScheduleVisibleOnHome(true)}
+                        />
                     </div>
                 </div>
             </main>
@@ -872,6 +942,19 @@ const AppContent: React.FC = () => {
                   </Suspense>
                 );
                 break;
+            case 'schedule':
+                content = (
+                    <main className="container mx-auto max-w-screen-2xl p-4 md:p-8">
+                        <Suspense fallback={<FullPageSpinner />}>
+                            <SchedulePage 
+                                schedule={scheduleList}
+                                onSelectAnime={handleSelectAnime} 
+                                onClose={() => { window.location.hash = '#/'; }} 
+                            />
+                        </Suspense>
+                    </main>
+                );
+                break;
             case 'player':
                 content = !playerState.anime ? (
                     <FullPageSpinner />
@@ -882,7 +965,11 @@ const AppContent: React.FC = () => {
                         currentEpisode={playerState.episode}
                         currentSource={playerState.source}
                         currentLanguage={playerState.language}
-                        onEpisodeChange={(ep) => setPlayerState(prev => ({...prev, episode: ep}))}
+                        onEpisodeChange={(ep) => {
+                            if (playerState.anime) {
+                                window.location.hash = `#/watch/${playerState.anime.anilistId}/${ep}`;
+                            }
+                        }}
                         onSourceChange={handleSourceChange}
                         onLanguageChange={handleLanguageChange}
                         onBack={handleBackToDetails}
@@ -948,6 +1035,7 @@ const AppContent: React.FC = () => {
                         onMenuClick={() => setIsSidebarOpen(true)} 
                         onFilterClick={handleOpenDiscoverView}
                         onRandomAnime={handleRandomAnime}
+                        isRandomLoading={isRandomLoading}
                         onLoginClick={handleLoginClick} 
                         onSearchSubmit={handleSearchSubmit}
                         searchTerm={searchTerm} 
@@ -969,6 +1057,7 @@ const AppContent: React.FC = () => {
                         allGenres={allGenres}
                         isHome={view === 'home' && !isDiscoveryView}
                         onRandomAnime={handleRandomAnime}
+                        isRandomLoading={isRandomLoading}
                     />
                     {renderContent()}
                     <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />
