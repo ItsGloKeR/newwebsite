@@ -10,7 +10,7 @@ interface ProfileModalProps {
 }
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { user, firebaseUser } = useAuth();
+    const { user, firebaseUser, reloadUser } = useAuth();
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(user?.photoURL || null);
@@ -20,11 +20,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     useFocusTrap(modalRef, isOpen);
 
     useEffect(() => {
-        if (user) {
+        if (isOpen && user) {
             setDisplayName(user.displayName || '');
             setPreview(user.photoURL || null);
+            setAvatarFile(null); // Reset file on open
+            setError('');
         }
-    }, [user]);
+    }, [isOpen, user]);
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -52,6 +54,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             }
             
             await updateUserProfileAndAuth(firebaseUser, displayName, newAvatarUrl);
+            await reloadUser();
             onClose();
 
         } catch (err) {
