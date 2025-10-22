@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
@@ -39,7 +39,7 @@ const ProfileModal = React.lazy(() => import('./components/ProfileModal'));
 const ReportPage = React.lazy(() => import('./components/ReportPage'));
 
 
-type View = 'home' | 'details' | 'player' | 'report' | 'schedule';
+type View = 'home' | 'details' | 'player' | 'report' | 'schedule' | 'landing';
 
 const initialFilters: FilterState = {
     search: '',
@@ -127,8 +127,7 @@ const FullPageSpinner: React.FC = () => (
 
 const AppContent: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
-    const [showLanding, setShowLanding] = useState(true);
-    const [view, setView] = useState<View>('home');
+    const [view, setView] = useState<View>('landing');
     const [trending, setTrending] = useState<Anime[]>([]);
     const [popular, setPopular] = useState<Anime[]>([]);
     const [topAiring, setTopAiring] = useState<Anime[]>([]);
@@ -170,6 +169,7 @@ const AppContent: React.FC = () => {
     const [discoverListTitle, setDiscoverListTitle] = useState('');
     const [isScheduleVisibleOnHome, setIsScheduleVisibleOnHome] = useState(false);
     const [isRandomLoading, setIsRandomLoading] = useState(false);
+    const schedulePreviewRef = useRef<HTMLDivElement>(null);
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
@@ -217,12 +217,6 @@ const AppContent: React.FC = () => {
     const showFilterBar = isDiscoveryView && isFullSearchView;
 
     useEffect(() => {
-        if (sessionStorage.getItem('hasVisitedAniGloK') === 'true') {
-            setShowLanding(false);
-        }
-    }, []);
-
-    useEffect(() => {
         if (isSidebarOpen) {
             document.body.classList.add('sidebar-open');
         } else {
@@ -232,19 +226,16 @@ const AppContent: React.FC = () => {
 
     const handleEnterApp = (searchTerm?: string) => {
         sessionStorage.setItem('hasVisitedAniGloK', 'true');
-        setShowLanding(false);
         if (searchTerm) {
             addSearchTermToHistory(searchTerm);
             window.location.hash = generateDiscoverUrl({ ...initialFilters, search: searchTerm });
         } else {
-            if (window.location.hash && window.location.hash !== '#/') {
-                window.location.hash = '#/';
-            }
+            window.location.hash = '#/';
         }
     };
     
     const handleGoToLanding = () => {
-        setShowLanding(true);
+        window.location.hash = '#/landing';
     };
 
     const applyOverrides = useCallback((anime: Anime): Anime => {
@@ -288,18 +279,6 @@ const AppContent: React.FC = () => {
         });
     };
 
-    useEffect(() => {
-        progressTracker.init();
-        const handleProgressUpdate = () => {
-            if (!showLanding) {
-                loadContinueWatching();
-            }
-        };
-        window.addEventListener('progressUpdated', handleProgressUpdate);
-        return () => window.removeEventListener('progressUpdated', handleProgressUpdate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showLanding]);
-
     const loadContinueWatching = useCallback(async () => {
         const progressData = progressTracker.getAllMediaData();
         const inProgress = Object.values(progressData)
@@ -319,10 +298,21 @@ const AppContent: React.FC = () => {
     }, [applyOverridesToList]);
 
     useEffect(() => {
-        if (!showLanding) {
+        progressTracker.init();
+        const handleProgressUpdate = () => {
+            if (view !== 'landing') {
+                loadContinueWatching();
+            }
+        };
+        window.addEventListener('progressUpdated', handleProgressUpdate);
+        return () => window.removeEventListener('progressUpdated', handleProgressUpdate);
+    }, [view, loadContinueWatching]);
+
+    useEffect(() => {
+        if (view !== 'landing') {
           loadContinueWatching();
         }
-    }, [showLanding, loadContinueWatching]);
+    }, [view, loadContinueWatching]);
 
 
     // URL Hash Routing
@@ -331,6 +321,16 @@ const AppContent: React.FC = () => {
             hideTooltip();
             setIsScheduleVisibleOnHome(false);
             const hash = window.location.hash;
+
+            if (hash === '#/landing') {
+                if(view !== 'landing') setView('landing');
+                return;
+            }
+
+            if (!sessionStorage.getItem('hasVisitedAniGloK') && !/#\/(anime|watch|report|schedule|list|discover)/.test(hash)) {
+                window.location.hash = '#/landing';
+                return;
+            }
 
             const animeDetailsMatch = hash.match(/^#\/anime\/(\d+)/);
             if (animeDetailsMatch) {
@@ -473,6 +473,10 @@ const AppContent: React.FC = () => {
 
 
             // Default Route: Home
+            if ((hash === '' || hash === '#/') && !sessionStorage.getItem('hasVisitedAniGloK')) {
+                window.location.hash = '#/landing';
+                return;
+            }
             if (view !== 'home' || isDiscoveryView) {
                 setSearchTerm('');
                 setFilters(initialFilters);
@@ -489,17 +493,13 @@ const AppContent: React.FC = () => {
             }
         };
 
-        if (!showLanding) {
-            window.addEventListener('hashchange', handleRouteChange);
-            handleRouteChange(); // Handle initial route
-        }
+        window.addEventListener('hashchange', handleRouteChange);
+        handleRouteChange(); // Handle initial route
 
         return () => {
-            if (!showLanding) {
-                window.removeEventListener('hashchange', handleRouteChange);
-            }
+            window.removeEventListener('hashchange', handleRouteChange);
         };
-    }, [showLanding, applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, filters, watchlist, favorites, continueWatching, discoverListTitle]);
+    }, [applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, filters, watchlist, favorites, continueWatching, discoverListTitle, generateDiscoverUrl, applyOverridesToList]);
 
 
     useEffect(() => {
@@ -529,10 +529,10 @@ const AppContent: React.FC = () => {
                 setIsLoading(false);
             }
         };
-        if (!showLanding && (view === 'home' || view === 'schedule') && trending.length === 0) {
+        if (view !== 'landing' && (view === 'home' || view === 'schedule') && trending.length === 0) {
           fetchInitialData();
         }
-    }, [applyOverridesToList, view, showLanding, trending.length]);
+    }, [applyOverridesToList, view, trending.length]);
 
     useEffect(() => {
         setTrending(applyOverridesToList);
@@ -738,6 +738,22 @@ const AppContent: React.FC = () => {
         window.scrollTo(0, 0);
     };
 
+    const handleCloseScheduleOnHome = () => {
+        setIsScheduleVisibleOnHome(false);
+        requestAnimationFrame(() => {
+            if (schedulePreviewRef.current) {
+                const headerOffset = 100; // approx height of header
+                const elementPosition = schedulePreviewRef.current.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'auto'
+                });
+            }
+        });
+    };
+
     const latestEpisodesAsAnime = useMemo(() => latestEpisodes.map(schedule => ({
         anilistId: schedule.media.id,
         englishTitle: schedule.media.title.english || schedule.media.title.romaji,
@@ -823,7 +839,7 @@ const AppContent: React.FC = () => {
                         <SchedulePage 
                             schedule={scheduleList}
                             onSelectAnime={handleSelectAnime} 
-                            onClose={() => setIsScheduleVisibleOnHome(false)} 
+                            onClose={handleCloseScheduleOnHome} 
                         />
                     </Suspense>
                 </main>
@@ -920,7 +936,7 @@ const AppContent: React.FC = () => {
                         </div>
                     </div>
                                         
-                    <div className="mt-16">
+                    <div className="mt-16" ref={schedulePreviewRef}>
                         <SchedulePreview 
                             schedule={scheduleList}
                             onSelectAnime={handleSelectAnime}
@@ -935,6 +951,13 @@ const AppContent: React.FC = () => {
     const renderContent = () => {
         let content;
         switch(view) {
+            case 'landing':
+                content = (
+                  <Suspense fallback={<LandingPageSkeleton />}>
+                    <LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} />
+                  </Suspense>
+                );
+                break;
             case 'report':
                 content = (
                   <Suspense fallback={<FullPageSpinner />}>
@@ -1011,14 +1034,6 @@ const AppContent: React.FC = () => {
         }
         return <div key={view} className="animate-page-fade-in">{content}</div>;
     };
-    
-    if (showLanding) {
-        return (
-            <Suspense fallback={<LandingPageSkeleton />}>
-                <LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} />
-            </Suspense>
-        );
-    }
 
     return (
         <div className="bg-gray-950 min-h-screen">
@@ -1028,40 +1043,44 @@ const AppContent: React.FC = () => {
             
             <div className="relative z-10">
                  <TooltipProvider onDetails={handleSelectAnime} onWatchNow={handleWatchNow}>
-                    <Header 
-                        onSearch={handleSearchInputChange} 
-                        onHomeClick={handleGoToAppHome}
-                        onLogoClick={handleGoToAppHome}
-                        onMenuClick={() => setIsSidebarOpen(true)} 
-                        onFilterClick={handleOpenDiscoverView}
-                        onRandomAnime={handleRandomAnime}
-                        isRandomLoading={isRandomLoading}
-                        onLoginClick={handleLoginClick} 
-                        onSearchSubmit={handleSearchSubmit}
-                        searchTerm={searchTerm} 
-                        suggestions={searchSuggestions}
-                        onSuggestionClick={handleSuggestionClick}
-                        isSuggestionsLoading={isSuggestionsLoading}
-                        onNavigate={handleViewMore}
-                        isBannerInView={isBannerInView}
-                        onProfileClick={() => setIsProfileModalOpen(true)}
-                    />
-                    <Sidebar 
-                        isOpen={isSidebarOpen}
-                        onClose={() => setIsSidebarOpen(false)}
-                        onNavigate={handleViewMore}
-                        onHomeClick={handleGoToAppHome}
-                        onScheduleClick={handleScheduleClick}
-                        onLoginClick={() => { handleLoginClick(); setIsSidebarOpen(false); }}
-                        onProfileClick={() => { setIsProfileModalOpen(true); setIsSidebarOpen(false); }}
-                        allGenres={allGenres}
-                        isHome={view === 'home' && !isDiscoveryView}
-                        onRandomAnime={handleRandomAnime}
-                        isRandomLoading={isRandomLoading}
-                    />
+                    {view !== 'landing' && (
+                        <Header 
+                            onSearch={handleSearchInputChange} 
+                            onHomeClick={handleGoToAppHome}
+                            onLogoClick={handleGoToAppHome}
+                            onMenuClick={() => setIsSidebarOpen(true)} 
+                            onFilterClick={handleOpenDiscoverView}
+                            onRandomAnime={handleRandomAnime}
+                            isRandomLoading={isRandomLoading}
+                            onLoginClick={handleLoginClick} 
+                            onSearchSubmit={handleSearchSubmit}
+                            searchTerm={searchTerm} 
+                            suggestions={searchSuggestions}
+                            onSuggestionClick={handleSuggestionClick}
+                            isSuggestionsLoading={isSuggestionsLoading}
+                            onNavigate={handleViewMore}
+                            isBannerInView={isBannerInView}
+                            onProfileClick={() => setIsProfileModalOpen(true)}
+                        />
+                    )}
+                    {view !== 'landing' && (
+                        <Sidebar 
+                            isOpen={isSidebarOpen}
+                            onClose={() => setIsSidebarOpen(false)}
+                            onNavigate={handleViewMore}
+                            onHomeClick={handleGoToAppHome}
+                            onScheduleClick={handleScheduleClick}
+                            onLoginClick={() => { handleLoginClick(); setIsSidebarOpen(false); }}
+                            onProfileClick={() => { setIsProfileModalOpen(true); setIsSidebarOpen(false); }}
+                            allGenres={allGenres}
+                            isHome={view === 'home' && !isDiscoveryView}
+                            onRandomAnime={handleRandomAnime}
+                            isRandomLoading={isRandomLoading}
+                        />
+                    )}
                     {renderContent()}
-                    <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />
-                    <BackToTopButton />
+                    {view !== 'landing' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />}
+                    {view !== 'landing' && <BackToTopButton />}
 
                     <Suspense fallback={null}>
                         {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
