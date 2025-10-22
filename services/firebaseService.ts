@@ -108,7 +108,8 @@ export const updateUserData = async (uid: string, data: Partial<UserProfile>): P
     if (!db) return;
     const userRef = doc(db, 'users', uid);
     try {
-        await updateDoc(userRef, data);
+        // Use setDoc with merge to create the document if it doesn't exist, or update it if it does.
+        await setDoc(userRef, data, { merge: true });
     } catch (error) {
         console.error("Error updating user data", error);
     }
@@ -134,24 +135,26 @@ export const syncProgressOnLogin = async (uid: string): Promise<void> => {
 
     try {
         const userDoc = await getDoc(userRef);
-        const remoteProgress = (userDoc.exists() ? userDoc.data()?.progress : {}) as MediaProgress;
+        const remoteProgress = (userDoc.exists() ? userDoc.data()?.progress : {}) || {};
 
         if (localProgressExists) {
             // If local (guest) data exists, merge it with remote data.
             // Local data takes precedence, overwriting remote for any conflicting entries.
             const mergedProgress = { ...remoteProgress, ...localProgress };
 
-            // Update Firestore with the definitive merged data.
-            await setDoc(userRef, { progress: mergedProgress }, { merge: true });
+            // Only write to Firestore if the merged data is different from remote data
+            if (JSON.stringify(mergedProgress) !== JSON.stringify(remoteProgress)) {
+                await setDoc(userRef, { progress: mergedProgress }, { merge: true });
+            }
 
-            // Update the in-memory tracker.
+            // Update the in-memory tracker with the definitive merged data.
             progressTracker.replaceAllProgress(mergedProgress);
 
             // Once synced, clear the local storage for guest progress.
             localStorage.removeItem('vidLinkProgress');
         } else {
             // No local data, so just load the remote data into the tracker.
-            progressTracker.replaceAllProgress(remoteProgress);
+            progressTracker.replaceAllProgress(remoteProgress as MediaProgress);
         }
     } catch(error) {
         console.error("Error syncing progress on login", error);

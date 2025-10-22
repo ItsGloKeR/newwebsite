@@ -36,39 +36,50 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
         const localWatchlist = getFromStorage(WATCHLIST_STORAGE_KEY);
         const localFavorites = getFromStorage(FAVORITES_STORAGE_KEY);
         
-        const userData = await getUserData(user.uid);
-        const firestoreWatchlist = userData?.watchlist || [];
-        const firestoreFavorites = userData?.favorites || [];
-
-        // If guest data exists, merge it with Firestore data. Otherwise, just load from Firestore.
-        if (localWatchlist.length > 0 || localFavorites.length > 0) {
-            // Use a Set to merge and remove duplicates.
-            const mergedWatchlist = [...new Set([...firestoreWatchlist, ...localWatchlist])];
-            const mergedFavorites = [...new Set([...firestoreFavorites, ...localFavorites])];
+        try {
+            const userData = await getUserData(user.uid);
             
-            setWatchlist(mergedWatchlist);
-            setFavorites(mergedFavorites);
+            const firestoreWatchlist = userData?.watchlist || [];
+            const firestoreFavorites = userData?.favorites || [];
 
-            // Save the merged data back to Firestore.
-            await updateUserData(user.uid, { watchlist: mergedWatchlist, favorites: mergedFavorites });
+            // Determine if there is local data to merge
+            const hasLocalDataToMerge = localWatchlist.length > 0 || localFavorites.length > 0;
 
-            // Clear local storage after successful merge to prevent re-merging.
-            localStorage.removeItem(WATCHLIST_STORAGE_KEY);
-            localStorage.removeItem(FAVORITES_STORAGE_KEY);
-        } else {
-            // No local (guest) data, so just load the user's data from Firestore.
-            setWatchlist(firestoreWatchlist);
-            setFavorites(firestoreFavorites);
+            if (hasLocalDataToMerge) {
+                const mergedWatchlist = Array.from(new Set([...firestoreWatchlist, ...localWatchlist]));
+                const mergedFavorites = Array.from(new Set([...firestoreFavorites, ...localFavorites]));
+                
+                // Update state immediately for responsiveness
+                setWatchlist(mergedWatchlist);
+                setFavorites(mergedFavorites);
+                
+                // Persist merged data to Firestore
+                await updateUserData(user.uid, { watchlist: mergedWatchlist, favorites: mergedFavorites });
+                
+                // Clear local data after successful sync
+                localStorage.removeItem(WATCHLIST_STORAGE_KEY);
+                localStorage.removeItem(FAVORITES_STORAGE_KEY);
+            } else {
+                // No local data, just load from Firestore
+                setWatchlist(firestoreWatchlist);
+                setFavorites(firestoreFavorites);
+            }
+        } catch (error) {
+            console.error("Error during user data sync, falling back to local data if available.", error);
+            // If sync fails, we can choose to keep the local data in state
+            setWatchlist(localWatchlist);
+            setFavorites(localFavorites);
+        } finally {
+            setIsSynced(true);
         }
-        
-        setIsSynced(true);
     } else if (!user) {
         // When user logs out, revert to local storage and reset sync status.
         setWatchlist(getFromStorage(WATCHLIST_STORAGE_KEY));
         setFavorites(getFromStorage(FAVORITES_STORAGE_KEY));
         setIsSynced(false);
     }
-  }, [user, isSynced]);
+}, [user, isSynced]);
+
 
   useEffect(() => {
     syncData();
