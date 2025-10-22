@@ -1,6 +1,7 @@
 // components/UserMenu.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile } from '../types';
+import { DEFAULT_AVATAR_URL } from '../constants';
 
 interface UserMenuProps {
     user: UserProfile;
@@ -36,9 +37,9 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onLogout, onProfileClick }) =
         <div className="relative" ref={menuRef}>
             <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2">
                 <img 
-                    src={user.photoURL || `https://api.dicebear.com/8.x/initials/svg?seed=${user.displayName || user.email}`} 
+                    src={user.photoURL || DEFAULT_AVATAR_URL} 
                     alt="User Avatar"
-                    className="w-8 h-8 rounded-full border-2 border-gray-600 hover:border-cyan-400 transition-colors"
+                    className="w-8 h-8 rounded-full border-2 border-gray-600 hover:border-cyan-400 transition-colors object-cover"
                 />
                 <span className="hidden lg:inline font-semibold text-sm text-white">{user.displayName || 'User'}</span>
             </button>

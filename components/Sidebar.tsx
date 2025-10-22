@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MediaSort, FilterState, MediaFormat, MediaStatus } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { logout } from '../services/firebaseService';
+import { DEFAULT_AVATAR_URL } from '../constants';
 
 // Icons
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -155,7 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onNavigate, onHomeCl
         <div className="p-4 border-t border-gray-800">
           {user ? (
             <div className="flex items-center gap-3">
-              <img src={user.photoURL || `https://api.dicebear.com/8.x/initials/svg?seed=${user.displayName || user.email}`} alt="User Avatar" className="w-10 h-10 rounded-full object-cover" />
+              <img src={user.photoURL || DEFAULT_AVATAR_URL} alt="User Avatar" className="w-10 h-10 rounded-full object-cover" />
               <div className="overflow-hidden">
                 <p className="font-semibold text-white truncate">{user.displayName || 'User'}</p>
                 <p className="text-xs text-gray-400 truncate">{user.email}</p>

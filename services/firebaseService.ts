@@ -157,10 +157,22 @@ export const syncProgressOnLogin = async (uid: string): Promise<void> => {
 
 export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: string, photoURL?: string): Promise<void> => {
     if (!auth?.currentUser || !db) return;
+
+    const isDisplayNameChanged = displayName !== user.displayName;
+    const isPhotoURLChanged = photoURL !== undefined && photoURL !== user.photoURL;
+
+    if (!isDisplayNameChanged && !isPhotoURLChanged) {
+        return; // No changes to apply
+    }
+    
     try {
         const profileUpdates: { displayName?: string; photoURL?: string } = {};
-        if (displayName) profileUpdates.displayName = displayName;
-        if (photoURL) profileUpdates.photoURL = photoURL;
+        if (isDisplayNameChanged) {
+            profileUpdates.displayName = displayName;
+        }
+        if (isPhotoURLChanged) {
+            profileUpdates.photoURL = photoURL;
+        }
         
         // Update Firebase Auth profile
         await updateProfile(user, profileUpdates);
@@ -168,11 +180,13 @@ export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: 
         // Update Firestore profile document
         const userRef = doc(db, 'users', user.uid);
         await updateDoc(userRef, profileUpdates);
+
     } catch(error) {
         console.error("Error updating user profile", error);
         throw error;
     }
 };
+
 
 // STORAGE FUNCTIONS
 export const uploadAvatar = async (userId: string, file: File): Promise<string | null> => {

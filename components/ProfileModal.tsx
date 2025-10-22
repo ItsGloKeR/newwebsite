@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { uploadAvatar, updateUserProfileAndAuth } from '../services/firebaseService';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { DEFAULT_AVATAR_URL } from '../constants';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -46,21 +47,24 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             let newAvatarUrl: string | undefined = undefined;
             if (avatarFile) {
                 const uploadedUrl = await uploadAvatar(firebaseUser.uid, avatarFile);
-                if (uploadedUrl) {
-                    newAvatarUrl = uploadedUrl;
-                } else {
+                if (!uploadedUrl) {
                     throw new Error("Avatar upload failed.");
                 }
+                newAvatarUrl = uploadedUrl;
             }
             
             await updateUserProfileAndAuth(firebaseUser, displayName, newAvatarUrl);
-            await reloadUser();
+            
+            // Success: close modal immediately for better UX
+            setLoading(false);
             onClose();
 
-        } catch (err) {
-            setError('Failed to update profile. Please try again.');
+            // Reload user data in the background to update UI across the app
+            reloadUser();
+
+        } catch (err: any) {
+            setError(err.message || 'Failed to update profile. Please try again.');
             console.error(err);
-        } finally {
             setLoading(false);
         }
     };
@@ -78,7 +82,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="flex flex-col items-center mb-6">
                         <img 
-                            src={preview || `https://api.dicebear.com/8.x/initials/svg?seed=${displayName || user.email}`} 
+                            src={preview || DEFAULT_AVATAR_URL} 
                             alt="Avatar Preview"
                             className="w-24 h-24 rounded-full object-cover mb-4 border-2 border-gray-700"
                         />

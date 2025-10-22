@@ -17,6 +17,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     const [isLoginView, setIsLoginView] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const modalRef = useRef<HTMLDivElement>(null);
@@ -39,22 +40,41 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         e.preventDefault();
         setLoading(true);
         setError('');
-        let user = null;
-        if (isLoginView) {
-            user = await signInWithEmail(email, password);
-            if (!user) setError('Invalid email or password.');
-        } else {
-            user = await signUpWithEmail(email, password);
-            if (user) {
-                await createUserProfileDocument(user);
-            } else {
-                setError('Failed to create account. Email may be in use.');
+
+        if (!isLoginView) {
+            if (password.length < 6) {
+                setError('Password must be at least 6 characters long.');
+                setLoading(false);
+                return;
+            }
+            if (password !== confirmPassword) {
+                setError('Passwords do not match.');
+                setLoading(false);
+                return;
             }
         }
-        if (user) {
-            onClose();
+        
+        let user = null;
+        try {
+            if (isLoginView) {
+                user = await signInWithEmail(email, password);
+                if (!user) setError('Invalid email or password.');
+            } else {
+                user = await signUpWithEmail(email, password);
+                if (user) {
+                    await createUserProfileDocument(user);
+                } else {
+                    setError('Failed to create account. Email may be in use.');
+                }
+            }
+            if (user) {
+                onClose();
+            }
+        } catch (err: any) {
+            setError(err.message || 'An unexpected error occurred.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     if (!isOpen) return null;
@@ -72,11 +92,17 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                         <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="email">Email</label>
                         <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
                     </div>
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="password">Password</label>
                         <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
                     </div>
-                    {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                    {!isLoginView && (
+                        <div className="mb-6">
+                            <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="confirmPassword">Confirm Password</label>
+                            <input id="confirmPassword" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
+                        </div>
+                    )}
+                    {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
                     <button type="submit" disabled={loading} className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:bg-gray-600">
                         {loading ? 'Processing...' : (isLoginView ? 'Login' : 'Create Account')}
                     </button>
