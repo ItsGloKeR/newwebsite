@@ -540,6 +540,15 @@ const AppContent: React.FC = () => {
     const debouncedFilters = useDebounce(filters, 500);
 
     useEffect(() => {
+        if (isListView) {
+            // For special list views (watchlist, favorites, etc.), data is loaded directly
+            // into searchResults by `handleViewMore`. We should not trigger a `discoverAnime`
+            // call which would overwrite it. These lists are also not paginated via the API,
+            // so we clear any existing page info.
+            setPageInfo(null);
+            return;
+        }
+
         if (!isDiscoveryView) {
             setSearchResults([]);
             setPageInfo(null);
@@ -560,7 +569,7 @@ const AppContent: React.FC = () => {
             }
         };
         performSearch();
-    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress]);
+    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, enrichAnimeWithProgress, isListView]);
     
     useEffect(() => {
         if (debouncedSuggestionsTerm.trim() === '') {
