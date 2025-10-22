@@ -42,7 +42,7 @@ const LandingPageSkeleton: React.FC = () => {
                         <SkeletonElement className="h-10 w-1/2 mx-auto mb-4" />
                         <SkeletonElement className="h-6 w-3/4 mx-auto" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
                         {Array.from({ length: 6 }).map((_, i) => (
                             <div key={i} className="bg-gray-900/50 p-8 rounded-lg">
                                 <SkeletonElement className="h-20 w-20 mx-auto mb-6 rounded-full" />

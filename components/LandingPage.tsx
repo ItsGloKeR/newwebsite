@@ -39,12 +39,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const [typedText, setTypedText] = useState('');
     const [isTyping, setIsTyping] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkScreenSize = () => setIsMobile(window.innerWidth < 768);
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+        return () => window.removeEventListener('resize', checkScreenSize);
+    }, []);
 
     const fullText = "The Ultimate Anime Streaming Destination.";
 
     useEffect(() => {
         // Prefetch homepage data when the landing page loads to make the transition faster.
-        // The service layer will handle caching, so this won't spam the API.
         getHomePageData();
         getGenreCollection();
         getLatestEpisodes();
@@ -58,16 +65,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
                 setTypedText(fullText.substring(0, index));
                 timeoutId = window.setTimeout(() => type(index + 1), 80);
             } else {
-                setIsTyping(false); // Typing is done
+                setIsTyping(false);
             }
         };
-        // Start with a small delay for effect
         const startTimeout = setTimeout(() => type(), 500);
-
-        return () => {
-            clearTimeout(startTimeout);
-            window.clearTimeout(timeoutId);
-        };
+        return () => { clearTimeout(startTimeout); window.clearTimeout(timeoutId); };
     }, []);
 
 
@@ -76,72 +78,41 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
             try {
                 const { popular } = await getLandingPageData();
                 setPopularAnime(popular);
-                setCollageAnime(popular.slice(0, 5)); // Initial 5 images
-            } catch (error) {
-                console.error("Failed to fetch popular anime for landing page", error);
-            }
+                setCollageAnime(popular.slice(0, 5));
+            } catch (error) { console.error("Failed to fetch popular anime for landing page", error); }
         };
         fetchData();
     }, []);
 
     useEffect(() => {
         if (popularAnime.length <= 5) return;
-
-        const animationDuration = 500; // ms for the fade
-        const intervalDuration = 3000; // ms between swaps
-
+        const animationDuration = 500;
+        const intervalDuration = 3000;
         const interval = setInterval(() => {
-            // 1. Pick a random image position to swap
             const indexToSwap = Math.floor(Math.random() * 5);
-
-            // 2. Trigger fade out
             setImageOpacity(currentOpacity => {
-                const newOpacity = [...currentOpacity];
-                newOpacity[indexToSwap] = 0;
-                return newOpacity;
+                const newOpacity = [...currentOpacity]; newOpacity[indexToSwap] = 0; return newOpacity;
             });
-
-            // 3. After fade out, swap the image source and fade back in
             setTimeout(() => {
                 setCollageAnime(currentCollage => {
                     const currentIds = new Set(currentCollage.map(a => a.anilistId));
                     const availableForSwap = popularAnime.filter(a => !currentIds.has(a.anilistId));
-                    
-                    if (availableForSwap.length === 0) {
-                        return currentCollage; // No new images to swap in
-                    }
-
+                    if (availableForSwap.length === 0) return currentCollage;
                     const newAnime = availableForSwap[Math.floor(Math.random() * availableForSwap.length)];
-                    const newCollage = [...currentCollage];
-                    newCollage[indexToSwap] = newAnime;
-                    return newCollage;
+                    const newCollage = [...currentCollage]; newCollage[indexToSwap] = newAnime; return newCollage;
                 });
-
-                // Trigger fade in
                 setImageOpacity(currentOpacity => {
-                    const newOpacity = [...currentOpacity];
-                    newOpacity[indexToSwap] = 1;
-                    return newOpacity;
+                    const newOpacity = [...currentOpacity]; newOpacity[indexToSwap] = 1; return newOpacity;
                 });
-
             }, animationDuration);
-
         }, intervalDuration);
-
         return () => clearInterval(interval);
     }, [popularAnime]);
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        onEnter(searchTerm.trim() || undefined);
-    };
+    const handleSearch = (e: React.FormEvent) => { e.preventDefault(); onEnter(searchTerm.trim() || undefined); };
+    const handleNavClick = (filters: Partial<FilterState>, title: string) => { onNavigate(filters, title); onEnter(); };
 
-    const handleNavClick = (filters: Partial<FilterState>, title: string) => {
-        onNavigate(filters, title);
-        onEnter();
-    };
-
-    const topSearches = ['My Hero Academia', 'One-Punch Man', 'One Piece', 'Demon Slayer', 'Spy x Family', 'Jujutsu Kaisen', 'Attack on Titan', 'Naruto', 'Chainsaw Man', 'Bleach'];
+    const topSearches = ['My Hero Academia', 'One-Punch Man', 'One Piece', 'Demon Slayer', 'Spy x Family', 'Jujutsu Kaisen', 'Attack on Titan'];
     
     const navLinks = [
         { title: 'Home', icon: <HomeIcon />, action: () => onEnter() },
@@ -160,13 +131,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
         { title: "Multi-Source Streaming", description: "Access content from various providers, ensuring you always find what you're looking for.", graphic: MultiSourceGraphic },
     ];
     
-    const collageImageStyles = [
+    const desktopCollageStyles = [
         { wrapper: "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45%] max-w-[220px] transform -rotate-3 z-20", img: "shadow-2xl" },
         { wrapper: "absolute top-1/2 left-[20%] -translate-x-1/2 -translate-y-1/2 w-[35%] max-w-[180px] transform rotate-6 z-10", img: "shadow-2xl" },
         { wrapper: "absolute top-1/2 right-[20%] translate-x-1/2 -translate-y-1/2 w-[35%] max-w-[180px] transform -rotate-6 z-10", img: "shadow-2xl" },
         { wrapper: "absolute top-1/2 left-[5%] -translate-y-1/2 w-[30%] max-w-[150px] transform -rotate-12 z-0", img: "shadow-lg" },
         { wrapper: "absolute top-1/2 right-[5%] -translate-y-1/2 w-[30%] max-w-[150px] transform rotate-12 z-0", img: "shadow-lg" },
     ];
+
+    const mobileCollageStyles = [
+        { wrapper: "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50%] max-w-[180px] transform -rotate-3 z-20", img: "shadow-2xl" },
+        { wrapper: "absolute top-1/2 left-[25%] -translate-x-1/2 -translate-y-1/2 w-[40%] max-w-[150px] transform rotate-6 z-10", img: "shadow-2xl" },
+        { wrapper: "absolute top-1/2 right-[25%] translate-x-1/2 -translate-y-1/2 w-[40%] max-w-[150px] transform -rotate-6 z-10", img: "shadow-2xl" },
+    ];
+
+    const collageStyles = isMobile ? mobileCollageStyles : desktopCollageStyles;
 
     const infoContent = (
       <>
@@ -178,11 +157,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
 
     return (
     <div className="bg-gray-950 text-white min-h-screen font-sans overflow-x-hidden relative">
-      {/* Background Elements */}
       <div className="absolute inset-0 z-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at top right, rgba(34, 211, 238, 0.4), transparent 50%), radial-gradient(circle at bottom left, rgba(8, 145, 178, 0.4), transparent 50%)' }}></div>
       <div className="absolute inset-0 z-0" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
-      {/* Character PNGs Container */}
       <div aria-hidden="true" className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img src={luffyPng} alt="" className="absolute -bottom-10 -left-20 w-1/3 max-w-[280px] opacity-40 transform -rotate-12 hidden lg:block animate-fade-in [filter:drop-shadow(0_0_30px_rgba(0,0,0,0.8))]" style={{ animationDelay: '0.5s' }} />
           <img src={gokuPng} alt="" className="absolute -top-20 -right-20 w-1/2 max-w-[450px] opacity-20 transform rotate-15 hidden lg:block animate-fade-in [filter:drop-shadow(0_0_30px_rgba(0,0,0,0.8))]" style={{ animationDelay: '0.2s' }} />
@@ -204,11 +181,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
             <section className="container mx-auto max-w-screen-2xl px-4 py-16 md:py-24">
                 <div className="grid grid-cols-1 gap-8 lg:gap-16 items-center justify-items-center">
                         <div className="text-center animate-fade-in">
-                            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg min-h-[9rem] lg:min-h-0">
+                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg min-h-[6rem] sm:min-h-[9rem] lg:min-h-0">
                                 {typedText}
                                 {isTyping && <span className="animate-blink text-cyan-400">|</span>}
                             </h1>
-                            <p className="mt-6 text-lg text-gray-300 max-w-lg mx-auto">Discover, watch, and track your favorite anime seamlessly. All your shows, all in one place.</p>
+                            <p className="mt-6 text-base sm:text-lg text-gray-300 max-w-lg mx-auto">Discover, watch, and track your favorite anime seamlessly. All your shows, all in one place.</p>
                             <form onSubmit={handleSearch} className="mt-10 max-w-lg mx-auto">
                                 <div className="relative w-full">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -218,7 +195,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
                             </form>
                             <div className="mt-4 text-sm max-w-lg mx-auto">
                                 <span className="font-semibold text-white mr-2">Top Searches:</span>
-                                <span className="text-gray-400">{topSearches.map((term, index) => (<React.Fragment key={term}><button onClick={() => onEnter(term)} className="hover:text-cyan-400 transition-colors">{term}</button>{index < topSearches.length - 1 && ', '}</React.Fragment>))}</span>
+                                <span className="text-gray-400">{topSearches.slice(0, 4).map((term, index) => (<React.Fragment key={term}><button onClick={() => onEnter(term)} className="hover:text-cyan-400 transition-colors">{term}</button>{index < 3 && ', '}</React.Fragment>))}</span>
                             </div>
                             <div className="mt-10 flex justify-center">
                                 <button onClick={() => onEnter()} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg transition-transform shadow-lg flex items-center gap-3 text-lg animate-bump">
@@ -226,9 +203,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                 </button>
                             </div>
+                             <nav className="md:hidden flex items-center justify-center gap-6 mt-10">
+                                {navLinks.map(link => (
+                                    <button key={link.title} onClick={link.action} className="flex flex-col items-center gap-1 text-white hover:text-cyan-400 transition-colors font-semibold">
+                                        {link.icon}
+                                        <span className="text-xs">{link.title.split(' ')[0]}</span>
+                                    </button>
+                                ))}
+                            </nav>
                         </div>
                         <div className="relative h-64 md:h-80 lg:h-96 w-full max-w-2xl animate-fade-in mt-12 lg:mt-0">
-                           {collageAnime.length > 0 && collageImageStyles.map((style, index) => (
+                           {collageAnime.length > 0 && collageStyles.map((style, index) => (
                                 <div
                                     key={collageAnime[index]?.anilistId || index}
                                     className={`${style.wrapper} transition-opacity duration-500 ease-in-out transition-transform hover:scale-105`}
@@ -252,16 +237,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
                 <h2 className="text-4xl font-black text-white">Why Choose AniGloK?</h2>
                 <p className="mt-4 text-lg text-gray-400 max-w-2xl mx-auto">A seamless, feature-rich experience for every anime fan, built with modern technology for speed and reliability.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {features.map((feature) => (
-                    <div key={feature.title} className="bg-gray-900/50 p-8 rounded-lg text-center transform transition-transform duration-300 hover:-translate-y-2 border border-transparent hover:border-cyan-500/30 shadow-lg hover:shadow-cyan-500/10">
-                        <div className="flex justify-center items-center h-20 mb-6">
-                            <div className="w-20">
+                    <div key={feature.title} className="bg-gray-900/50 p-6 sm:p-8 rounded-lg text-center transform transition-transform duration-300 hover:-translate-y-2 border border-transparent hover:border-cyan-500/30 shadow-lg hover:shadow-cyan-500/10">
+                        <div className="flex justify-center items-center h-16 sm:h-20 mb-4 sm:mb-6">
+                            <div className="w-16 sm:w-20">
                                 <feature.graphic />
                             </div>
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                        <p className="text-gray-400 leading-relaxed text-sm">{feature.description}</p>
+                        <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3">{feature.title}</h3>
+                        <p className="text-gray-400 leading-relaxed text-xs sm:text-sm">{feature.description}</p>
                     </div>
                 ))}
             </div>

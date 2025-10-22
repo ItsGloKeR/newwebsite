@@ -13,37 +13,42 @@ const AnimeDetailPageSkeleton: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-black/60 to-transparent"></div>
                 <div className="absolute inset-0 bg-gradient-to-r from-gray-950/80 via-gray-950/50 to-transparent"></div>
 
-                <div className="relative container mx-auto max-w-screen-2xl p-4 md:p-8 flex items-center gap-8">
+                <div className="relative container mx-auto max-w-screen-2xl p-4 md:p-8 md:flex md:items-center md:gap-8">
                     {/* Back Button Skeleton */}
-                    <div className="absolute top-8 left-4 md:left-8 z-30">
-                        <SkeletonElement className="h-10 w-24" />
+                    <div className="absolute top-4 md:top-8 left-4 md:left-8 z-30">
+                        <SkeletonElement className="h-10 w-24 rounded-lg" />
                     </div>
                     {/* Cover Image Skeleton */}
                     <div className="flex-shrink-0 w-1/3 max-w-[250px] hidden md:block">
-                        <SkeletonElement className="w-full aspect-[2/3]" />
+                        <SkeletonElement className="w-full aspect-[2/3] rounded-lg" />
                     </div>
                     {/* Details Block Skeleton */}
-                    <div className="flex flex-col gap-4 w-full md:w-2/3">
-                        <SkeletonElement className="h-12 w-3/4" />
-                        <SkeletonElement className="h-6 w-1/2" />
-                        <div className="flex flex-wrap gap-2">
-                            <SkeletonElement className="h-6 w-20" />
-                            <SkeletonElement className="h-6 w-24" />
-                            <SkeletonElement className="h-6 w-16" />
+                     <div className="flex flex-col gap-3 md:gap-4 mt-16 md:mt-0 pt-8 md:pt-0 pb-16 md:pb-0 w-full md:w-auto text-center md:text-left">
+                        <SkeletonElement className="h-10 md:h-12 w-3/4 mx-auto md:mx-0" />
+                        <SkeletonElement className="h-5 md:h-6 w-1/2 mx-auto md:mx-0" />
+                        <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                            <SkeletonElement className="h-6 w-20 rounded-full" />
+                            <SkeletonElement className="h-6 w-24 rounded-full" />
+                            <SkeletonElement className="h-6 w-16 rounded-full" />
                         </div>
-                        <SkeletonElement className="h-5 w-1/3" />
-                        <div className="flex flex-wrap items-center gap-4 mt-4">
-                            <SkeletonElement className="h-12 w-40" />
-                            <SkeletonElement className="h-12 w-40" />
-                            <SkeletonElement className="h-12 w-28" />
-                            <SkeletonElement className="h-12 w-12 rounded-full" />
+                        <SkeletonElement className="h-5 w-1/3 mx-auto md:mx-0" />
+                        <div className="flex flex-wrap items-center gap-4 mt-4 justify-center md:justify-start">
+                            <SkeletonElement className="h-8 w-28" />
+                            <SkeletonElement className="h-8 w-28" />
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Content Area Skeleton */}
-            <div className="container mx-auto max-w-screen-2xl p-4 md:p-8">
+            <div className="container mx-auto max-w-screen-2xl p-4 md:p-8 md:-mt-24">
+                 <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start md:ml-[calc(33.33%+2rem)] pb-8 md:pb-0 relative z-10">
+                    <SkeletonElement className="h-10 w-32 rounded-md" />
+                    <SkeletonElement className="h-10 w-28 rounded-md" />
+                    <SkeletonElement className="h-10 w-32 rounded-md" />
+                    <SkeletonElement className="h-10 w-10 rounded-full" />
+                </div>
+
                 <div className="mt-8">
                     {/* Tabs Skeleton */}
                     <div className="flex border-b border-gray-700 mb-6">

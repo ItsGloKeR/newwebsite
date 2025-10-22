@@ -8,12 +8,12 @@ const AdFreeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 
 const ProgressIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>;
 
 const Feature: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (
-    <div>
-        <div className="flex items-center gap-3 mb-2">
+    <div className="text-center">
+        <div className="flex items-center justify-center gap-2 mb-2">
             <span className="text-cyan-400">{icon}</span>
-            <h4 className="text-md font-bold text-white">{title}</h4>
+            <h4 className="text-sm font-bold text-white">{title}</h4>
         </div>
-        <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+        <p className="text-xs text-gray-500 leading-relaxed">{description}</p>
     </div>
 );
 
@@ -94,9 +94,9 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick, 
         <>
             <footer className="bg-gray-950 text-gray-400 mt-16 border-t border-gray-800">
                 <div className="container mx-auto max-w-screen-2xl px-6 py-12">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-8">
                         {/* Column 1: Brand & Features */}
-                        <div className="sm:col-span-2 lg:col-span-2">
+                        <div className="col-span-2 lg:col-span-2">
                              <button onClick={onLogoClick} className="mb-4 text-left">
                                 <svg width="140" height="32" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M16.6923 4.5L2.84615 27.5H30.5385L16.6923 4.5Z" stroke="#22d3ee" strokeWidth="2"/>
@@ -110,7 +110,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick, 
                             <p className="text-sm leading-relaxed mb-8">
                             Your sleek, no-BS destination for discovering and tracking anime.
                             </p>
-                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-8">
+                             <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                                 <Feature
                                     icon={<LibraryIcon />}
                                     title="Vast Library"

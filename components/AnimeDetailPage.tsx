@@ -16,7 +16,7 @@ const TVIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
 const EpisodesIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2-2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>;
 const ClockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>;
 const ExternalLinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>;
-const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>;
+const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>;
 
 const RelatedAnimeCard: React.FC<{ anime: RelatedAnime; onSelect: (id: number) => void }> = ({ anime, onSelect }) => {
   const { titleLanguage } = useTitleLanguage();
@@ -400,12 +400,12 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
             </>)}
         </div>
         
-        <div className="relative container mx-auto max-w-screen-2xl p-4 md:p-8 flex items-center gap-8">
-            <button onClick={onBack} className="absolute top-8 left-4 md:left-8 z-30 group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap bg-gray-800/50 hover:bg-gray-700/60 px-4 py-2 rounded-lg" aria-label="Go back"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg><span>Back</span></button>
-            <div className="flex-shrink-0 w-1/3 max-w-[250px] hidden md:block"><img src={anime.coverImage} alt={title} className="w-full rounded-lg shadow-2xl aspect-[2/3] object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}/></div>
-            <div className="flex flex-col gap-3 md:gap-4 text-left">
+        <div className="relative container mx-auto max-w-screen-2xl p-4 md:p-8 md:flex md:items-end md:gap-8">
+            <button onClick={onBack} className="absolute top-4 md:top-8 left-4 md:left-8 z-30 group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap bg-gray-800/50 hover:bg-gray-700/60 px-4 py-2 rounded-lg" aria-label="Go back"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg><span>Back</span></button>
+            <div className="flex-shrink-0 w-1/3 max-w-[250px] hidden md:block self-center"><img src={anime.coverImage} alt={title} className="w-full rounded-lg shadow-2xl aspect-[2/3] object-cover" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}/></div>
+            <div className="flex flex-col gap-3 md:gap-4 mt-16 md:mt-0 pt-8 md:pt-0 text-center md:text-left">
                 <h1 className="text-3xl lg:text-5xl font-black text-white drop-shadow-lg">{title}</h1>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-200 text-sm md:text-base">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-2 text-gray-200 text-sm md:text-base">
                   {anime.rating > 0 && <span className="flex items-center gap-1.5 font-semibold text-yellow-400"><StarIcon /> {anime.rating / 10}</span>}
                   {anime.year > 0 && <span className="flex items-center gap-1.5"><CalendarIcon /> {anime.year}</span>}
                   {anime.format && anime.format !== 'N/A' && <span className="flex items-center gap-1.5"><TVIcon /> {anime.format}</span>}
@@ -413,26 +413,26 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
                   {episodeText && <span className="flex items-center gap-1.5"><EpisodesIcon /> {episodeText} Episodes</span>}
                   {anime.duration && <span className="flex items-center gap-1.5"><ClockIcon /> {anime.duration} min</span>}
                 </div>
-                <div className="flex flex-wrap gap-2">{anime.genres.slice(0, 5).map(genre => <GenrePill key={genre} genre={genre} />)}</div>
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start">{anime.genres.slice(0, 5).map(genre => <GenrePill key={genre} genre={genre} />)}</div>
                 <div className="text-sm"> <span className="font-bold text-gray-300">Studios:</span> <span className="text-gray-400">{anime.studios.join(', ')}</span></div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
                   <a href={`https://anilist.co/anime/${anime.anilistId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-gray-800/70 hover:bg-gray-700/90 text-gray-200 px-3 py-1.5 rounded-md text-sm font-semibold transition-colors">AniList <ExternalLinkIcon /></a>
                   {anime.malId && <a href={`https://myanimelist.net/anime/${anime.malId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-gray-800/70 hover:bg-gray-700/90 text-gray-200 px-3 py-1.5 rounded-md text-sm font-semibold transition-colors">MAL <ExternalLinkIcon /></a>}
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-4">
-                  <button onClick={() => onWatchNow(anime)} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-md transition-colors text-lg flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>Watch Now</button>
-                  {hasTrailer && (
-                    <button onClick={() => setIsTrailerOpen(true)} className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-md transition-colors flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 001.553.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
-                        Watch Trailer
+                 <div className="flex flex-wrap items-center gap-4 justify-center md:justify-start mt-6">
+                    <button onClick={() => onWatchNow(anime)} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 md:py-3 md:px-6 rounded-md transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2 text-base"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>Watch Now</button>
+                    {hasTrailer && (
+                    <button onClick={() => setIsTrailerOpen(true)} className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white font-bold py-2 px-4 md:py-3 md:px-6 rounded-md transition-colors flex items-center gap-2 text-base">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 001.553.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+                        Trailer
                     </button>
-                  )}
-                  <button onClick={handleToggleWatchlist} className={`font-bold py-3 px-6 rounded-md transition-all duration-300 flex items-center gap-2 relative overflow-hidden ${ isInList ? 'bg-green-500 text-white' : 'bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white' }`}>{isInList ? <span className="absolute inset-0 flex items-center justify-center animate-show-check"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg></span> : <PlusIcon />}<span className={`transition-opacity duration-200 ${isInList ? 'opacity-0' : 'opacity-100'}`}>Add to List</span></button>
-                  <button onClick={() => toggleFavorite(anime.anilistId)} className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white p-3.5 rounded-md transition-colors" aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 transition-all duration-300 ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
+                    )}
+                    <button onClick={handleToggleWatchlist} className={`font-bold p-3 rounded-md transition-all duration-300 flex items-center gap-2 relative overflow-hidden ${ isInList ? 'bg-green-500 text-white' : 'bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white' }`}>{isInList ? <span className="absolute inset-0 flex items-center justify-center animate-show-check"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg></span> : <PlusIcon />}<span className={`transition-opacity duration-200 text-base font-bold ${isInList ? 'opacity-0' : 'opacity-100'}`}>Add to List</span></button>
+                    <button onClick={() => toggleFavorite(anime.anilistId)} className="bg-gray-700/70 hover:bg-gray-600/70 backdrop-blur-sm text-white p-3 rounded-md transition-colors" aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-all duration-300 ${isFavorite ? 'text-red-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                     </svg>
-                  </button>
+                    </button>
                 </div>
             </div>
         </div>
@@ -448,7 +448,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
             <div className="animate-fade-in-fast">
                 {activeTab === 'overview' && (
                     <div className="text-gray-300 leading-relaxed whitespace-pre-wrap relative bg-gray-900/50 p-6 rounded-lg">
-                        <p className={`${!showFullDescription && 'line-clamp-5'}`}>{anime.description || "No description available."}</p>
+                        <p className={`${!showFullDescription && 'line-clamp-3 md:line-clamp-5'}`}>{anime.description || "No description available."}</p>
                         {anime.description && anime.description.length > 300 && <button onClick={() => setShowFullDescription(!showFullDescription)} className="font-semibold text-cyan-400 hover:text-cyan-300 mt-2">{showFullDescription ? 'Show Less' : 'Show More'}</button>}
                     </div>
                 )}
@@ -492,82 +492,83 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
 
         {(hasRelations || hasRecommendations) && (
           <div className="mt-12">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4">Discover More</h2>
-              <div className="flex items-center gap-4">
-                {hasRelations && hasRecommendations && (
-                    <div className="relative flex w-64 items-center rounded-full bg-gray-800 p-1">
-                    <div
-                        className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-cyan-500 transition-transform duration-300 ease-in-out"
-                        style={{
-                        transform: `translateX(${activeDiscoverView === 'related' ? '2px' : 'calc(100% + 2px)'})`,
-                        }}
-                    />
-                    <button
-                        onClick={() => setActiveDiscoverView('related')}
-                        className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
-                    >
-                        Related
-                    </button>
-                    <button
-                        onClick={() => setActiveDiscoverView('recommended')}
-                        className="relative z-10 w-1/2 py-1 text-center text-sm font-semibold text-white"
-                    >
-                        Recommended
-                    </button>
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-y-2">
+                <h2 className="text-2xl font-bold border-l-4 border-cyan-400 pl-4">Discover More</h2>
+                <div className="flex items-center gap-4 flex-wrap justify-end">
+                    <div className="relative flex w-auto items-center rounded-full bg-gray-800 p-1">
+                        {hasRelations && hasRecommendations && (
+                            <div
+                                className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-cyan-500 transition-transform duration-300 ease-in-out"
+                                style={{
+                                    transform: `translateX(${activeDiscoverView === 'related' ? '2px' : 'calc(100% + 2px)'})`,
+                                }}
+                            />
+                        )}
+                        <button
+                            onClick={() => setActiveDiscoverView('related')}
+                            disabled={!hasRelations}
+                            className={`relative z-10 w-28 py-1 text-center text-sm font-semibold transition-colors rounded-full
+                                ${!hasRelations ? 'cursor-not-allowed opacity-50 text-gray-500' : 'text-white'}
+                                ${!hasRecommendations && hasRelations ? 'bg-cyan-500' : ''}
+                            `}
+                        >
+                            Related
+                        </button>
+                        <button
+                            onClick={() => setActiveDiscoverView('recommended')}
+                            disabled={!hasRecommendations}
+                            className={`relative z-10 w-28 py-1 text-center text-sm font-semibold transition-colors rounded-full
+                                ${!hasRecommendations ? 'cursor-not-allowed opacity-50 text-gray-500' : 'text-white'}
+                                ${!hasRelations && hasRecommendations ? 'bg-cyan-500' : ''}
+                            `}
+                        >
+                            Recommended
+                        </button>
                     </div>
-                )}
-                <button
-                    onClick={() => onViewMore({ animeList: activeDiscoverView === 'related' ? anime.relations : anime.recommendations }, activeDiscoverView === 'related' ? 'Related Anime' : 'Recommended Anime')}
-                    className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
-                >
-                    <span>View All</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </button>
-              </div>
+                    <button
+                        onClick={() => onViewMore({ animeList: activeDiscoverView === 'related' ? anime.relations : anime.recommendations }, activeDiscoverView === 'related' ? 'Related Anime' : 'Recommended Anime')}
+                        className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
+                    >
+                        <span>View All</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </button>
+                </div>
             </div>
             
             <div className="relative">
                 {showScrollButtons && (
-                <>
-                    <button 
-                        onClick={() => scroll('left')}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
-                        aria-label="Scroll Left"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <button 
-                        onClick={() => scroll('right')}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
-                        aria-label="Scroll Right"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </>
+                    <>
+                        <button 
+                            onClick={() => scroll('left')}
+                            className="absolute left-0 md:-left-4 top-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
+                            aria-label="Scroll Left"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button 
+                            onClick={() => scroll('right')}
+                            className="absolute right-0 md:-right-4 top-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block"
+                            aria-label="Scroll Right"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </>
                 )}
             
-                {activeDiscoverView === 'related' && hasRelations && (
-                    <div className="animate-fade-in-fast">
-                        <div ref={scrollContainerRef} className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
-                            {anime.relations.slice(0, RELATED_ANIME_LIMIT).map(rel => (
-                                <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={onSelectRelated} />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {activeDiscoverView === 'recommended' && hasRecommendations && (
-                    <div className="animate-fade-in-fast">
-                        <div ref={scrollContainerRef} className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
-                            {anime.recommendations.map(rec => (
-                                <RecommendationCard key={rec.id} anime={rec} onSelect={onSelectRelated} />
-                            ))}
-                        </div>
-                    </div>
-                )}
+                <div ref={scrollContainerRef} className="flex gap-4 md:gap-6 overflow-x-auto pb-4 carousel-scrollbar">
+                    {activeDiscoverView === 'related' && hasRelations && (
+                        anime.relations.slice(0, RELATED_ANIME_LIMIT).map(rel => (
+                            <RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={onSelectRelated} />
+                        ))
+                    )}
+                    {activeDiscoverView === 'recommended' && hasRecommendations && (
+                        anime.recommendations.map(rec => (
+                            <RecommendationCard key={rec.id} anime={rec} onSelect={onSelectRelated} />
+                        ))
+                    )}
+                </div>
             </div>
           </div>
         )}

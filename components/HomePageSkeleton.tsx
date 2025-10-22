@@ -23,7 +23,7 @@ const EngagingLoader: React.FC = () => {
 
     return (
         <div className="h-[60vh] md:h-[70vh] w-full -mt-16 pt-16 flex flex-col items-center justify-center bg-gray-950 text-white text-center p-4">
-            <div className="relative w-24 h-24 mb-6">
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-6">
                 <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
                 <div 
                     className="absolute inset-0 border-4 border-cyan-500 rounded-full animate-spin"
@@ -63,7 +63,7 @@ const SkeletonTitle: React.FC<{ className?: string }> = ({ className = 'w-72' })
 
 const VerticalSkeletonItem: React.FC = () => (
   <li className="flex items-center gap-4 p-2 bg-gray-800/50 rounded-lg">
-    <div className="w-16 h-24 bg-gray-700 rounded-md flex-shrink-0 animate-pulse"></div>
+    <div className="w-12 h-20 sm:w-16 sm:h-24 bg-gray-700 rounded-md flex-shrink-0 animate-pulse"></div>
     <div className="overflow-hidden flex-grow space-y-2">
       <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>
       <div className="h-3 bg-gray-700 rounded w-1/2 animate-pulse"></div>
@@ -72,9 +72,9 @@ const VerticalSkeletonItem: React.FC = () => (
 );
 
 const CarouselSkeleton: React.FC<{ cardCount?: number; size?: 'normal' | 'small' }> = ({ cardCount = 6, size = 'normal' }) => (
-    <div className="flex gap-4 md:gap-6 overflow-hidden">
+    <div className="flex gap-4 md:gap-6">
         {Array.from({ length: cardCount }).map((_, index) => (
-            <div key={index} className={`${size === 'small' ? 'w-40' : 'w-48'} flex-shrink-0`}>
+            <div key={index} className={`${size === 'small' ? 'w-32 sm:w-40' : 'w-36 sm:w-48'} flex-shrink-0 ${index >= 2 ? 'hidden sm:block' : ''} ${index >= 4 ? 'hidden lg:block' : ''}`}>
                 <SkeletonCard />
             </div>
         ))}

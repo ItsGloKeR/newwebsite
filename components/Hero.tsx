@@ -104,7 +104,7 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
       </div>
 
       {/* Content */}
-      <div className="container mx-auto max-w-screen-2xl relative z-10 h-full flex items-center p-4 md:p-8">
+      <div className="container mx-auto max-w-screen-2xl relative z-10 h-full flex items-center p-4 md:p-8 pb-16 sm:pb-8">
         <div key={currentIndex} className="flex items-center gap-4 md:gap-8 animate-fade-in">
           <img 
             src={currentAnime.coverImage} 
@@ -112,7 +112,7 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
             className="hidden sm:block w-36 md:w-48 lg:w-56 h-auto object-cover rounded-lg shadow-2xl aspect-[2/3]"
             onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
           />
-          <div className="max-w-5xl pb-28 sm:pb-0">
+          <div className="max-w-5xl">
             <div className="flex items-center gap-2 text-cyan-400 font-semibold text-sm md:text-lg mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 10a1 1 0 112 0 1 1 0 01-2 0zm-5 0a5 5 0 1110 0 5 5 0 01-10 0z" clipRule="evenodd" />
@@ -137,17 +137,17 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
 
             <p className="text-gray-200 leading-relaxed text-sm my-4">{description}</p>
             
-            <div className="mt-6 flex flex-wrap gap-4 items-center">
+            <div className="mt-6 flex flex-wrap gap-3 items-center justify-center sm:justify-start">
                 <button
                     onClick={() => onWatchNow(currentAnime)}
-                    className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 md:py-3 md:px-6 rounded-md transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2"
+                    className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 md:py-3 md:px-6 rounded-md transition-transform transform hover:scale-105 shadow-lg flex items-center gap-2 text-sm md:text-base"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
                     Watch Now
                 </button>
                 <button
                     onClick={() => onDetails(currentAnime)}
-                    className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-2 px-4 md:py-3 md:px-6 rounded-md transition-colors flex items-center gap-2"
+                    className="group bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-2 px-4 md:py-3 md:px-6 rounded-md transition-colors flex items-center gap-2 text-sm md:text-base"
                 >
                     Details 
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -187,7 +187,7 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
       </div>
       
       {/* Navigation and Pagination */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-8">
         {animeList.length > 1 && (
             <button onClick={goToPrevious} className="bg-black/30 p-2 rounded-full hover:bg-black/60 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>

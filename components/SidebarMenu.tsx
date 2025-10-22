@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface PaginationProps {
   currentPage: number;
@@ -7,44 +7,42 @@ interface PaginationProps {
 }
 
 const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange }) => {
-    
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkScreenSize = () => {
+            setIsMobile(window.innerWidth < 640); // sm breakpoint
+        };
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+        return () => window.removeEventListener('resize', checkScreenSize);
+    }, []);
+
     const generatePages = () => {
-        const pages = [];
-        const pageNeighbours = 1; // How many pages to show around current page
-        const totalNumbers = (pageNeighbours * 2) + 3; // e.g. 1 ... 4 5 6 ... 10
-        const totalBlocks = totalNumbers + 2;
+        const pages: (number | string)[] = [];
+        const maxPagesVisible = isMobile ? 5 : 7;
 
-        if (totalPages > totalBlocks) {
-            const startPage = Math.max(2, currentPage - pageNeighbours);
-            const endPage = Math.min(totalPages - 1, currentPage + pageNeighbours);
-            let pagesToShow = Array.from({ length: (endPage - startPage) + 1 }, (_, i) => startPage + i);
+        if (totalPages <= maxPagesVisible) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+            return pages;
+        }
 
-            const hasLeftSpill = startPage > 2;
-            const hasRightSpill = (totalPages - endPage) > 1;
-            const spillOffset = totalNumbers - (pagesToShow.length + 1);
-
-            switch (true) {
-                case (hasLeftSpill && !hasRightSpill): {
-                    const extraPages = Array.from({ length: spillOffset + 1 }, (_, i) => startPage - 1 - i).reverse();
-                    pagesToShow = [...extraPages, ...pagesToShow];
-                    break;
-                }
-                case (!hasLeftSpill && hasRightSpill): {
-                    const extraPages = Array.from({ length: spillOffset }, (_, i) => endPage + 1 + i);
-                    pagesToShow = [...pagesToShow, ...extraPages];
-                    break;
-                }
-            }
-            
-            pages.push(1);
-            if (hasLeftSpill) pages.push('...');
-            pages.push(...pagesToShow);
-            if (hasRightSpill) pages.push('...');
+        if (currentPage <= maxPagesVisible - 2) {
+            for (let i = 1; i < maxPagesVisible - 1; i++) pages.push(i);
+            pages.push('...');
             pages.push(totalPages);
+        } else if (currentPage > totalPages - (maxPagesVisible - 2)) {
+            pages.push(1);
+            pages.push('...');
+            for (let i = totalPages - (maxPagesVisible - 3); i <= totalPages; i++) pages.push(i);
         } else {
-            for (let i = 1; i <= totalPages; i++) {
-                pages.push(i);
-            }
+            pages.push(1);
+            pages.push('...');
+            const middlePageCount = maxPagesVisible - 4;
+            const startPage = currentPage - Math.floor(middlePageCount / 2);
+            for (let i = 0; i < middlePageCount + 1; i++) pages.push(startPage + i);
+            pages.push('...');
+            pages.push(totalPages);
         }
         return pages;
     };
@@ -56,7 +54,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
     }
 
     return (
-        <div className="flex justify-center items-center gap-2 mt-8">
+        <div className="flex justify-center items-center gap-1 sm:gap-2 mt-8">
             <button
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage === 1}
@@ -70,7 +68,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
                     <button
                         key={index}
                         onClick={() => onPageChange(page)}
-                        className={`px-4 py-2 rounded-md font-semibold transition-colors ${
+                        className={`w-10 h-10 rounded-md font-semibold transition-colors text-sm ${
                             currentPage === page
                                 ? 'bg-cyan-500 text-white'
                                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -79,7 +77,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
                         {page}
                     </button>
                 ) : (
-                    <span key={index} className="px-4 py-2 text-gray-500">
+                    <span key={index} className="w-10 h-10 flex items-center justify-center text-gray-500 text-sm">
                         {page}
                     </span>
                 )

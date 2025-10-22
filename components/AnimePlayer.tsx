@@ -475,36 +475,36 @@ const AnimePlayer: React.FC<{
             </div>
 
             <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg mb-4">
-              <div className="flex flex-wrap justify-between items-center gap-4 mb-3">
-                  <div className="flex items-center gap-x-6 gap-y-3 flex-wrap">
-                      <div className="flex items-center gap-2">
-                          {sources.map(source => (
-                              <button key={source.id} onClick={() => onSourceChange(source.id)} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentSource === source.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>{source.label}</button>
-                          ))}
-                      </div>
-                      <div className="h-6 w-px bg-gray-700"></div>
-                      <div className="flex items-center gap-2">
-                          {languages.map(lang => {
-                              const isLangDisabled = currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi);
-                              return (
-                                <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button>
-                              )
-                          })}
-                      </div>
-                       <div className="h-6 w-px bg-gray-700"></div>
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 mb-3">
+                  <div className="flex items-center gap-2">
+                      {sources.map(source => (
+                          <button key={source.id} onClick={() => onSourceChange(source.id)} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentSource === source.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>{source.label}</button>
+                      ))}
+                  </div>
+                  <div className="h-6 w-px bg-gray-700 hidden sm:block"></div>
+                  <div className="flex items-center gap-2">
+                      {languages.map(lang => {
+                          const isLangDisabled = currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi);
+                          return (
+                            <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button>
+                          )
+                      })}
+                  </div>
+                   <div className="h-6 w-px bg-gray-700 hidden sm:block"></div>
+                    <div className="flex items-center gap-4">
                         <button 
                             onClick={handleFullscreen} 
                             className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-4 py-1.5 rounded-md transition-colors"
                             aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                         >
                             {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
-                            {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                            {isFullscreen ? 'Exit' : 'Fullscreen'}
                         </button>
-                  </div>
-                  <button onClick={onReportIssue} className="flex items-center gap-2 text-sm text-yellow-400 bg-yellow-900/50 hover:bg-yellow-800/50 font-semibold px-4 py-1.5 rounded-md transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      Report Issue
-                  </button>
+                        <button onClick={onReportIssue} className="flex-shrink-0 flex items-center gap-2 text-sm text-yellow-400 bg-yellow-900/50 hover:bg-yellow-800/50 font-semibold px-4 py-1.5 rounded-md transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                            Report Issue
+                        </button>
+                    </div>
               </div>
               
               <div className="text-xs text-center bg-gray-800/70 p-2 rounded-md text-gray-400">
@@ -523,18 +523,18 @@ const AnimePlayer: React.FC<{
             </div>
             
             <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg">
-                <div className="flex flex-wrap justify-between items-center mb-4 gap-y-4 gap-x-2">
-                    <div className="flex items-center gap-2">
-                        <div className="relative" ref={rangeSelectorRef}>
+                <div className="flex flex-col md:flex-row flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-4">
+                    <div className="w-full md:w-auto flex flex-col sm:flex-row flex-wrap items-center gap-3">
+                        <div className="relative w-full sm:w-auto" ref={rangeSelectorRef}>
                             {episodeRanges.length > 0 && selectedRange && (
-                                <button onClick={() => setIsRangeSelectorOpen(p => !p)} className="flex items-center justify-between gap-1.5 bg-gray-700/80 text-gray-300 rounded-md py-1.5 px-3 text-sm font-semibold hover:bg-gray-600 transition-colors min-w-[130px]">
+                                <button onClick={() => setIsRangeSelectorOpen(p => !p)} className="w-full sm:w-auto flex items-center justify-between gap-1.5 bg-gray-700/80 text-gray-300 rounded-md py-1.5 px-3 text-sm font-semibold hover:bg-gray-600 transition-colors sm:min-w-[130px]">
                                     <span>{`${String(selectedRange.start).padStart(3, '0')}-${selectedRange.end}`}</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                 </button>
                             )}
                             {isRangeSelectorOpen && ( <div className="absolute bottom-full mb-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10 animate-fade-in-fast"><ul>{episodeRanges.map((range, i) => <li key={i}><button onClick={() => { setSelectedRange(range); setIsRangeSelectorOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm ${range.start === selectedRange?.start ? 'text-cyan-400' : ''}`}>{`${String(range.start).padStart(3, '0')} - ${range.end}`}</button></li>)}</ul></div> )}
                         </div>
-                         <div className="flex items-center gap-2">
+                         <div className="w-full sm:w-auto flex flex-wrap items-center justify-center sm:justify-start gap-2">
                             {lastWatchedEp && lastWatchedEp > 0 && lastWatchedEp !== currentEpisode && (
                                 <button 
                                     onClick={() => onEpisodeChange(lastWatchedEp)} 
@@ -556,11 +556,11 @@ const AnimePlayer: React.FC<{
                             </button>
                         </div>
                    </div>
-                   <form onSubmit={handleEpisodeSearch} className="relative">
+                   <form onSubmit={handleEpisodeSearch} className="relative w-full md:w-auto">
                        <button type="submit" className="absolute inset-y-0 left-0 flex items-center pl-3" aria-label="Search episode">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
                         </button>
-                        <input type="number" value={episodeSearch} onChange={e => setEpisodeSearch(e.target.value)} placeholder="Find Ep..." className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
+                        <input type="number" value={episodeSearch} onChange={e => setEpisodeSearch(e.target.value)} placeholder="Find Ep..." className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-full md:w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
                     </form>
                 </div>
                 <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1 pt-4 border-t border-gray-700/50">

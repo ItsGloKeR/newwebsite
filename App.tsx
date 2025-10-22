@@ -969,6 +969,7 @@ const AppContent: React.FC = () => {
                         onProfileClick={() => { setIsProfileModalOpen(true); setIsSidebarOpen(false); }}
                         allGenres={allGenres}
                         isHome={view === 'home' && !isDiscoveryView}
+                        onRandomAnime={handleRandomAnime}
                     />
                     {renderContent()}
                     <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />
