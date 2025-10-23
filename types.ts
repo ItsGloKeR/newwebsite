@@ -6,6 +6,7 @@ export enum StreamSource {
   Vidnest = 'vidnest',
   Vidlink = 'vidlink',
   ExternalPlayer = 'externalplayer',
+  Vidsrc = 'vidsrc',
 }
 
 export enum StreamLanguage {

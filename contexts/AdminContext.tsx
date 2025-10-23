@@ -167,6 +167,39 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return `https://vidsrc.to/embed/tv/${imdbId}/${seasonNumber}/${episodeNumber}`;
     }
 
+    // Special handling for Vidsrc
+    if (source === StreamSource.Vidsrc) {
+        let id = '';
+        if (animeId) {
+            id = `ani${animeId}`;
+        } else if (zenshinData?.mappings?.imdb_id) {
+            id = `imdb${zenshinData.mappings.imdb_id}`;
+        } else if (malId) {
+            id = `${malId}`;
+        }
+
+        if (!id) {
+            return 'about:blank#vidsrc-id-required';
+        }
+
+        let template = mergedOverrides.anime[animeId]?.streamUrlTemplates?.[source] || mergedOverrides.globalStreamUrlTemplates[source] || STREAM_URLS[source];
+
+        // Handle simple base URL templates for Vidsrc
+        if (template && !template.includes('{episode}')) {
+            template = template.endsWith('/') ? template.slice(0, -1) : template;
+            template = `${template}/{episode}/{language}`;
+        }
+        
+        const streamType = language === StreamLanguage.Hindi ? StreamLanguage.Sub : language;
+        
+        const url = template
+            .replace('{id}', id)
+            .replace('{episode}', String(episode))
+            .replace('{language}', streamType);
+
+        return url;
+    }
+
     // Standard handling for other sources
     const replaceTokens = (template: string) => {
         return template
@@ -176,6 +209,7 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             .replace('{language}', language);
     };
 
+    let url;
     // Priority 2: Anime-specific URL template override
     let animeTemplate = mergedOverrides.anime[animeId]?.streamUrlTemplates?.[source];
     if (animeTemplate && animeTemplate.trim() !== '') {
@@ -188,18 +222,29 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Automatically append episode and language for simple base URLs.
           animeTemplate = `${animeTemplate}/{episode}/{language}`;
       }
-      return replaceTokens(animeTemplate);
+      url = replaceTokens(animeTemplate);
+    } else {
+      // Priority 3: Global URL template override
+      const globalTemplate = mergedOverrides.globalStreamUrlTemplates[source];
+      if (globalTemplate && globalTemplate.trim() !== '') {
+        url = replaceTokens(globalTemplate);
+      } else {
+        // Priority 4: Default hardcoded URL template
+        const defaultTemplate = STREAM_URLS[source];
+        url = replaceTokens(defaultTemplate);
+      }
     }
 
-    // Priority 3: Global URL template override
-    const globalTemplate = mergedOverrides.globalStreamUrlTemplates[source];
-    if (globalTemplate && globalTemplate.trim() !== '') {
-      return replaceTokens(globalTemplate);
+    if ((source === StreamSource.Vidnest || source === StreamSource.AnimePahe) && animeFormat !== 'MOVIE') {
+        const paramsToAdd = 'prevepisode=hide&nextepisode=hide';
+        if (url.includes('?')) {
+            url += `&${paramsToAdd}`;
+        } else {
+            url += `?${paramsToAdd}`;
+        }
     }
 
-    // Priority 4: Default hardcoded URL template
-    const defaultTemplate = STREAM_URLS[source];
-    return replaceTokens(defaultTemplate);
+    return url;
   }, [mergedOverrides]);
 
 

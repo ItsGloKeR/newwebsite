@@ -229,8 +229,9 @@ const AnimePlayer: React.FC<{
   
   useEffect(() => {
     const handlePlayerEvent = (data: any) => {
+        const eventName = data.name || data.event;
         // Show controls near the end of the episode
-        if (data.name === 'timeupdate' && data.currentTime && data.duration) {
+        if ((eventName === 'timeupdate' || eventName === 'time') && data.currentTime && data.duration) {
             const timeLeft = data.duration - data.currentTime;
             if (timeLeft < 30 && timeLeft > 3) {
                 showOverlay(false); // Don't auto-hide
@@ -398,6 +399,7 @@ const AnimePlayer: React.FC<{
   const sources = [
     { id: StreamSource.AnimePahe, label: 'Src 1' },
     { id: StreamSource.Vidnest, label: 'Src 2' },
+    { id: StreamSource.Vidsrc, label: 'Src 3' },
   ];
   
   const languages = [
@@ -484,7 +486,7 @@ const AnimePlayer: React.FC<{
                   <div className="h-6 w-px bg-gray-700 hidden sm:block"></div>
                   <div className="flex items-center gap-2">
                       {languages.map(lang => {
-                          const isLangDisabled = currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi);
+                          const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || (currentSource === StreamSource.Vidsrc && lang.id === StreamLanguage.Hindi);
                           return (
                             <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button>
                           )

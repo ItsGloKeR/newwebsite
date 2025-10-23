@@ -18,6 +18,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const [animePaheUrl, setAnimePaheUrl] = useState(overrides.globalStreamUrlTemplates.animepahe || '');
   const [vidlinkUrl, setVidlinkUrl] = useState(overrides.globalStreamUrlTemplates.vidlink || '');
   const [externalPlayerUrl, setExternalPlayerUrl] = useState(overrides.globalStreamUrlTemplates.externalplayer || '');
+  const [vidsrcUrl, setVidsrcUrl] = useState(overrides.globalStreamUrlTemplates.vidsrc || '');
   const [copyButtonText, setCopyButtonText] = useState('Generate & Copy Code');
   
   const modalRef = useRef<HTMLDivElement>(null);
@@ -29,6 +30,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         setAnimePaheUrl(overrides.globalStreamUrlTemplates.animepahe || '');
         setVidlinkUrl(overrides.globalStreamUrlTemplates.vidlink || '');
         setExternalPlayerUrl(overrides.globalStreamUrlTemplates.externalplayer || '');
+        setVidsrcUrl(overrides.globalStreamUrlTemplates.vidsrc || '');
     }
   }, [overrides, isOpen]);
   
@@ -70,6 +72,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
       setVidlinkUrl(value);
     } else if (source === StreamSource.ExternalPlayer) {
         setExternalPlayerUrl(value);
+    } else if (source === StreamSource.Vidsrc) {
+        setVidsrcUrl(value);
     }
     updateGlobalStreamUrlTemplate(source, value);
   };
@@ -147,7 +151,7 @@ const handleCopy = () => {
             <div className="mb-6">
                 <h4 className="text-lg font-semibold mb-2">Edit Global Stream URL Templates</h4>
                  <p className="text-xs text-gray-400 mb-3">
-                    Use <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{anilistId}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{malId}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code>, and <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{language}'}</code> as tokens in the URL templates.
+                    Use <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{anilistId}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{malId}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{episode}'}</code>, <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{id}'}</code>, and <code className="bg-gray-800 text-cyan-300 px-1 rounded">{'{language}'}</code> as tokens in the URL templates.
                 </p>
                 <div className="mb-4">
                 <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source1">Global Source 1 Template (AnimePahe)</label>
@@ -168,6 +172,17 @@ const handleCopy = () => {
                     value={vidnestUrl}
                     onChange={(e) => handleUrlChange(StreamSource.Vidnest, e.target.value)}
                     placeholder="e.g., https://.../anime/{anilistId}/{episode}/{language}"
+                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                </div>
+                <div className="mb-4">
+                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="source3">Global Source 3 Template (Vidsrc)</label>
+                <input
+                    id="source3"
+                    type="text"
+                    value={vidsrcUrl}
+                    onChange={(e) => handleUrlChange(StreamSource.Vidsrc, e.target.value)}
+                    placeholder="e.g., https://vidsrc.cc/v2/embed/anime/{id}/{episode}/{language}"
                     className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
                 </div>

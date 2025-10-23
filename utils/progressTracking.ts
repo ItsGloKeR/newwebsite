@@ -46,7 +46,7 @@ class ProgressTracker {
   private handleMessage(event: MessageEvent) {
     // We no longer listen for MEDIA_DATA to reduce writes.
     // This listener is now only for other player events like video controls.
-    if (event.origin !== 'https://vidnest.fun' && event.origin !== 'https://vidlink.pro') {
+    if (event.origin !== 'https://vidnest.fun' && event.origin !== 'https://vidlink.pro' && event.origin !== 'https://vidsrc.cc') {
       return;
     }
     
