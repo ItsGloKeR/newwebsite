@@ -64,14 +64,21 @@ const CarouselCard: React.FC<CarouselCardProps> = ({ anime, onSelect, rank, onRe
   };
 
   const episodeText = () => {
-    if (anime.status === 'RELEASING' && anime.totalEpisodes) {
-      return `${anime.episodes || 0}/${anime.totalEpisodes} Eps`;
+    if (anime.status === 'RELEASING') {
+        if (anime.episodes !== null) {
+            return anime.totalEpisodes 
+                ? `${anime.episodes}/${anime.totalEpisodes} Eps`
+                : `${anime.episodes} Eps`;
+        }
+        return null; // Don't show episode count for airing anime if we don't know the latest episode
     }
-    if (anime.episodes) {
-      return `${anime.episodes} Eps`;
-    }
+
+    // For other statuses (FINISHED, NOT_YET_RELEASED, etc.)
     if (anime.totalEpisodes) {
       return `${anime.totalEpisodes} Eps`;
+    }
+    if (anime.episodes) { // Fallback, e.g. for FINISHED where totalEpisodes is null
+        return `${anime.episodes} Eps`;
     }
     return null;
   };

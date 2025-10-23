@@ -1046,7 +1046,6 @@ const AppContent: React.FC = () => {
                     {view !== 'landing' && (
                         <Header 
                             onSearch={handleSearchInputChange} 
-                            onHomeClick={handleGoToAppHome}
                             onLogoClick={handleGoToAppHome}
                             onMenuClick={() => setIsSidebarOpen(true)} 
                             onFilterClick={handleOpenDiscoverView}

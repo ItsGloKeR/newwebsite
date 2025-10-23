@@ -161,7 +161,7 @@ const AnimePlayer: React.FC<{
 }) => {
   const { getStreamUrl } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
-  const episodeCount = anime.episodes || 1;
+  const episodeCount = anime.totalEpisodes || anime.episodes || 1;
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
   const [isZenshinLoading, setIsZenshinLoading] = useState(true);
   const [isAiringNotificationVisible, setIsAiringNotificationVisible] = useState(true);

@@ -63,12 +63,14 @@ const getSimpleAnimeFieldsFragment = () => `
   bannerImage
   genres
   episodes
-  totalEpisodes: episodes
   duration
   status
   format
   seasonYear
   averageScore
+  nextAiringEpisode {
+    episode
+  }
 `;
 
 const getSmallCardAnimeFieldsFragment = () => `
@@ -87,12 +89,14 @@ const getSmallCardAnimeFieldsFragment = () => `
   bannerImage
   genres
   episodes
-  totalEpisodes: episodes
   duration
   status
   format
   seasonYear
   averageScore
+  nextAiringEpisode {
+    episode
+  }
 `;
 
 const getHeroAnimeFieldsFragment = () => getSimpleAnimeFieldsFragment();
@@ -388,14 +392,21 @@ const mapToAnime = (data: any): Anime => {
       }
     : undefined;
 
-  let releasedEpisodes = data.episodes;
-  if (data.status === 'RELEASING' && data.nextAiringEpisode) {
-    // If it's airing, the number of released episodes is one less than the next to air.
-    releasedEpisodes = data.nextAiringEpisode.episode - 1;
-  }
-  // The anilist API sometimes returns null for episodes, so we need to handle that.
-  if (releasedEpisodes === null && data.nextAiringEpisode) {
-      releasedEpisodes = data.nextAiringEpisode.episode - 1;
+  const totalEpisodes = data.episodes;
+  let latestReleasedEpisode: number | null;
+
+  switch (data.status) {
+    case 'RELEASING':
+      latestReleasedEpisode = nextAiringEpisode ? nextAiringEpisode.episode - 1 : null;
+      break;
+    case 'FINISHED':
+      latestReleasedEpisode = totalEpisodes;
+      break;
+    case 'NOT_YET_RELEASED':
+      latestReleasedEpisode = 0;
+      break;
+    default: // CANCELLED, HIATUS
+      latestReleasedEpisode = null;
   }
 
   return {
@@ -409,8 +420,8 @@ const mapToAnime = (data: any): Anime => {
     coverImageColor: data.coverImage?.color,
     bannerImage: data.bannerImage || data.coverImage?.[getImageQuality().cover] || PLACEHOLDER_IMAGE_URL,
     genres: data.genres || [],
-    episodes: releasedEpisodes || 0,
-    totalEpisodes: data.episodes || null,
+    episodes: latestReleasedEpisode,
+    totalEpisodes: totalEpisodes || null,
     duration: data.duration,
     year: data.seasonYear || 0,
     rating: data.averageScore || 0,
@@ -427,7 +438,25 @@ const mapToAnime = (data: any): Anime => {
 };
 
 // Maps lightweight data for cards, improving performance
-const mapToSimpleAnime = (data: any): Anime => ({
+const mapToSimpleAnime = (data: any): Anime => {
+  const totalEpisodes = data.episodes;
+  let latestReleasedEpisode: number | null;
+
+  switch (data.status) {
+    case 'RELEASING':
+      latestReleasedEpisode = data.nextAiringEpisode ? data.nextAiringEpisode.episode - 1 : null;
+      break;
+    case 'FINISHED':
+      latestReleasedEpisode = totalEpisodes;
+      break;
+    case 'NOT_YET_RELEASED':
+      latestReleasedEpisode = 0;
+      break;
+    default: // CANCELLED, HIATUS
+      latestReleasedEpisode = null;
+  }
+
+  return {
     anilistId: data.id,
     malId: data.idMal,
     englishTitle: data.title?.english || data.title?.romaji || 'Unknown Title',
@@ -437,8 +466,8 @@ const mapToSimpleAnime = (data: any): Anime => ({
     description: data.description ? data.description.replace(/<br\s*\/?>/gi, '\n').replace(/<i>|<\/i>/g, '') : '',
     bannerImage: data.bannerImage || data.coverImage?.[getImageQuality().cover] || data.coverImage?.large || PLACEHOLDER_IMAGE_URL,
     genres: data.genres || [],
-    episodes: data.episodes || 0,
-    totalEpisodes: data.totalEpisodes || null,
+    episodes: latestReleasedEpisode,
+    totalEpisodes: totalEpisodes || null,
     duration: data.duration || null,
     year: data.seasonYear || 0,
     rating: data.averageScore || 0,
@@ -449,7 +478,8 @@ const mapToSimpleAnime = (data: any): Anime => ({
     characters: [], // Not fetched
     relations: [], // Not fetched
     recommendations: [], // Not fetched
-});
+  };
+};
 
 
 export const getRandomAnime = async (): Promise<Anime | null> => {

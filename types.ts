@@ -114,7 +114,7 @@ export interface Anime {
   coverImageColor?: string;
   bannerImage: string;
   genres: string[];
-  episodes: number; // For finished anime, this is total. For airing, this is latest released.
+  episodes: number | null; // For finished anime, this is total. For airing, this is latest released.
   totalEpisodes: number | null; // Total episodes if known.
   duration: number | null;
   year: number;

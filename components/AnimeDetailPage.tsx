@@ -245,10 +245,13 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
     const total = anime.totalEpisodes;
 
     if (anime.status === 'RELEASING') {
-      if (total && total > 0) {
-        return `${released} / ${total}`;
+      if (released !== null) {
+        if (total && total > 0) {
+            return `${released} / ${total}`;
+        }
+        return `${released}`;
       }
-      return released > 0 ? `${released}` : null;
+      return null;
     }
 
     if (anime.status === 'FINISHED') {
@@ -261,7 +264,7 @@ const AnimeDetailPage: React.FC<AnimeDetailPageProps> = ({ anime, onWatchNow, on
 
     // Default for other statuses
     if (total) return `${total}`;
-    if (released) return `${released}`;
+    if (released !== null) return `${released}`;
 
     return null;
   }, [anime.episodes, anime.totalEpisodes, anime.status]);

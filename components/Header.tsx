@@ -10,7 +10,6 @@ import UserMenu from './UserMenu';
 
 interface HeaderProps {
   onSearch: (term: string) => void;
-  onHomeClick: () => void;
   onLogoClick: () => void;
   onMenuClick: () => void;
   onFilterClick: () => void;
@@ -40,7 +39,6 @@ const CloseIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" classN
 
 const Header: React.FC<HeaderProps> = ({ 
   onSearch, 
-  onHomeClick, 
   onLogoClick,
   onMenuClick,
   onFilterClick,
@@ -150,10 +148,12 @@ const Header: React.FC<HeaderProps> = ({
                         <path d="M16.6923 4.5L2.84615 27.5H30.5385L16.6923 4.5Z" stroke="#22d3ee" strokeWidth="2"/><path d="M16.6923 15.5L11.7692 23.5H21.6154L16.6923 15.5Z" fill="white"/><text x="40" y="23" fontFamily="Inter, sans-serif" fontSize="20" fontWeight="900" fill="#22d3ee">Ani<tspan fill="white">GloK</tspan></text>
                     </svg>
                 </div>
-                <button onClick={onHomeClick} className="flex items-center gap-1.5 text-white p-2 rounded-md hover:bg-white/10 transition-colors" aria-label="Go to homepage">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
-                    <span className="font-semibold text-sm">Home</span>
-                </button>
+                <a href="https://glokflix.vercel.app/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-white p-2 rounded-md hover:bg-white/10 transition-colors" aria-label="Visit GlokFlix for movies">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 4a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm10 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-semibold text-sm">Movies</span>
+                </a>
             </div>
 
             <div className="flex-1 flex justify-center px-4">
