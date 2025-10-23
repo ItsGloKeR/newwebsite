@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { getUserData, updateUserData } from '../services/firebaseService';
 
@@ -38,6 +38,7 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [watchlist, setWatchlist] = useState<number[]>(() => getFromStorage(WATCHLIST_STORAGE_KEY));
   const [favorites, setFavorites] = useState<number[]>(() => getFromStorage(FAVORITES_STORAGE_KEY));
   const [isSynced, setIsSynced] = useState(false);
+  const debounceTimeoutRef = useRef<number | null>(null);
 
   const syncData = useCallback(async () => {
     if (user && !isSynced) {
@@ -79,35 +80,64 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
     syncData();
   }, [user, syncData]);
 
-  const toggleWatchlist = useCallback(async (animeId: number) => {
-    const newWatchlist = watchlist.includes(animeId)
-      ? watchlist.filter(id => id !== animeId)
-      : [...watchlist, animeId];
-    
-    setWatchlist(newWatchlist);
-    saveToStorage(WATCHLIST_STORAGE_KEY, newWatchlist);
+  const scheduleFirestoreUpdate = useCallback(() => {
+    if (!user) return;
 
-    if (user) {
-      await updateUserData(user.uid, { watchlist: newWatchlist });
+    if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
     }
-  }, [watchlist, user]);
 
-  const toggleFavorite = useCallback(async (animeId: number) => {
-    const newFavorites = favorites.includes(animeId)
-      ? favorites.filter(id => id !== animeId)
-      : [...favorites, animeId];
-    
-    setFavorites(newFavorites);
-    saveToStorage(FAVORITES_STORAGE_KEY, newFavorites);
+    debounceTimeoutRef.current = window.setTimeout(() => {
+        const latestWatchlist = getFromStorage(WATCHLIST_STORAGE_KEY);
+        const latestFavorites = getFromStorage(FAVORITES_STORAGE_KEY);
+        console.log('Debouncing user data update to Firestore.');
+        updateUserData(user.uid, { 
+            watchlist: latestWatchlist, 
+            favorites: latestFavorites 
+        });
+    }, 5000); // 5-second debounce
+  }, [user]);
 
-    if (user) {
-      await updateUserData(user.uid, { favorites: newFavorites });
-    }
-  }, [favorites, user]);
+  const toggleWatchlist = useCallback((animeId: number) => {
+    setWatchlist(currentWatchlist => {
+        const newWatchlist = currentWatchlist.includes(animeId)
+            ? currentWatchlist.filter(id => id !== animeId)
+            : [...currentWatchlist, animeId];
+        
+        saveToStorage(WATCHLIST_STORAGE_KEY, newWatchlist);
+        if (user) {
+            scheduleFirestoreUpdate();
+        }
+        return newWatchlist;
+    });
+  }, [user, scheduleFirestoreUpdate]);
+
+  const toggleFavorite = useCallback((animeId: number) => {
+    setFavorites(currentFavorites => {
+        const newFavorites = currentFavorites.includes(animeId)
+            ? currentFavorites.filter(id => id !== animeId)
+            : [...currentFavorites, animeId];
+
+        saveToStorage(FAVORITES_STORAGE_KEY, newFavorites);
+        if (user) {
+            scheduleFirestoreUpdate();
+        }
+        return newFavorites;
+    });
+  }, [user, scheduleFirestoreUpdate]);
   
   const reSync = useCallback(() => {
     setIsSynced(false);
     // syncData will be called by the useEffect when isSynced changes to false.
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
   }, []);
 
   const value = {

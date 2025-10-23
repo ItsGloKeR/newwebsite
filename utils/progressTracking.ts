@@ -1,5 +1,5 @@
 import { MediaProgress, PlayerEventCallback, MediaProgressEntry, Anime } from '../types';
-import { updateUserProgress, removeProgressForAnime } from '../services/firebaseService';
+import { updateUserProgress } from '../services/firebaseService';
 
 const PROGRESS_STORAGE_KEY = 'vidLinkProgress';
 
@@ -7,6 +7,8 @@ class ProgressTracker {
   private listeners: Set<PlayerEventCallback> = new Set();
   private isInitialized = false;
   private userId: string | null = null;
+  private debounceTimeout: number | null = null;
+  private pendingProgressUpdates: MediaProgress = {};
 
   public init() {
     if (this.isInitialized || typeof window === 'undefined') {
@@ -19,6 +21,26 @@ class ProgressTracker {
 
   public setUserId(userId: string | null) {
     this.userId = userId;
+    if (!userId && this.debounceTimeout) {
+      clearTimeout(this.debounceTimeout);
+      this.pendingProgressUpdates = {};
+    }
+  }
+
+  private scheduleProgressUpdate() {
+    if (!this.userId) return;
+
+    if (this.debounceTimeout) {
+        clearTimeout(this.debounceTimeout);
+    }
+
+    this.debounceTimeout = window.setTimeout(() => {
+        if (this.userId && Object.keys(this.pendingProgressUpdates).length > 0) {
+            console.log('Debouncing progress update to Firestore.');
+            updateUserProgress(this.userId, this.pendingProgressUpdates);
+            this.pendingProgressUpdates = {}; // Clear after sending
+        }
+    }, 15000); // 15-second debounce
   }
 
   private handleMessage(event: MessageEvent) {
@@ -46,14 +68,18 @@ class ProgressTracker {
     const allData = this.getAllMediaData();
     const animeIdString = String(anime.anilistId);
 
-    // FIX: Ensure new entry conforms to MediaProgressEntry and use string keys for object access to match MediaProgress type.
     const entry: MediaProgressEntry = allData[animeIdString] || {
       id: anime.anilistId,
       type: anime.format === 'MOVIE' ? 'movie' : 'tv',
       title: anime.englishTitle,
       poster_path: anime.coverImage,
-      last_episode_watched: 0, // Provide default to satisfy the type.
+      last_episode_watched: 0,
     };
+
+    // To avoid excessive writes, only update if the episode is different or if it's been a while.
+    if (entry.last_episode_watched === episode && entry.lastAccessed && (Date.now() - entry.lastAccessed < 60000)) {
+        return;
+    }
 
     entry.last_episode_watched = episode;
     entry.lastAccessed = Date.now();
@@ -62,15 +88,16 @@ class ProgressTracker {
     this.saveProgress(allData);
 
     if (this.userId) {
-      updateUserProgress(this.userId, { [animeIdString]: entry });
+      this.pendingProgressUpdates[animeIdString] = entry;
+      this.scheduleProgressUpdate();
     }
   }
 
   public addToHistory(anime: Anime) {
     const allData = this.getAllMediaData();
-    const existingEntry = allData[String(anime.anilistId)];
+    const animeIdString = String(anime.anilistId);
+    const existingEntry = allData[animeIdString];
 
-    // Only add if it doesn't exist. Don't overwrite last_episode_watched.
     if (!existingEntry) {
         const newEntry: MediaProgressEntry = {
             id: anime.anilistId,
@@ -81,11 +108,22 @@ class ProgressTracker {
             lastAccessed: Date.now(),
         };
 
-        allData[String(anime.anilistId)] = newEntry;
+        allData[animeIdString] = newEntry;
         this.saveProgress(allData);
 
         if (this.userId) {
-            updateUserProgress(this.userId, { [String(anime.anilistId)]: newEntry });
+            this.pendingProgressUpdates[animeIdString] = newEntry;
+            this.scheduleProgressUpdate();
+        }
+    } else {
+        // If it exists, update lastAccessed to bring it to the front of "continue watching"
+        existingEntry.lastAccessed = Date.now();
+        allData[animeIdString] = existingEntry;
+        this.saveProgress(allData);
+
+        if (this.userId) {
+            this.pendingProgressUpdates[animeIdString] = existingEntry;
+            this.scheduleProgressUpdate();
         }
     }
   }
@@ -98,7 +136,9 @@ class ProgressTracker {
       this.saveProgress(allData);
       
       if (this.userId) {
-        removeProgressForAnime(this.userId, anilistId);
+        // Use null as a signal for deletion in the batched update
+        this.pendingProgressUpdates[anilistIdString] = null as any;
+        this.scheduleProgressUpdate();
       }
     }
   }

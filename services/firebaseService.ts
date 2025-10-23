@@ -122,29 +122,18 @@ export const updateUserProgress = async (uid: string, progress: MediaProgress): 
         const updates: { [key: string]: any } = {};
         for (const anilistId in progress) {
             if (Object.prototype.hasOwnProperty.call(progress, anilistId)) {
-                updates[`progress.${anilistId}`] = progress[anilistId];
+                const entry = progress[anilistId];
+                // Use null as a signal to delete the field
+                if (entry === null) {
+                    updates[`progress.${anilistId}`] = deleteField();
+                } else {
+                    updates[`progress.${anilistId}`] = entry;
+                }
             }
         }
         await updateDoc(userRef, updates);
     } catch (error) {
-        console.warn("updateDoc failed for progress, trying setDoc with merge as fallback:", error);
-        try {
-            await setDoc(userRef, { progress }, { merge: true });
-        } catch (setError) {
-            console.error("Error updating user progress with both updateDoc and setDoc", setError);
-        }
-    }
-};
-
-export const removeProgressForAnime = async (uid: string, anilistId: number): Promise<void> => {
-    if (!db) return;
-    const userRef = doc(db, 'users', uid);
-    try {
-        await updateDoc(userRef, {
-            [`progress.${anilistId}`]: deleteField()
-        });
-    } catch (error) {
-        console.error("Error removing user progress for anime:", anilistId, error);
+        console.error("Error updating user progress.", error);
     }
 };
 
