@@ -9,17 +9,17 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      host: '0.0.0.0',
+      host: '0.0.0.0'
     },
     plugins: [
       react(),
       VitePWA({
-        srcDir: '.',                   // service-worker.ts lives here
-        filename: 'service-worker.js',   // final output file in build
-        strategies: 'injectManifest',    // use your custom service worker
-        injectRegister: 'auto',          // automatically register SW
-        src: 'service-worker.ts',        // entry service worker file
-        includeAssets: ['favicon.svg', 'robots.txt'], // optional static assets
+        srcDir: '.',                  // service-worker.ts lives here
+        filename: 'service-worker.js',  // final output
+        strategies: 'injectManifest',   // use custom service worker
+        injectRegister: 'auto',
+        src: 'service-worker.ts',       // entry file
+        includeAssets: ['favicon.svg', 'robots.txt'],
         manifest: {
           name: 'AniGloK',
           short_name: 'AniGloK',
@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, '.')
       }
     }
   };
