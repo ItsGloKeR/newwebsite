@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -386,8 +387,16 @@ const AppContent: React.FC = () => {
             if (watchMatch) {
                 const animeId = parseInt(watchMatch[1], 10);
                 const episode = parseInt(watchMatch[2], 10);
-                if (view === 'player' && playerState.anime?.anilistId === animeId && playerState.episode === episode) return;
+                
+                // Optimization: If we're already on the player for the same anime, just update the episode.
+                if (view === 'player' && playerState.anime?.anilistId === animeId) {
+                    if (playerState.episode !== episode) {
+                        setPlayerState(prev => ({ ...prev, episode: episode }));
+                    }
+                    return; // Prevent full re-fetch
+                }
 
+                // This is now the "cold load" path for the player page
                 setView('player');
                 setPlayerState(prev => ({ ...prev, anime: null }));
                 window.scrollTo(0, 0);
