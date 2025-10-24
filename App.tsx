@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } fr
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
 import { addSearchTermToHistory } from './services/cacheService';
-import { getLastPlayerSettings, setLastPlayerSettings } from './services/userPreferenceService';
+import { getLastPlayerSettings, setLastPlayerSettings, getFullPlayerSettings } from './services/userPreferenceService';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AnimeCarousel from './components/AnimeCarousel';
@@ -17,7 +17,7 @@ import { UserDataProvider, useUserData } from './contexts/UserDataContext';
 import { DataSaverProvider, useDataSaver } from './contexts/DataSaverContext';
 import { TooltipProvider } from './contexts/TooltipContext';
 import isEqual from 'lodash.isequal';
-import HomePageLoader from './components/HomePageLoader';
+import HomePageSkeleton from './components/HomePageSkeleton';
 import { progressTracker } from './utils/progressTracking';
 import { PLACEHOLDER_IMAGE_URL } from './constants';
 import { useDebounce } from './hooks/useDebounce';
@@ -274,15 +274,20 @@ const AppContent: React.FC = () => {
     };
 
     const handleSourceChange = (source: StreamSource) => {
+        const settings = getFullPlayerSettings();
+        const languageForNewSource = settings.languagePrefs[source] || StreamLanguage.Sub;
         setPlayerState(prev => {
-            setLastPlayerSettings(source, prev.language);
-            return { ...prev, source };
+            const newState = { ...prev, source, language: languageForNewSource };
+            // Save the new state: the source we just switched to, and its corresponding language preference.
+            setLastPlayerSettings(source, languageForNewSource);
+            return newState;
         });
     };
 
     const handleLanguageChange = (language: StreamLanguage) => {
         setPlayerState(prev => {
-            setLastPlayerSettings(prev.source, prev.language);
+            // Save the new language preference for the current source.
+            setLastPlayerSettings(prev.source, language);
             return { ...prev, language };
         });
     };
@@ -916,6 +921,7 @@ const AppContent: React.FC = () => {
                                 animeList={topUpcoming} 
                                 onSelectAnime={handleSelectAnime}
                                 showRank={false}
+                                // FIX: Use MediaStatus enum for statuses filter instead of MediaSort.
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.NOT_YET_RELEASED], sort: MediaSort.POPULARITY_DESC }, "Top Upcoming Anime")}
                                 cardSize="small"
                             />
@@ -1043,7 +1049,7 @@ const AppContent: React.FC = () => {
             case 'home':
             default:
                 if (isLoading && trending.length === 0 && !isDiscoveryView) {
-                    content = <HomePageLoader />;
+                    content = <HomePageSkeleton />;
                 } else {
                     content = renderHomePage();
                 }

@@ -3,6 +3,7 @@ import { Anime } from '../types';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { useUserData } from '../contexts/UserDataContext';
+import HomePageLoader from './HomePageLoader';
 
 interface HeroProps {
   animes: Anime[];
@@ -68,7 +69,11 @@ const Hero: React.FC<HeroProps> = ({ animes, onWatchNow, onDetails, onBannerChan
   };
   
   if (animeList.length === 0) {
-    return <div ref={heroRef} className="h-[60vh] md:h-[70vh] w-full bg-gray-900 animate-pulse"></div>;
+    return (
+      <div ref={heroRef} className="relative h-[60vh] md:h-[70vh] w-full bg-gray-950 flex items-center justify-center -mt-16 pt-16">
+        <HomePageLoader />
+      </div>
+    );
   }
 
   const currentAnime = animeList[currentIndex];

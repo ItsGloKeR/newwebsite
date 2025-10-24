@@ -1,5 +1,6 @@
 import React from 'react';
 import SkeletonCard from './SkeletonCard';
+import HomePageLoader from './HomePageLoader';
 
 const SkeletonTitle: React.FC<{ className?: string }> = ({ className = 'w-72' }) => (
   <div className={`h-8 bg-gray-800 rounded-md mb-6 animate-pulse ${className}`}></div>
@@ -28,7 +29,9 @@ const CarouselSkeleton: React.FC<{ cardCount?: number; size?: 'normal' | 'small'
 const HomePageSkeleton: React.FC = () => {
   return (
     <div className="animate-fade-in">
-      <div className="h-[60vh] md:h-[70vh] w-full bg-gray-800 animate-pulse -mt-16 pt-16"></div>
+      <div className="relative h-[60vh] md:h-[70vh] w-full bg-gray-950 flex items-center justify-center -mt-16 pt-16">
+        <HomePageLoader />
+      </div>
       
       <div className="container mx-auto max-w-screen-2xl p-4 md:p-8">
         {/* Continue Watching / Trending Skeleton */}
