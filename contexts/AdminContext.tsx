@@ -167,6 +167,16 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return `https://vidsrc.to/embed/tv/${imdbId}/${seasonNumber}/${episodeNumber}`;
     }
 
+    // Special handling for Vidsrc.icu
+    if (source === StreamSource.VidsrcIcu) {
+        const dubValue = language === StreamLanguage.Dub ? '1' : '0';
+        const template = mergedOverrides.anime[animeId]?.streamUrlTemplates?.[source] || mergedOverrides.globalStreamUrlTemplates[source] || STREAM_URLS[source];
+        return template
+            .replace('{id}', String(animeId))
+            .replace('{episode}', String(episode))
+            .replace('{dub}', dubValue);
+    }
+
     // Special handling for Vidsrc
     if (source === StreamSource.Vidsrc) {
         let id = '';

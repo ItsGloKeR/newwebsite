@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Anime, StreamSource, StreamLanguage, RelatedAnime, RecommendedAnime, ZenshinMapping } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
-import { getZenshinMappings, fetchConsumetStream } from '../services/anilistService';
+import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import VerticalAnimeList from './VerticalAnimeList';
 import { useTooltip } from '../contexts/TooltipContext';
@@ -336,47 +336,15 @@ const AnimePlayer: React.FC<{
   }, [anime.anilistId]);
   
   useEffect(() => {
-    const fetchStream = async () => {
-        setIsPlayerLoading(true);
-        setStreamUrl(null); // Clear previous url while fetching
+    setIsPlayerLoading(true);
+    setStreamUrl(null); // Clear previous url while fetching
 
-        if (currentSource === StreamSource.Consumet) {
-            const episodeId = zenshinData?.episodes?.[currentEpisode]?.id;
-            if (episodeId) {
-                const streamData = await fetchConsumetStream(episodeId);
-                if (streamData && streamData.sources && streamData.sources.length > 0) {
-                    const gogocdnSources = streamData.sources.filter(s => s.url.includes('gogocdn'));
-                    const sourcesToUse = gogocdnSources.length > 0 ? gogocdnSources : streamData.sources;
-                    
-                    const defaultQuality = sourcesToUse.find(s => s.quality === 'default' || s.quality === 'auto');
-                    const bestQuality = defaultQuality || sourcesToUse[sourcesToUse.length - 1];
-                    
-                    if (bestQuality) {
-                        setStreamUrl(bestQuality.url);
-                    } else {
-                        console.warn('Consumet (Src 4) source found, but no stream URLs available.');
-                        setStreamUrl('about:blank#consumet-no-sources');
-                    }
-                } else {
-                    console.warn(`No stream data from Consumet (Src 4) for episodeId ${episodeId}.`);
-                    setStreamUrl('about:blank#consumet-no-data');
-                }
-            } else if (zenshinData) { // zenshinData loaded but no ID found
-                console.warn(`No episodeId found for anime ${anime.anilistId} ep ${currentEpisode}. Cannot use Src 4.`);
-                setStreamUrl('about:blank#consumet-no-episode-id');
-            }
-        } else {
-            // Logic for all other sources
-            const url = getStreamUrl({
-                animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, animeFormat: anime.format
-            });
+    const url = getStreamUrl({
+        animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, animeFormat: anime.format
+    });
 
-            setStreamUrl(url);
-        }
-    };
-
-    fetchStream();
-  }, [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, onSourceChange]);
+    setStreamUrl(url);
+  }, [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData]);
 
 
   useEffect(() => {
@@ -465,7 +433,8 @@ const AnimePlayer: React.FC<{
     { id: StreamSource.AnimePahe, label: 'Src 1' },
     { id: StreamSource.Vidnest, label: 'Src 2' },
     { id: StreamSource.Vidsrc, label: 'Src 3' },
-    { id: StreamSource.Consumet, label: 'Src 4' },
+    { id: StreamSource.ExternalPlayer, label: 'Src 4' },
+    { id: StreamSource.VidsrcIcu, label: 'Src 5' },
   ];
   
   const languages = [
@@ -474,7 +443,7 @@ const AnimePlayer: React.FC<{
     { id: StreamLanguage.Hindi, label: 'HINDI' },
   ];
   
-  const sourcesWithoutLanguageControl = [StreamSource.Consumet];
+  const sourcesWithoutLanguageControl = [StreamSource.ExternalPlayer];
 
   return (
     <main className="min-h-screen text-white animate-fade-in">
@@ -559,7 +528,7 @@ const AnimePlayer: React.FC<{
                           </div>
                       ) : (
                           languages.map(lang => {
-                              const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || (currentSource === StreamSource.Vidsrc && lang.id === StreamLanguage.Hindi);
+                              const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi);
                               return (
                                 <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button>
                               )

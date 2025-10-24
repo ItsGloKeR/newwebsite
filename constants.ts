@@ -7,6 +7,7 @@ export const STREAM_URLS: Record<StreamSource, string> = {
   [StreamSource.Vidlink]: 'https://vidlink.pro/anime/{malId}/{episode}/{language}',
   [StreamSource.ExternalPlayer]: '', // This is handled dynamically in AdminContext
   [StreamSource.Vidsrc]: 'https://vidsrc.cc/v2/embed/anime/{id}/{episode}/{language}',
+  [StreamSource.VidsrcIcu]: 'https://vidsrc.icu/embed/anime/{id}/{episode}/{dub}',
 };
 
 // SVG data URI for a simple grey placeholder image with a 2:3 aspect ratio

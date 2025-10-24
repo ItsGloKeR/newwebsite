@@ -19,6 +19,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const [vidlinkUrl, setVidlinkUrl] = useState(overrides.globalStreamUrlTemplates.vidlink || '');
   const [externalPlayerUrl, setExternalPlayerUrl] = useState(overrides.globalStreamUrlTemplates.externalplayer || '');
   const [vidsrcUrl, setVidsrcUrl] = useState(overrides.globalStreamUrlTemplates.vidsrc || '');
+  const [vidsrcIcuUrl, setVidsrcIcuUrl] = useState(overrides.globalStreamUrlTemplates.vidsrcicu || '');
   const [copyButtonText, setCopyButtonText] = useState('Generate & Copy Code');
   
   const modalRef = useRef<HTMLDivElement>(null);
@@ -31,6 +32,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         setVidlinkUrl(overrides.globalStreamUrlTemplates.vidlink || '');
         setExternalPlayerUrl(overrides.globalStreamUrlTemplates.externalplayer || '');
         setVidsrcUrl(overrides.globalStreamUrlTemplates.vidsrc || '');
+        setVidsrcIcuUrl(overrides.globalStreamUrlTemplates.vidsrcicu || '');
     }
   }, [overrides, isOpen]);
   
@@ -74,6 +76,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         setExternalPlayerUrl(value);
     } else if (source === StreamSource.Vidsrc) {
         setVidsrcUrl(value);
+    } else if (source === StreamSource.VidsrcIcu) {
+        setVidsrcIcuUrl(value);
     }
     updateGlobalStreamUrlTemplate(source, value);
   };
@@ -183,6 +187,17 @@ const handleCopy = () => {
                     value={vidsrcUrl}
                     onChange={(e) => handleUrlChange(StreamSource.Vidsrc, e.target.value)}
                     placeholder="e.g., https://vidsrc.cc/v2/embed/anime/{id}/{episode}/{language}"
+                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                </div>
+                <div className="mb-4">
+                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="vidsrcIcu">Global Source 5 Template (Vidsrc.icu)</label>
+                <input
+                    id="vidsrcIcu"
+                    type="text"
+                    value={vidsrcIcuUrl}
+                    onChange={(e) => handleUrlChange(StreamSource.VidsrcIcu, e.target.value)}
+                    placeholder="e.g., https://vidsrc.icu/embed/anime/{id}/{episode}/{dub}"
                     className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
                 </div>
