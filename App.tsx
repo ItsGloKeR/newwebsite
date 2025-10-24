@@ -11,6 +11,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import Footer from './components/Footer';
 import BackToTopButton from './components/BackToTopButton';
 import VerticalAnimeList from './components/VerticalAnimeList';
+// FIX: Add missing provider imports. This is necessary to wrap AppContent and provide context.
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import { TitleLanguageProvider } from './contexts/TitleLanguageContext';
 import { UserDataProvider, useUserData } from './contexts/UserDataContext';
@@ -55,21 +56,21 @@ const initialFilters: FilterState = {
 };
 
 const SchedulePreview: React.FC<{ schedule: AiringSchedule[]; onSelectAnime: (anime: { anilistId: number }) => void; onShowMore: () => void }> = ({ schedule, onSelectAnime, onShowMore }) => {
-    const today = new Date();
-    // FIX: Define the `startOfDay` variable before using it to prevent a reference error.
-    const startOfDay = new Date(today);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
-
     const todaysSchedule = useMemo(() => {
+        // FIX: Moved date calculations inside useMemo to avoid re-running on every render.
+        const today = new Date();
+        const startOfDay = new Date(today);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(today);
+        endOfDay.setHours(23, 59, 59, 999);
+
         return schedule
             .filter(item => {
                 const itemDate = new Date(item.airingAt * 1000);
                 return itemDate.getTime() >= startOfDay.getTime() && itemDate.getTime() <= endOfDay.getTime();
             })
             .sort((a, b) => a.airingAt - b.airingAt);
-    }, [schedule, startOfDay, endOfDay]);
+    }, [schedule]);
 
 
     return (
@@ -958,185 +959,106 @@ const AppContent: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                                        
-                    <div className="mt-16" ref={schedulePreviewRef}>
-                        <SchedulePreview 
-                            schedule={scheduleList}
-                            onSelectAnime={handleSelectAnime}
-                            onShowMore={() => setIsScheduleVisibleOnHome(true)}
-                        />
+                    <div ref={schedulePreviewRef} className="mt-16">
+                         <SchedulePreview schedule={scheduleList} onSelectAnime={handleSelectAnime} onShowMore={() => setIsScheduleVisibleOnHome(true)} />
                     </div>
                 </div>
             </main>
         );
     };
 
-    const renderContent = () => {
-        let content;
-        switch(view) {
-            case 'landing':
-                content = (
-                  <Suspense fallback={<LandingPageSkeleton />}>
-                    <LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToLanding} onNavigate={handleViewMore} />
-                  </Suspense>
-                );
-                break;
-            case 'report':
-                content = (
-                  <Suspense fallback={<FullPageSpinner />}>
-                    <ReportPage onBack={handleBackFromReport} />
-                  </Suspense>
-                );
-                break;
-            case 'schedule':
-                content = (
-                    <main className="container mx-auto max-w-screen-2xl p-4 md:p-8">
-                        <Suspense fallback={<FullPageSpinner />}>
-                            <SchedulePage 
-                                schedule={scheduleList}
-                                onSelectAnime={handleSelectAnime} 
-                                onClose={() => { window.location.hash = '#/'; }} 
-                            />
-                        </Suspense>
-                    </main>
-                );
-                break;
-            case 'player':
-                content = !playerState.anime ? (
-                    <FullPageSpinner />
-                ) : (
-                  <Suspense fallback={<FullPageSpinner />}>
-                    <AnimePlayer
-                        anime={playerState.anime}
-                        currentEpisode={playerState.episode}
-                        currentSource={playerState.source}
-                        currentLanguage={playerState.language}
-                        onEpisodeChange={(ep) => {
-                            if (playerState.anime) {
-                                window.location.hash = `#/watch/${playerState.anime.anilistId}/${ep}`;
-                            }
-                        }}
-                        onSourceChange={handleSourceChange}
-                        onLanguageChange={handleLanguageChange}
-                        onBack={handleBackToDetails}
-                        onSelectRecommended={handleSelectAnime}
-                        onSelectRelated={handleSelectAnime}
-                        onViewMore={handleViewMore}
-                        onReportIssue={handleGoToReport}
-                        topAiring={topAiring}
-                    />
-                  </Suspense>
-                );
-                break;
-            case 'details':
-                 content = (
-                    <Suspense fallback={<AnimeDetailPageSkeleton />}>
-                      {isLoading || !selectedAnime ? (
-                          <AnimeDetailPageSkeleton />
-                      ) : (
-                          <AnimeDetailPage 
-                              anime={selectedAnime}
-                              onWatchNow={handleWatchNow}
-                              onBack={handleBackFromDetails}
-                              onSelectRelated={(id) => handleSelectAnime({anilistId: id})}
-                              onViewMore={handleViewMore}
-                              setInView={setIsBannerInView}
-                          />
-                      )}
-                    </Suspense>
-                );
-                break;
-            case 'home':
-            default:
-                if (isLoading && trending.length === 0 && !isDiscoveryView) {
-                    content = <HomePageSkeleton />;
-                } else {
-                    content = renderHomePage();
-                }
-                break;
-        }
-        return <div key={view} className="animate-page-fade-in">{content}</div>;
-    };
-
+    if (authLoading && view !== 'landing') {
+        return <HomePageSkeleton />;
+    }
+    
     return (
-        <div className="bg-gray-950 min-h-screen">
-            {/* Background Elements */}
-            <div aria-hidden="true" className="fixed inset-0 z-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at top right, rgba(34, 211, 238, 0.3), transparent 60%), radial-gradient(circle at bottom left, rgba(8, 145, 178, 0.3), transparent 60%)' }}></div>
-            <div aria-hidden="true" className="fixed inset-0 z-0" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+        <TooltipProvider onWatchNow={handleWatchNow} onDetails={handleSelectAnime}>
+            {view !== 'landing' && (
+                <Sidebar 
+                    isOpen={isSidebarOpen} 
+                    onClose={() => setIsSidebarOpen(false)} 
+                    onNavigate={handleViewMore}
+                    onHomeClick={handleGoToAppHome}
+                    onScheduleClick={handleScheduleClick}
+                    onLoginClick={handleLoginClick}
+                    onProfileClick={() => setIsProfileModalOpen(true)}
+                    onRandomAnime={handleRandomAnime}
+                    isRandomLoading={isRandomLoading}
+                    allGenres={allGenres}
+                    isHome={view === 'home' && !isDiscoveryView}
+                />
+            )}
+            {view !== 'landing' && (
+                <Header 
+                    onSearch={handleSearchInputChange}
+                    onLogoClick={handleGoToAppHome}
+                    onMenuClick={() => setIsSidebarOpen(true)}
+                    onFilterClick={handleOpenDiscoverView}
+                    onRandomAnime={handleRandomAnime}
+                    isRandomLoading={isRandomLoading}
+                    onLoginClick={handleLoginClick}
+                    onProfileClick={() => setIsProfileModalOpen(true)}
+                    onSearchSubmit={handleSearchSubmit}
+                    searchTerm={searchTerm}
+                    suggestions={searchSuggestions}
+                    onSuggestionClick={handleSuggestionClick}
+                    isSuggestionsLoading={isSuggestionsLoading}
+                    onNavigate={handleViewMore}
+                    isBannerInView={isBannerInView || view === 'details'}
+                />
+            )}
             
-            <div className="relative z-10">
-                 <TooltipProvider onDetails={handleSelectAnime} onWatchNow={handleWatchNow}>
-                    {view !== 'landing' && (
-                        <Header 
-                            onSearch={handleSearchInputChange} 
-                            onLogoClick={handleGoToAppHome}
-                            onMenuClick={() => setIsSidebarOpen(true)} 
-                            onFilterClick={handleOpenDiscoverView}
-                            onRandomAnime={handleRandomAnime}
-                            isRandomLoading={isRandomLoading}
-                            onLoginClick={handleLoginClick} 
-                            onSearchSubmit={handleSearchSubmit}
-                            searchTerm={searchTerm} 
-                            suggestions={searchSuggestions}
-                            onSuggestionClick={handleSuggestionClick}
-                            isSuggestionsLoading={isSuggestionsLoading}
-                            onNavigate={handleViewMore}
-                            isBannerInView={isBannerInView}
-                            onProfileClick={() => setIsProfileModalOpen(true)}
-                        />
-                    )}
-                    {view !== 'landing' && (
-                        <Sidebar 
-                            isOpen={isSidebarOpen}
-                            onClose={() => setIsSidebarOpen(false)}
-                            onNavigate={handleViewMore}
-                            onHomeClick={handleGoToAppHome}
-                            onScheduleClick={handleScheduleClick}
-                            onLoginClick={() => { handleLoginClick(); setIsSidebarOpen(false); }}
-                            onProfileClick={() => { setIsProfileModalOpen(true); setIsSidebarOpen(false); }}
-                            allGenres={allGenres}
-                            isHome={view === 'home' && !isDiscoveryView}
-                            onRandomAnime={handleRandomAnime}
-                            isRandomLoading={isRandomLoading}
-                        />
-                    )}
-                    {renderContent()}
-                    {miniPlayerState && (
-                        <MiniPlayer
-                            anime={miniPlayerState.anime}
-                            episode={miniPlayerState.episode}
-                            onClose={() => setMiniPlayerState(null)}
-                            onExpand={() => {
-                                window.location.hash = `#/watch/${miniPlayerState.anime.anilistId}/${miniPlayerState.episode}`;
-                            }}
-                        />
-                    )}
-                    {view !== 'landing' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToLanding} isDataSaverActive={isDataSaverActive} />}
-                    {view !== 'landing' && <BackToTopButton />}
+            <Suspense fallback={view === 'landing' ? <LandingPageSkeleton /> : <FullPageSpinner />}>
+                {view === 'landing' && <LandingPage onEnter={handleEnterApp} onLogoClick={handleGoToAppHome} onNavigate={handleViewMore}/>}
+                
+                {view === 'home' && (isLoading && !isDiscoveryView ? <HomePageSkeleton /> : renderHomePage())}
 
-                    <Suspense fallback={null}>
-                        {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
-                        {isLoginModalOpen && <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />}
-                        {isProfileModalOpen && <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />}
-                    </Suspense>
-                </TooltipProvider>
-            </div>
-        </div>
+                {view === 'details' && (isLoading || !selectedAnime ? <AnimeDetailPageSkeleton /> : <AnimeDetailPage anime={selectedAnime} onWatchNow={handleWatchNow} onBack={handleBackFromDetails} onSelectRelated={handleSelectAnime} onViewMore={handleViewMore} setInView={setIsBannerInView} />)}
+
+                {view === 'player' && (!playerState.anime ? <FullPageSpinner /> : <AnimePlayer anime={playerState.anime} currentEpisode={playerState.episode} currentSource={playerState.source} currentLanguage={playerState.language} onEpisodeChange={(ep) => setPlayerState(p => ({ ...p, episode: ep }))} onSourceChange={handleSourceChange} onLanguageChange={handleLanguageChange} onBack={handleBackToDetails} onSelectRelated={handleSelectAnime} onSelectRecommended={handleSelectAnime} topAiring={topAiring} onViewMore={handleViewMore} onReportIssue={handleGoToReport} />)}
+
+                {view === 'report' && <ReportPage onBack={handleBackFromReport} />}
+
+                {view === 'schedule' && (isLoading ? <FullPageSpinner /> : <SchedulePage schedule={scheduleList} onSelectAnime={handleSelectAnime} onClose={handleGoToAppHome} />)}
+            </Suspense>
+
+            {view !== 'landing' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToAppHome} isDataSaverActive={isDataSaverActive} />}
+            {view !== 'landing' && <BackToTopButton />}
+            
+            {/* Modals */}
+            <Suspense fallback={null}>
+                {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
+                {isLoginModalOpen && <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />}
+                {isProfileModalOpen && <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />}
+            </Suspense>
+
+             {miniPlayerState && (
+                <MiniPlayer 
+                    anime={miniPlayerState.anime} 
+                    episode={miniPlayerState.episode} 
+                    onClose={() => setMiniPlayerState(null)} 
+                    onExpand={() => handleWatchNow(miniPlayerState.anime, miniPlayerState.episode)}
+                />
+            )}
+        </TooltipProvider>
     );
 };
 
-const App: React.FC = () => (
+// FIX: Define the App component wrapper to provide context to AppContent.
+const App: React.FC = () => {
+  return (
     <AuthProvider>
+      <DataSaverProvider>
         <AdminProvider>
-            <TitleLanguageProvider>
-                <UserDataProvider>
-                    <DataSaverProvider>
-                        <AppContent />
-                    </DataSaverProvider>
-                </UserDataProvider>
-            </TitleLanguageProvider>
+            <UserDataProvider>
+                <TitleLanguageProvider>
+                    <AppContent />
+                </TitleLanguageProvider>
+            </UserDataProvider>
         </AdminProvider>
+      </DataSaverProvider>
     </AuthProvider>
-);
+  );
+};
 
 export default App;

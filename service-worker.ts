@@ -1,11 +1,5 @@
 /// <reference lib="webworker" />
-
-// service-worker.ts
-
-// FIX: Explicitly declare the type of `self` to `ServiceWorkerGlobalScope`.
-// This is necessary because this file is treated as a module (due to `export {}`),
-// which can cause TypeScript to incorrectly infer `self` as `Window`.
-declare let self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope;
 
 // Cache versions. Increment to force updates.
 const STATIC_CACHE_VERSION = 'v4';
@@ -42,7 +36,7 @@ const STATIC_DATA_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DYNAMIC_DATA_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
 // On install, pre-cache the app shell.
-self.addEventListener('install', (event: ExtendableEvent) => {
+self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME)
       .then((cache) => {
@@ -54,7 +48,7 @@ self.addEventListener('install', (event: ExtendableEvent) => {
 });
 
 // On activate, clean up old caches and take control.
-self.addEventListener('activate', (event: ExtendableEvent) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -65,13 +59,14 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
             console.log('Service Worker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
+          return null;
         })
       );
     }).then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', (event: FetchEvent) => {
+self.addEventListener('fetch', (event) => {
   const { request } = event;
 
   // Handle AniList POST requests
@@ -147,11 +142,11 @@ function categorizeRequest(payload: any) {
     return { type: 'dynamic', cacheName: API_DYNAMIC_CACHE_NAME, maxAge: DYNAMIC_DATA_MAX_AGE_MS };
 }
 
-async function handleApiPostRequest(event: FetchEvent) {
+async function handleApiPostRequest(event: FetchEvent): Promise<Response> {
   const payload = await getRequestPayload(event.request);
   const category = categorizeRequest(payload);
 
-  if (category.type === 'no-cache') {
+  if (category.type === 'no-cache' || !category.cacheName || !category.maxAge) {
     return fetch(event.request);
   }
 
@@ -198,7 +193,7 @@ async function handleApiPostRequest(event: FetchEvent) {
   }
 }
 
-async function handleStaticGetApiRequest(event: FetchEvent, cacheName: string, maxAge: number) {
+async function handleStaticGetApiRequest(event: FetchEvent, cacheName: string, maxAge: number): Promise<Response> {
   try {
     const cache = await caches.open(cacheName);
     const cachedResponse = await cache.match(event.request);
@@ -236,7 +231,7 @@ async function handleStaticGetApiRequest(event: FetchEvent, cacheName: string, m
   }
 }
 
-async function cloneResponseWithTimestamp(response: Response) {
+async function cloneResponseWithTimestamp(response: Response): Promise<Response> {
   const body = await response.blob();
   const headers = new Headers(response.headers);
   headers.set('X-Cache-Timestamp', String(Date.now()));
@@ -248,5 +243,4 @@ async function cloneResponseWithTimestamp(response: Response) {
   });
 }
 
-// FIX: Convert to a module to prevent global scope conflicts.
 export {};
