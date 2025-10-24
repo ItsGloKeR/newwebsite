@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        srcDir: 'src',                   // service-worker.ts lives here
+        srcDir: '.',                   // service-worker.ts lives here
         filename: 'service-worker.js',   // final output file in build
         strategies: 'injectManifest',    // use your custom service worker
         injectRegister: 'auto',          // automatically register SW
