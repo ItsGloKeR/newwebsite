@@ -86,9 +86,11 @@ registerRoute(
     'POST'
 );
 
-// Zenshin API (GET requests) - StaleWhileRevalidate.
+// Mapping & Metadata APIs (Anify, Consumet) - StaleWhileRevalidate
 registerRoute(
-  ({ url }) => url.href.includes('zenshin-supabase-api'),
+  ({ url }) =>
+    (url.origin === 'https://corsproxy.io' && url.href.includes('api.anify.tv/mappings')) ||
+    url.origin === 'https://consumet-seven-navy.vercel.app',
   new StaleWhileRevalidate({
     cacheName: 'aniglok-api-static-cache-v2',
     plugins: [
@@ -101,6 +103,7 @@ registerRoute(
     ],
   })
 );
+
 
 // Handle navigation requests for the SPA by serving the precached index.html.
 const handler = createHandlerBoundToURL('/index.html');

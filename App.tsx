@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -148,7 +149,7 @@ const AppContent: React.FC = () => {
     const [playerState, setPlayerState] = useState({
         anime: null as Anime | null,
         episode: 1,
-        source: StreamSource.AnimePahe,
+        source: StreamSource.Consumet,
         language: StreamLanguage.Sub,
     });
     const [miniPlayerState, setMiniPlayerState] = useState<{ anime: Anime; episode: number } | null>(null);

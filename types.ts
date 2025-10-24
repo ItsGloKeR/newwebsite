@@ -2,6 +2,7 @@
 
 // Enums
 export enum StreamSource {
+  Consumet = 'consumet',
   AnimePahe = 'animepahe',
   Vidnest = 'vidnest',
   Vidlink = 'vidlink',
@@ -196,6 +197,7 @@ export interface ZenshinMapping {
       overview?: string;
       seasonNumber?: number;
       episodeNumber?: number;
+      id?: string;
     };
   };
 }
@@ -258,4 +260,19 @@ export interface UserProfile {
   watchlist?: number[];
   favorites?: number[];
   progress?: MediaProgress;
+}
+
+// Consumet API Types
+export interface ConsumetStreamSource {
+  url: string;
+  isM3U8: boolean;
+  quality: string;
+}
+
+export interface ConsumetWatchData {
+  headers?: {
+    Referer?: string;
+  };
+  sources: ConsumetStreamSource[];
+  download?: string;
 }

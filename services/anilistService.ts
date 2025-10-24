@@ -1,6 +1,6 @@
 // services/anilistService.ts
 
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus, Character, VoiceActor, PageInfo } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus, Character, VoiceActor, PageInfo, ConsumetWatchData } from '../types';
 import * as db from './dbService';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
@@ -14,6 +14,7 @@ const GENRE_COLLECTION_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static
 const SEARCH_SUGGESTIONS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic)
 const DISCOVER_ANIME_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes for discover to reflect updates
 const ZENSHIN_MAPPINGS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
+const CONSUMET_STREAM_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour (stream links can expire)
 
 // A map to store in-flight promises to prevent race conditions.
 const inFlightRequests = new Map<string, Promise<any>>();
@@ -660,27 +661,79 @@ export const getAnimeDetails = async (id: number): Promise<Anime> => {
 };
 
 export const getZenshinMappings = async (anilistId: number): Promise<ZenshinMapping | null> => {
-    const cacheKey = `zenshin_mappings_${anilistId}`;
+    const cacheKey = `combined_mappings_v2_${anilistId}`; // New key to avoid cache conflicts
     return getOrSetCache(cacheKey, ZENSHIN_MAPPINGS_CACHE_DURATION, async () => {
         try {
-            const zenshinApiUrls = [
-                'https://zenshin-supabase-api.onrender.com', // Primary
-                'https://zenshin-supabase-api-myig.onrender.com' // Fallback
-            ];
-            for (const apiUrl of zenshinApiUrls) {
-                try {
-                    const response = await fetch(`${apiUrl}/v2/mapping/anilist/${anilistId}`);
-                    if (response.ok) {
-                        return await response.json();
+            // Fetch mappings and episode info in parallel
+            const [mappingsResponse, episodesResponse] = await Promise.all([
+                fetch(`https://corsproxy.io/?https://api.anify.tv/mappings?id=${anilistId}&type=anime`).catch(e => { console.warn(`[Mapping Service] Anify API failed for ${anilistId}`, e); return null; }),
+                fetch(`https://consumet-seven-navy.vercel.app/meta/anilist/info/${anilistId}`).catch(e => { console.warn(`[Mapping Service] Consumet API failed for ${anilistId}`, e); return null; })
+            ]);
+
+            if (!mappingsResponse?.ok && !episodesResponse?.ok) {
+                console.warn(`[Mapping Service] Both mapping and episode APIs failed for anilistId: ${anilistId}`);
+                return null;
+            }
+
+            const finalMapping: ZenshinMapping = {
+                mappings: {},
+                episodes: {}
+            };
+
+            // Process mappings from Anify
+            if (mappingsResponse?.ok) {
+                const mappingsData = await mappingsResponse.json();
+                finalMapping.mappings = {
+                    imdb_id: mappingsData.imdbId,
+                    mal_id: mappingsData.malId,
+                };
+            }
+
+            // Process episode details from Consumet
+            if (episodesResponse?.ok) {
+                const episodesData = await episodesResponse.json();
+                if (episodesData.episodes && Array.isArray(episodesData.episodes)) {
+                    for (const ep of episodesData.episodes) {
+                        if (ep.number) {
+                            finalMapping.episodes[String(ep.number)] = {
+                                title: {
+                                    en: ep.title,
+                                },
+                                overview: ep.description,
+                                id: ep.id
+                            };
+                        }
                     }
-                    console.warn(`Zenshin API failed at ${apiUrl} with status ${response.status}`);
-                } catch (error) {
-                    console.warn(`Zenshin API error at ${apiUrl}`, error);
                 }
             }
-            return null; // All attempts failed
+
+            // Return null only if both APIs failed to provide any useful data.
+            if (Object.keys(finalMapping.mappings).length === 0 && Object.keys(finalMapping.episodes).length === 0) {
+                return null;
+            }
+
+            return finalMapping;
+
         } catch (error) {
-            console.error(`Error fetching zenshin mapping for ${anilistId}`, error);
+            console.error(`[Mapping Service] Error fetching combined mapping for ${anilistId}`, error);
+            return null;
+        }
+    });
+};
+
+export const fetchConsumetStream = async (episodeId: string): Promise<ConsumetWatchData | null> => {
+    const cacheKey = `consumet_stream_${episodeId}`;
+    return getOrSetCache(cacheKey, CONSUMET_STREAM_CACHE_DURATION, async () => {
+        try {
+            const response = await fetch(`https://consumet-seven-navy.vercel.app/meta/anilist/watch/${episodeId}`);
+            if (!response.ok) {
+                console.warn(`[Consumet Service] Failed to fetch stream for episodeId ${episodeId}: ${response.statusText}`);
+                return null;
+            }
+            const data = await response.json();
+            return data as ConsumetWatchData;
+        } catch (error) {
+            console.error(`[Consumet Service] Error fetching stream for ${episodeId}`, error);
             return null;
         }
     });

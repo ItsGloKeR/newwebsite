@@ -25,14 +25,14 @@ function migrateOldSettings(): PlayerSettings | null {
         if (oldSettingsStr) {
             const oldSettings: OldPlayerSettings = JSON.parse(oldSettingsStr);
             if (oldSettings.source && oldSettings.language) {
-                // Create a new settings object where the old language is applied to all sources as a starting point.
+                // If the old source was the one we removed, default to a new one.
+                const lastSource = oldSettings.source === 'externalplayer' as StreamSource ? StreamSource.AnimePahe : oldSettings.source;
                 const newSettings: PlayerSettings = {
-                    lastUsedSource: oldSettings.source,
+                    lastUsedSource: lastSource,
                     languagePrefs: {
                         [StreamSource.AnimePahe]: oldSettings.language,
                         [StreamSource.Vidnest]: oldSettings.language,
                         [StreamSource.Vidlink]: oldSettings.language,
-                        [StreamSource.ExternalPlayer]: oldSettings.language,
                         [StreamSource.Vidsrc]: oldSettings.language,
                     }
                 };
@@ -59,6 +59,10 @@ export const getFullPlayerSettings = (): PlayerSettings => {
         if (storedSettings) {
             const parsed = JSON.parse(storedSettings);
             if (parsed.lastUsedSource && parsed.languagePrefs) {
+                // If last used source is the one we're removing, reset to a new default.
+                if (parsed.lastUsedSource === 'externalplayer') {
+                    parsed.lastUsedSource = defaultSettings.lastUsedSource;
+                }
                 return parsed;
             }
         }
