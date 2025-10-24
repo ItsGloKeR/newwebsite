@@ -7,7 +7,7 @@ import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import VerticalAnimeList from './VerticalAnimeList';
 import { useTooltip } from '../contexts/TooltipContext';
-import EngagingLoader from './EngagingLoader';
+import LoadingSpinner from './LoadingSpinner';
 import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
 
@@ -466,7 +466,7 @@ const AnimePlayer: React.FC<{
             >
               {isPlayerLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-                      <EngagingLoader />
+                      <LoadingSpinner />
                   </div>
               )}
               <iframe
@@ -474,7 +474,7 @@ const AnimePlayer: React.FC<{
                 src={streamUrl}
                 title={`${title} - Episode ${currentEpisode}`}
                 onLoad={() => setIsPlayerLoading(false)}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
                 allowFullScreen
                 className="w-full h-full border-0"
