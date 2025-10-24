@@ -1,6 +1,8 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { getUserData, updateUserData } from '../services/firebaseService';
+import { UserProfile } from '../types';
 
 const WATCHLIST_STORAGE_KEY = 'aniGlokWatchlist';
 const FAVORITES_STORAGE_KEY = 'aniGlokFavorites';
@@ -10,7 +12,8 @@ interface UserDataContextType {
   favorites: number[];
   toggleWatchlist: (animeId: number) => void;
   toggleFavorite: (animeId: number) => void;
-  reSync: () => void;
+  // FIX: Update function signature to accept an argument as expected by the call site.
+  reSync: (user: UserProfile) => void;
 }
 
 const UserDataContext = createContext<UserDataContextType | undefined>(undefined);
@@ -126,7 +129,7 @@ export const UserDataProvider: React.FC<{ children: ReactNode }> = ({ children }
     });
   }, [user, scheduleFirestoreUpdate]);
   
-  const reSync = useCallback(() => {
+  const reSync = useCallback((_user: UserProfile) => {
     setIsSynced(false);
     // syncData will be called by the useEffect when isSynced changes to false.
   }, []);

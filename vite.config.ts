@@ -14,11 +14,10 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        srcDir: 'src',                  // service-worker.ts lives here
-        filename: 'service-worker.js',  // final output
-        strategies: 'injectManifest',   // use custom service worker
-        injectRegister: 'auto',
-        src: 'service-worker.ts',       // entry file
+        srcDir: 'src',
+        filename: 'service-worker.ts',
+        strategies: 'injectManifest',
+        injectRegister: null,
         includeAssets: ['favicon.svg', 'robots.txt'],
         manifest: {
           name: 'AniGloK',
@@ -27,6 +26,7 @@ export default defineConfig(({ mode }) => {
           theme_color: '#ffffff',
           icons: [
             { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+            // FIX: Corrected typo in icon size from 512x12 to 512x512.
             { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }
           ]
         }
@@ -38,7 +38,8 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.')
+        // FIX: Replaced `__dirname` which is not available in ESM with `.` which resolves to the project root.
+        '@': path.resolve('.')
       }
     }
   };

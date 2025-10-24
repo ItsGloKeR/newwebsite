@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -205,7 +206,8 @@ const AppContent: React.FC = () => {
         if (user) {
             syncProgressOnLogin(user.uid).then(() => {
                 progressTracker.setUserId(user.uid);
-                reSync(); // Re-sync user data context after progress merge
+                // FIX: Pass the 'user' object to the reSync function as it expects one argument.
+                reSync(user);
             });
         } else {
             progressTracker.setUserId(null);
@@ -558,17 +560,17 @@ const AppContent: React.FC = () => {
     }, [applyOverridesToList, view, trending.length]);
 
     useEffect(() => {
-        setTrending(applyOverridesToList);
-        setPopular(applyOverridesToList);
-        setTopAiring(applyOverridesToList);
-        setTopRated(applyOverridesToList);
-        setTopUpcoming(applyOverridesToList);
-        setPopularThisSeason(applyOverridesToList);
-        setSearchResults(applyOverridesToList);
-        if (selectedAnime) {
-            setSelectedAnime(applyOverrides);
-        }
-    }, [overrides, applyOverridesToList, applyOverrides, selectedAnime]);
+        // FIX: Use functional updates to prevent stale state and ensure overrides are applied correctly.
+        setTrending(list => applyOverridesToList(list));
+        setPopular(list => applyOverridesToList(list));
+        setTopAiring(list => applyOverridesToList(list));
+        setTopRated(list => applyOverridesToList(list));
+        setTopUpcoming(list => applyOverridesToList(list));
+        setPopularThisSeason(list => applyOverridesToList(list));
+        setSearchResults(list => applyOverridesToList(list));
+        // FIX: Safely apply overrides to selectedAnime, handling the null case.
+        setSelectedAnime(prev => prev ? applyOverrides(prev) : null);
+    }, [overrides, applyOverridesToList, applyOverrides]);
 
     const debouncedFilters = useDebounce(filters, 500);
 
@@ -666,11 +668,7 @@ const AppContent: React.FC = () => {
     const handleRemoveFromContinueWatching = (animeId: number) => progressTracker.removeFromHistory(animeId);
 
     const handleBackToDetails = () => {
-        if (playerState.anime) {
-            window.location.hash = `#/anime/${playerState.anime.anilistId}`;
-        } else {
-            window.history.back(); // Fallback
-        }
+        window.history.back();
     };
     
     const handleBackFromDetails = () => {
@@ -1013,7 +1011,7 @@ const AppContent: React.FC = () => {
                 
                 {view === 'home' && (isLoading && !isDiscoveryView ? <HomePageSkeleton /> : renderHomePage())}
 
-                {view === 'details' && (isLoading || !selectedAnime ? <AnimeDetailPageSkeleton /> : <AnimeDetailPage anime={selectedAnime} onWatchNow={handleWatchNow} onBack={handleBackFromDetails} onSelectRelated={handleSelectAnime} onViewMore={handleViewMore} setInView={setIsBannerInView} />)}
+                {view === 'details' && (isLoading || !selectedAnime ? <AnimeDetailPageSkeleton /> : <AnimeDetailPage anime={selectedAnime} onWatchNow={handleWatchNow} onBack={handleBackFromDetails} onSelectRelated={(id) => handleSelectAnime({ anilistId: id })} onViewMore={handleViewMore} setInView={setIsBannerInView} />)}
 
                 {view === 'player' && (!playerState.anime ? <FullPageSpinner /> : <AnimePlayer anime={playerState.anime} currentEpisode={playerState.episode} currentSource={playerState.source} currentLanguage={playerState.language} onEpisodeChange={(ep) => setPlayerState(p => ({ ...p, episode: ep }))} onSourceChange={handleSourceChange} onLanguageChange={handleLanguageChange} onBack={handleBackToDetails} onSelectRelated={handleSelectAnime} onSelectRecommended={handleSelectAnime} topAiring={topAiring} onViewMore={handleViewMore} onReportIssue={handleGoToReport} />)}
 
