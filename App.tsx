@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -272,6 +273,13 @@ const AppContent: React.FC = () => {
         const startEpisode = getStartEpisode(anime as Anime, episode);
         window.location.hash = `#/watch/${anime.anilistId}/${startEpisode}`;
     };
+
+    const handlePlayerEpisodeChange = useCallback((ep: number) => {
+        if (playerState.anime) {
+            // Update the URL hash. The hashchange listener will handle the state update.
+            window.location.hash = `#/watch/${playerState.anime.anilistId}/${ep}`;
+        }
+    }, [playerState.anime]);
 
     const handleSourceChange = (source: StreamSource) => {
         const settings = getFullPlayerSettings();
@@ -1007,7 +1015,7 @@ const AppContent: React.FC = () => {
 
                 {view === 'details' && (isLoading || !selectedAnime ? <AnimeDetailPageSkeleton /> : <AnimeDetailPage anime={selectedAnime} onWatchNow={handleWatchNow} onBack={handleBackFromDetails} onSelectRelated={(id) => handleSelectAnime({ anilistId: id })} onViewMore={handleViewMore} setInView={setIsBannerInView} />)}
 
-                {view === 'player' && (!playerState.anime ? <FullPageSpinner /> : <AnimePlayer anime={playerState.anime} currentEpisode={playerState.episode} currentSource={playerState.source} currentLanguage={playerState.language} onEpisodeChange={(ep) => setPlayerState(p => ({ ...p, episode: ep }))} onSourceChange={handleSourceChange} onLanguageChange={handleLanguageChange} onBack={handleBackToDetails} onSelectRelated={handleSelectAnime} onSelectRecommended={handleSelectAnime} topAiring={topAiring} onViewMore={handleViewMore} onReportIssue={handleGoToReport} />)}
+                {view === 'player' && (!playerState.anime ? <FullPageSpinner /> : <AnimePlayer anime={playerState.anime} currentEpisode={playerState.episode} currentSource={playerState.source} currentLanguage={playerState.language} onEpisodeChange={handlePlayerEpisodeChange} onSourceChange={handleSourceChange} onLanguageChange={handleLanguageChange} onBack={handleBackToDetails} onSelectRelated={handleSelectAnime} onSelectRecommended={handleSelectAnime} topAiring={topAiring} onViewMore={handleViewMore} onReportIssue={handleGoToReport} />)}
 
                 {view === 'report' && <ReportPage onBack={handleBackFromReport} />}
 
