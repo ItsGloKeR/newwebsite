@@ -12,7 +12,6 @@ import LoadingSpinner from './components/LoadingSpinner';
 import Footer from './components/Footer';
 import BackToTopButton from './components/BackToTopButton';
 import VerticalAnimeList from './components/VerticalAnimeList';
-// FIX: Add missing provider imports. This is necessary to wrap AppContent and provide context.
 import { AdminProvider, useAdmin } from './contexts/AdminContext';
 import { TitleLanguageProvider } from './contexts/TitleLanguageContext';
 import { UserDataProvider, useUserData } from './contexts/UserDataContext';
@@ -58,7 +57,6 @@ const initialFilters: FilterState = {
 
 const SchedulePreview: React.FC<{ schedule: AiringSchedule[]; onSelectAnime: (anime: { anilistId: number }) => void; onShowMore: () => void }> = ({ schedule, onSelectAnime, onShowMore }) => {
     const todaysSchedule = useMemo(() => {
-        // FIX: Moved date calculations inside useMemo to avoid re-running on every render.
         const today = new Date();
         const startOfDay = new Date(today);
         startOfDay.setHours(0, 0, 0, 0);
@@ -206,7 +204,6 @@ const AppContent: React.FC = () => {
         if (user) {
             syncProgressOnLogin(user.uid).then(() => {
                 progressTracker.setUserId(user.uid);
-                // FIX: Pass the 'user' object to the reSync function as it expects one argument.
                 reSync(user);
             });
         } else {
@@ -560,7 +557,6 @@ const AppContent: React.FC = () => {
     }, [applyOverridesToList, view, trending.length]);
 
     useEffect(() => {
-        // FIX: Use functional updates to prevent stale state and ensure overrides are applied correctly.
         setTrending(list => applyOverridesToList(list));
         setPopular(list => applyOverridesToList(list));
         setTopAiring(list => applyOverridesToList(list));
@@ -568,7 +564,6 @@ const AppContent: React.FC = () => {
         setTopUpcoming(list => applyOverridesToList(list));
         setPopularThisSeason(list => applyOverridesToList(list));
         setSearchResults(list => applyOverridesToList(list));
-        // FIX: Safely apply overrides to selectedAnime, handling the null case.
         setSelectedAnime(prev => prev ? applyOverrides(prev) : null);
     }, [overrides, applyOverridesToList, applyOverrides]);
 
@@ -920,7 +915,6 @@ const AppContent: React.FC = () => {
                                 animeList={topUpcoming} 
                                 onSelectAnime={handleSelectAnime}
                                 showRank={false}
-                                // FIX: Use MediaStatus enum for statuses filter instead of MediaSort.
                                 onViewMore={() => handleViewMore({ statuses: [MediaStatus.NOT_YET_RELEASED], sort: MediaSort.POPULARITY_DESC }, "Top Upcoming Anime")}
                                 cardSize="small"
                             />
@@ -1042,7 +1036,6 @@ const AppContent: React.FC = () => {
     );
 };
 
-// FIX: Define the App component wrapper to provide context to AppContent.
 const App: React.FC = () => {
   return (
     <AuthProvider>

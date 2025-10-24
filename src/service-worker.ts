@@ -17,15 +17,12 @@ cleanupOutdatedCaches();
 // --- Custom Plugins ---
 
 // A plugin to create a unique cache key for GraphQL POST requests based on their body.
-const graphqlPostCacheKeyPlugin: WorkboxPlugin = {
+const postRequestCacheKeyPlugin: WorkboxPlugin = {
   cacheKeyWillBeUsed: async ({ request }) => {
     try {
-      // Clone the request to safely read its body.
-      const body = await request.clone().json();
-      // Create a stable, unique cache key by combining the URL and the request body content.
-      // This ensures different GraphQL queries to the same endpoint are cached separately.
-      const bodyString = JSON.stringify(body);
-      return `${request.url}-${bodyString}`;
+      const requestData = await request.clone().json();
+      // Create a stable, unique cache key by combining the URL and the request body.
+      return `${request.url}?body=${encodeURIComponent(JSON.stringify(requestData))}`;
     } catch (e) {
       // If body is not JSON or is empty, use the original URL as the key.
       return request.url;
@@ -37,11 +34,10 @@ const graphqlPostCacheKeyPlugin: WorkboxPlugin = {
 // --- Caching Strategies ---
 
 // Images - CacheFirst strategy. Serve from cache if available, otherwise fetch from network.
-// Good for static assets like posters that don't change often.
 registerRoute(
   ({ request }) => request.destination === 'image',
   new CacheFirst({
-    cacheName: 'image-cache-v1',
+    cacheName: 'aniglok-image-cache-v2',
     plugins: [
       new ExpirationPlugin({
         maxEntries: 200, // Store up to 200 images
@@ -58,7 +54,7 @@ registerRoute(
 registerRoute(
     ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
     new StaleWhileRevalidate({
-        cacheName: 'google-fonts-cache-v1',
+        cacheName: 'aniglok-google-fonts-cache-v2',
         plugins: [
             new ExpirationPlugin({
                 maxEntries: 20,
@@ -73,11 +69,11 @@ registerRoute(
 registerRoute(
     ({ url }) => (url.origin === 'https://graphql.anilist.co' || url.origin === 'https://graphql.consumet.org'),
     new NetworkFirst({
-        cacheName: 'api-dynamic-cache-v2', // Incremented version for new strategy
-        networkTimeoutSeconds: 5, // Fallback to cache if network takes too long
+        cacheName: 'aniglok-api-dynamic-cache-v2',
+        networkTimeoutSeconds: 10, // Fallback to cache if network takes too long
         plugins: [
             // Use the custom plugin to generate a unique cache key from the POST body
-            graphqlPostCacheKeyPlugin,
+            postRequestCacheKeyPlugin,
             new ExpirationPlugin({
                 maxEntries: 50, // Cache up to 50 different API responses
                 maxAgeSeconds: 24 * 60 * 60, // Keep API data for 1 day
@@ -92,9 +88,9 @@ registerRoute(
 
 // Zenshin API (GET requests) - StaleWhileRevalidate.
 registerRoute(
-  ({ url }) => url.origin === 'https://zenshin-supabase-api.onrender.com' || url.origin === 'https://zenshin-supabase-api-myig.onrender.com',
+  ({ url }) => url.href.includes('zenshin-supabase-api'),
   new StaleWhileRevalidate({
-    cacheName: 'api-static-cache-v3',
+    cacheName: 'aniglok-api-static-cache-v2',
     plugins: [
       new ExpirationPlugin({
         maxAgeSeconds: 24 * 60 * 60, // 24 hours
@@ -107,7 +103,6 @@ registerRoute(
 );
 
 // Handle navigation requests for the SPA by serving the precached index.html.
-// This ensures that any deep link to the app will work offline.
 const handler = createHandlerBoundToURL('/index.html');
 const navigationRoute = new NavigationRoute(handler);
 registerRoute(navigationRoute);
@@ -118,3 +113,6 @@ self.addEventListener('message', (event) => {
       self.skipWaiting();
     }
 });
+
+// Needed for TypeScript to treat this as a module
+export {};

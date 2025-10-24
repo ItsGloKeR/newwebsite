@@ -29,7 +29,6 @@ const DataSaverIndicator: React.FC = () => (
 
 interface FooterProps {
   onAdminClick: () => void;
-  // FIX: Corrected typo 'continueWatching' to 'continue-watching' to match type definition.
   onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continue-watching' }, title: string) => void;
   onLogoClick: () => void;
   isDataSaverActive: boolean;

@@ -12,7 +12,6 @@ interface UserDataContextType {
   favorites: number[];
   toggleWatchlist: (animeId: number) => void;
   toggleFavorite: (animeId: number) => void;
-  // FIX: Update function signature to accept an argument as expected by the call site.
   reSync: (user: UserProfile) => void;
 }
 

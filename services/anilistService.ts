@@ -2,7 +2,6 @@
 
 import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus, Character, VoiceActor, PageInfo } from '../types';
 import * as db from './dbService';
-// FIX: Import PLACEHOLDER_IMAGE_URL for robust object mapping.
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
 // Cache Durations
@@ -336,7 +335,6 @@ const mapToAnime = (data: any): Anime => {
   
   const characters: Character[] = (data.characters?.edges || []).map((edge: any) => {
     const voiceActorNode = edge.voiceActors?.[0];
-    // FIX: Add optional chaining and fallback for voice actor image to prevent runtime errors.
     const voiceActor: VoiceActor | undefined = voiceActorNode ? {
         id: voiceActorNode.id,
         name: voiceActorNode.name.full,
@@ -347,7 +345,6 @@ const mapToAnime = (data: any): Anime => {
         id: edge.node.id,
         name: edge.node.name.full,
         role: edge.role,
-        // FIX: Add optional chaining and fallback for character image to prevent runtime errors.
         image: edge.node.image?.large || PLACEHOLDER_IMAGE_URL,
         voiceActor,
     };
@@ -589,45 +586,45 @@ export const getHomePageData = async () => {
             query ($season: MediaSeason, $seasonYear: Int) {
             trending: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
                 media(sort: TRENDING_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
-                    ...heroAnimeFields
+                    ...heroFields
                 }
             }
-            popular: Page(page: 1, perPage: ${isDataSaver ? 12 : 24}) {
-                media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
-                    ...simpleAnimeFields
+            popular: Page(page: 1, perPage: ${isDataSaver ? 12 : 18}) {
+                 media(sort: POPULARITY_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
+                    ...simpleFields
                 }
             }
-            topAiring: Page(page: 1, perPage: ${isDataSaver ? 5 : 10}) {
-                media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, genre_not_in: "Hentai", isAdult: false) {
-                    ...simpleAnimeFields
+            topAiring: Page(page: 1, perPage: 10) {
+                 media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, genre_not_in: "Hentai", isAdult: false) {
+                    ...smallCardFields
                 }
             }
-            topRated: Page(page: 1, perPage: ${isDataSaver ? 5 : 10}) {
-                media(sort: SCORE_DESC, type: ANIME, genre_not_in: "Hentai", isAdult: false) {
-                    ...simpleAnimeFields
+            topRated: Page(page: 1, perPage: 10) {
+                media(sort: SCORE_DESC, type: ANIME, status_in: [RELEASING, FINISHED], genre_not_in: "Hentai", isAdult: false) {
+                    ...smallCardFields
                 }
             }
-            topUpcoming: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
+            topUpcoming: Page(page: 1, perPage: ${isDataSaver ? 12 : 18}) {
                 media(sort: POPULARITY_DESC, type: ANIME, status: NOT_YET_RELEASED, genre_not_in: "Hentai", isAdult: false) {
-                    ...smallCardFields
+                    ...simpleFields
                 }
             }
-            popularThisSeason: Page(page: 1, perPage: ${isDataSaver ? 6 : 10}) {
+            popularThisSeason: Page(page: 1, perPage: ${isDataSaver ? 12 : 18}) {
                 media(sort: POPULARITY_DESC, type: ANIME, season: $season, seasonYear: $seasonYear, genre_not_in: "Hentai", isAdult: false) {
-                    ...smallCardFields
+                    ...simpleFields
                 }
             }
-            }
-            fragment simpleAnimeFields on Media {
-                ${getSimpleAnimeFieldsFragment()}
-            }
-            fragment smallCardFields on Media {
-                ${getSmallCardAnimeFieldsFragment()}
-            }
-            fragment heroAnimeFields on Media {
-                ${getHeroAnimeFieldsFragment()}
-            }
-        `;
+        }
+        fragment heroFields on Media {
+            ${getHeroAnimeFieldsFragment()}
+        }
+        fragment simpleFields on Media {
+            ${getSimpleAnimeFieldsFragment()}
+        }
+        fragment smallCardFields on Media {
+            ${getSmallCardAnimeFieldsFragment()}
+        }
+    `;
 
         const data = await fetchAniListData(query, { season, seasonYear: year });
         
@@ -644,284 +641,48 @@ export const getHomePageData = async () => {
     });
 };
 
-export const getMultipleAnimeDetails = async (ids: number[]): Promise<Anime[]> => {
-    if (ids.length === 0) {
-        return [];
-    }
-    
-    const dbPromises = ids.map(id => db.get<Anime>(`anime_details_${id}`));
-    const cachedAnimeResults = await Promise.all(dbPromises);
-    const cachedAnime = cachedAnimeResults.filter((a): a is Anime => a !== null);
-
-    const cachedIds = new Set(cachedAnime.map(a => a.anilistId));
-    const idsToFetch = ids.filter(id => !cachedIds.has(id));
-    
-    if (idsToFetch.length === 0) {
-        const animeMap = new Map(cachedAnime.map(a => [a.anilistId, a]));
-        return ids.map(id => animeMap.get(id)).filter((a): a is Anime => a !== undefined);
-    }
-    
-    let fetchedAnime: Anime[] = [];
-    try {
+export const getAnimeDetails = async (id: number): Promise<Anime> => {
+    const cacheKey = `anime_details_${id}`;
+    return getOrSetCache(cacheKey, ANIME_DETAILS_CACHE_DURATION, async () => {
         const query = `
-            query ($ids: [Int]) {
-                Page(page: 1, perPage: 50) {
-                    media(id_in: $ids, type: ANIME) {
-                        ...animeFields
-                    }
+            query ($id: Int) {
+                Media(id: $id, type: ANIME) {
+                    ...animeFields
                 }
             }
             fragment animeFields on Media {
                 ${getAnimeFieldsFragment()}
             }
         `;
-        const variables = { ids: idsToFetch };
-        const data = await fetchAniListData(query, variables);
-        fetchedAnime = data.Page.media.map(mapToAnime);
-
-        const setPromises = fetchedAnime.map(anime => {
-            const cacheKey = `anime_details_${anime.anilistId}`;
-            return db.set(cacheKey, anime, ANIME_DETAILS_CACHE_DURATION);
-        });
-        await Promise.all(setPromises);
-    } catch (error) {
-        console.error(`Failed to fetch multiple anime details for IDs: ${idsToFetch}`, error);
-        const stalePromises = idsToFetch.map(id => db.getStale<Anime>(`anime_details_${id}`));
-        const staleFetchedAnimeResults = await Promise.all(stalePromises);
-        const staleFetchedAnime = staleFetchedAnimeResults.filter((a): a is Anime => a !== null);
-        fetchedAnime.push(...staleFetchedAnime);
-    }
-    
-    const allAnime = [...cachedAnime, ...fetchedAnime];
-    const animeMap = new Map(allAnime.map(a => [a.anilistId, a]));
-    return ids.map(id => animeMap.get(id)).filter((a): a is Anime => a !== undefined);
-};
-
-export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
-    const cacheKey = 'latestEpisodes';
-    return getOrSetCache(cacheKey, LATEST_EPISODES_CACHE_DURATION, async () => {
-        const query = `
-        query {
-            Page(page: 1, perPage: ${isDataSaver ? 15 : 25}) {
-            airingSchedules(notYetAired: false, sort: TIME_DESC) {
-                id
-                episode
-                airingAt
-                media {
-                id
-                isAdult
-                episodes
-                genres
-                format
-                seasonYear
-                description(asHtml: false)
-                title {
-                    romaji
-                    english
-                }
-                coverImage {
-                    ${isDataSaver ? 'medium' : 'large'}
-                }
-                }
-            }
-            }
-        }
-        `;
-
-        const data = await fetchAniListData(query, {});
-        const schedules: AiringSchedule[] = data.Page.airingSchedules.filter(
-            (schedule: any) => 
-                schedule.media.genres && 
-                !schedule.media.genres.includes('Hentai') && 
-                !schedule.media.isAdult
-        );
-
-        const uniqueSchedules = schedules.reduce((acc, current) => {
-            if (!acc.some(item => item.media.id === current.media.id)) {
-                acc.push(current);
-            }
-            return acc;
-        }, [] as AiringSchedule[]);
-        
-        return uniqueSchedules.slice(0, isDataSaver ? 10 : 18);
-    });
-};
-
-
-export const discoverAnime = async (filters: FilterState): Promise<{ results: Anime[], pageInfo: PageInfo | null }> => {
-  const cacheKey = `discover_${JSON.stringify(filters)}`;
-  return getOrSetCache(cacheKey, DISCOVER_ANIME_CACHE_DURATION, async () => {
-    const perPage = 28; // Divisible by common grid columns (2, 4, 7)
-    const query = `
-      query (
-        $search: String,
-        $page: Int,
-        $perPage: Int,
-        $sort: [MediaSort],
-        $genres: [String],
-        $season: MediaSeason,
-        $seasonYear: Int,
-        $format_in: [MediaFormat],
-        $status_in: [MediaStatus],
-        $genre_not_in: [String],
-        $isAdult: Boolean,
-        $averageScore_greater: Int,
-        $averageScore_lesser: Int
-      ) {
-        Page(page: $page, perPage: $perPage) {
-          pageInfo {
-            total
-            perPage
-            currentPage
-            lastPage
-            hasNextPage
-          }
-          media(
-            search: $search,
-            type: ANIME,
-            sort: $sort,
-            genre_in: $genres,
-            season: $season,
-            seasonYear: $seasonYear,
-            format_in: $format_in,
-            status_in: $status_in,
-            genre_not_in: $genre_not_in,
-            isAdult: $isAdult,
-            averageScore_greater: $averageScore_greater,
-            averageScore_lesser: $averageScore_lesser
-          ) {
-            ...simpleAnimeFields
-          }
-        }
-      }
-      fragment simpleAnimeFields on Media {
-        ${getSimpleAnimeFieldsFragment()}
-      }
-    `;
-
-    const buildVariables = () => {
-      const variables: any = {
-        search: filters.search.trim() ? filters.search.trim() : undefined,
-        sort: [filters.sort],
-        page: filters.page,
-        perPage,
-      };
-
-      if (!filters.search.trim()) {
-        variables.isAdult = false;
-        variables.genre_not_in = ['Hentai'];
-      }
-
-      if (filters.genres.length > 0) variables.genres = filters.genres;
-      if (filters.year && !isNaN(parseInt(filters.year))) variables.seasonYear = parseInt(filters.year, 10);
-      if (filters.season) variables.season = filters.season;
-      if (filters.formats.length > 0) variables.format_in = filters.formats;
-      if (filters.statuses.length > 0) variables.status_in = filters.statuses;
-
-      if (filters.scoreRange) {
-        if (filters.scoreRange[0] > 0) variables.averageScore_greater = filters.scoreRange[0];
-        if (filters.scoreRange[1] < 100) variables.averageScore_lesser = filters.scoreRange[1];
-      }
-      
-      return variables;
-    }
-    
-    try {
-      const data = await fetchAniListData(query, buildVariables());
-      const allMedia = (data.Page && data.Page.media) ? data.Page.media.filter(Boolean) : [];
-      // Use simple mapper for faster performance on discover pages.
-      const mappedAnime = allMedia.map(mapToSimpleAnime);
-      // FIX: Explicitly type uniqueAnime to correct TypeScript's inference from a complex expression involving 'any'.
-      const uniqueAnime: Anime[] = Array.from(new Map<number, Anime>(mappedAnime.map(anime => [anime.anilistId, anime])).values());
-      
-      return {
-          results: uniqueAnime,
-          pageInfo: data.Page?.pageInfo || null,
-      };
-    } catch (error) {
-      console.error(`Failed to fetch discovery page:`, error);
-      return { results: [], pageInfo: null };
-    }
-  });
-};
-
-
-export const getAnimeDetails = async (id: number): Promise<Anime> => {
-    const cacheKey = `anime_details_${id}`;
-    return getOrSetCache(cacheKey, ANIME_DETAILS_CACHE_DURATION, async () => {
-        const query = `
-        query ($id: Int) {
-            Media(id: $id, type: ANIME) {
-            ...animeFields
-            }
-        }
-        fragment animeFields on Media {
-            ${getAnimeFieldsFragment()}
-        }
-        `;
-        const variables = { id };
-        const data = await fetchAniListData(query, variables);
+        const data = await fetchAniListData(query, { id });
         return mapToAnime(data.Media);
     });
 };
 
-export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
-    const cacheKey = 'airingSchedule';
-    return getOrSetCache(cacheKey, AIRING_SCHEDULE_CACHE_DURATION, async () => {
-        const query = `
-        query ($airingAt_greater: Int, $airingAt_lesser: Int, $page: Int, $perPage: Int) {
-            Page(page: $page, perPage: $perPage) {
-            pageInfo {
-                hasNextPage
-            }
-            airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME) {
-                id
-                episode
-                airingAt
-                media {
-                id
-                isAdult
-                episodes
-                title {
-                    romaji
-                    english
-                }
-                coverImage {
-                    ${getImageQuality().cover}
-                }
+export const getZenshinMappings = async (anilistId: number): Promise<ZenshinMapping | null> => {
+    const cacheKey = `zenshin_mappings_${anilistId}`;
+    return getOrSetCache(cacheKey, ZENSHIN_MAPPINGS_CACHE_DURATION, async () => {
+        try {
+            const zenshinApiUrls = [
+                'https://zenshin-supabase-api.onrender.com', // Primary
+                'https://zenshin-supabase-api-myig.onrender.com' // Fallback
+            ];
+            for (const apiUrl of zenshinApiUrls) {
+                try {
+                    const response = await fetch(`${apiUrl}/v2/mapping/anilist/${anilistId}`);
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    console.warn(`Zenshin API failed at ${apiUrl} with status ${response.status}`);
+                } catch (error) {
+                    console.warn(`Zenshin API error at ${apiUrl}`, error);
                 }
             }
-            }
+            return null; // All attempts failed
+        } catch (error) {
+            console.error(`Error fetching zenshin mapping for ${anilistId}`, error);
+            return null;
         }
-        `;
-        
-        const now = Math.floor(Date.now() / 1000);
-        // Get schedule for the next 30 days
-        const thirtyDaysLater = now + 30 * 24 * 60 * 60;
-        
-        let allSchedules: AiringSchedule[] = [];
-        let page = 1;
-        let hasNextPage = true;
-
-        while (hasNextPage) {
-            const variables = {
-                airingAt_greater: now,
-                airingAt_lesser: thirtyDaysLater,
-                page: page,
-                perPage: 50
-            };
-            const data = await fetchAniListData(query, variables);
-            
-            if (data.Page && data.Page.airingSchedules) {
-                allSchedules = allSchedules.concat(data.Page.airingSchedules);
-                hasNextPage = data.Page.pageInfo.hasNextPage;
-                page++;
-            } else {
-                hasNextPage = false;
-            }
-        }
-        
-        return allSchedules;
     });
 };
 
@@ -929,102 +690,224 @@ export const getGenreCollection = async (): Promise<string[]> => {
     const cacheKey = 'genreCollection';
     return getOrSetCache(cacheKey, GENRE_COLLECTION_CACHE_DURATION, async () => {
         const query = `
-        query {
-            GenreCollection
-        }
+            query {
+                GenreCollection
+            }
         `;
         const data = await fetchAniListData(query, {});
-        return data.GenreCollection.filter((genre: string | null) => genre !== null);
+        return data.GenreCollection.filter((genre: string | null) => genre); // Filter out nulls if any
     });
 };
 
-// A more lightweight search for suggestions dropdown
-export const getSearchSuggestions = async (searchTerm: string): Promise<SearchSuggestion[]> => {
-  if (!searchTerm) return [];
-  
-  const cacheKey = `search_suggestions_${searchTerm.toLowerCase().trim()}`;
-  return getOrSetCache(cacheKey, SEARCH_SUGGESTIONS_CACHE_DURATION, async () => {
-    const query = `
-      query ($search: String) {
-        Page(page: 1, perPage: 8) {
-          media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
-            id
-            isAdult
-            episodes
-            title {
-              romaji
-              english
+export const getSearchSuggestions = async (search: string): Promise<SearchSuggestion[]> => {
+    const cacheKey = `search_suggestions_${search}`;
+    // A shorter cache duration for suggestions as they are very dynamic.
+    return getOrSetCache(cacheKey, SEARCH_SUGGESTIONS_CACHE_DURATION, async () => {
+        const query = `
+            query ($search: String) {
+                Page(page: 1, perPage: 8) {
+                    media(search: $search, type: ANIME, sort: POPULARITY_DESC, genre_not_in: "Hentai") {
+                        id
+                        isAdult
+                        episodes
+                        title {
+                            romaji
+                            english
+                        }
+                        coverImage {
+                            ${getImageQuality().search}
+                        }
+                        seasonYear
+                    }
+                }
             }
-            coverImage {
-              medium
-            }
-            seasonYear
-          }
-        }
-      }
-    `;
-
-    const variables = { search: searchTerm };
-    const data = await fetchAniListData(query, variables);
-
-    return data.Page.media.map((media: any) => ({
-      anilistId: media.id,
-      englishTitle: media.title.english || media.title.romaji,
-      romajiTitle: media.title.romaji || media.title.english,
-      coverImage: media.coverImage.medium,
-      year: media.seasonYear,
-      isAdult: media.isAdult,
-      episodes: media.episodes,
-    }));
-  });
+        `;
+        const data = await fetchAniListData(query, { search });
+        return data.Page.media.map((item: any) => ({
+            anilistId: item.id,
+            englishTitle: item.title.english || item.title.romaji,
+            romajiTitle: item.title.romaji || item.title.english,
+            coverImage: item.coverImage[getImageQuality().search] || PLACEHOLDER_IMAGE_URL,
+            year: item.seasonYear,
+            isAdult: item.isAdult,
+            episodes: item.episodes,
+        }));
+    });
 };
 
-// Zenshin API for detailed episode mappings
-const ZENSHIN_API_BASE_URLS = [
-  'https://zenshin-supabase-api.onrender.com',
-  'https://zenshin-supabase-api-myig.onrender.com',
-];
+export const discoverAnime = async (filters: FilterState): Promise<{ results: Anime[], pageInfo: PageInfo }> => {
+    const { search, genres, year, season, formats, statuses, sort, page } = filters;
+    const cacheKey = `discover_${JSON.stringify(filters)}`;
 
-async function fetchFromZenshin(endpoint: string): Promise<Response> {
-  let error: any;
-  for (const baseUrl of ZENSHIN_API_BASE_URLS) {
-    try {
-      const response = await fetch(`${baseUrl}/${endpoint}`);
-      if (response.ok || response.status === 404) {
-        return response;
-      }
-      error = new Error(`Request failed with status ${response.status} from ${baseUrl}`);
-    } catch (e) {
-      error = e;
-      console.warn(`Failed to fetch from ${baseUrl}. Trying next fallback.`, e);
-    }
-  }
-  throw error || new Error('All Zenshin API requests failed.');
-}
+    return getOrSetCache(cacheKey, DISCOVER_ANIME_CACHE_DURATION, async () => {
+        const variables: any = {
+            page,
+            perPage: 28,
+            sort: [sort],
+            type: 'ANIME',
+            genre_not_in: "Hentai"
+        };
+        if (search) variables.search = search;
+        if (genres.length > 0) variables.genre_in = genres;
+        if (year) variables.seasonYear = parseInt(year, 10);
+        if (season) variables.season = season;
+        if (formats.length > 0) variables.format_in = formats;
+        if (statuses.length > 0) variables.status_in = statuses;
 
-export const getZenshinMappings = async (anilistId: number): Promise<ZenshinMapping | null> => {
-    const cacheKey = `zenshin_${anilistId}`;
-    return getOrSetCache(cacheKey, ZENSHIN_MAPPINGS_CACHE_DURATION, async () => {
-        try {
-            const response = await fetchFromZenshin(`mappings?anilist_id=${anilistId}`);
-            if (!response.ok) {
-                if (response.status === 404) {
-                    console.log(`No Zenshin mapping found for anilistId: ${anilistId}`);
-                    return null;
+        const query = `
+            query (
+                $page: Int, 
+                $perPage: Int, 
+                $search: String, 
+                $sort: [MediaSort], 
+                $genre_in: [String],
+                $seasonYear: Int,
+                $season: MediaSeason,
+                $format_in: [MediaFormat],
+                $status_in: [MediaStatus],
+                $genre_not_in: [String],
+                $type: MediaType
+            ) {
+                Page(page: $page, perPage: $perPage) {
+                    pageInfo {
+                        total
+                        perPage
+                        currentPage
+                        lastPage
+                        hasNextPage
+                    }
+                    media(
+                        search: $search, 
+                        sort: $sort, 
+                        type: $type, 
+                        genre_in: $genre_in, 
+                        seasonYear: $seasonYear, 
+                        season: $season, 
+                        format_in: $format_in,
+                        status_in: $status_in,
+                        genre_not_in: $genre_not_in,
+                        isAdult: false
+                    ) {
+                        ...animeFields
+                    }
                 }
-                throw new Error(`Failed to fetch Zenshin mappings. Status: ${response.status}`);
             }
-            const data = await response.json();
-            if (data && data.mappings && data.mappings.mal_id) {
-                const animeDetails = await getAnimeDetails(anilistId);
-                if (!animeDetails.malId) {
-                    data.malId = data.mappings.mal_id;
+            fragment animeFields on Media {
+                ${getSimpleAnimeFieldsFragment()}
+            }
+        `;
+        
+        const data = await fetchAniListData(query, variables);
+        return {
+            results: data.Page.media.map(mapToSimpleAnime),
+            pageInfo: data.Page.pageInfo,
+        };
+    });
+};
+
+export const getLatestEpisodes = async (): Promise<AiringSchedule[]> => {
+    const cacheKey = 'latestEpisodes';
+    return getOrSetCache(cacheKey, LATEST_EPISODES_CACHE_DURATION, async () => {
+        const nowInSeconds = Math.floor(Date.now() / 1000);
+        const twoDaysAgo = nowInSeconds - (48 * 60 * 60);
+
+        const query = `
+            query ($airingAt_greater: Int, $airingAt_lesser: Int) {
+                Page(page: 1, perPage: 30) {
+                    airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME_DESC) {
+                        id
+                        episode
+                        airingAt
+                        media {
+                            id
+                            isAdult
+                            episodes
+                            genres
+                            title {
+                                romaji
+                                english
+                            }
+                            coverImage {
+                                large
+                                medium
+                            }
+                        }
+                    }
                 }
             }
-            return data as ZenshinMapping;
-        } catch (error) {
-            console.error(`Error fetching Zenshin mappings for anilistId ${anilistId}:`, error);
-            return null;
-        }
+        `;
+        const data = await fetchAniListData(query, { airingAt_greater: twoDaysAgo, airingAt_lesser: nowInSeconds });
+        return data.Page.airingSchedules;
+    });
+};
+
+export const getMultipleAnimeDetails = async (ids: number[]): Promise<Anime[]> => {
+    if (ids.length === 0) return [];
+    
+    // Sort IDs to create a consistent cache key
+    const sortedIds = [...ids].sort((a, b) => a - b);
+    const cacheKey = `multi_details_${sortedIds.join(',')}`;
+
+    // Note: We don't cache this as aggressively because user lists can change. 
+    // A shorter cache time is reasonable. Or we could manage cache invalidation.
+    // For now, let's use a dynamic cache duration.
+    return getOrSetCache(cacheKey, DISCOVER_ANIME_CACHE_DURATION, async () => {
+        const query = `
+            query ($ids: [Int]) {
+                Page(page: 1, perPage: ${ids.length}) {
+                    media(id_in: $ids, type: ANIME, sort: POPULARITY_DESC) {
+                        ...animeFields
+                    }
+                }
+            }
+            fragment animeFields on Media {
+                ${getSimpleAnimeFieldsFragment()}
+            }
+        `;
+        const data = await fetchAniListData(query, { ids: sortedIds });
+        return data.Page.media.map(mapToSimpleAnime);
+    });
+};
+
+export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
+    const cacheKey = 'airingSchedule';
+    return getOrSetCache(cacheKey, AIRING_SCHEDULE_CACHE_DURATION, async () => {
+        const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(now);
+        endOfWeek.setDate(now.getDate() + 7);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
+        const endTimestamp = Math.floor(endOfWeek.getTime() / 1000);
+
+        const query = `
+            query ($airingAt_greater: Int, $airingAt_lesser: Int) {
+                Page(page: 1, perPage: 50) { # Fetch enough for a week
+                    airingSchedules(notYetAired: true, airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME) {
+                        id
+                        episode
+                        airingAt
+                        media {
+                            id
+                            isAdult
+                            episodes
+                            genres
+                            title {
+                                romaji
+                                english
+                            }
+                            coverImage {
+                                extraLarge
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+
+        const data = await fetchAniListData(query, { airingAt_greater: startTimestamp, airingAt_lesser: endTimestamp });
+        return data.Page.airingSchedules;
     });
 };

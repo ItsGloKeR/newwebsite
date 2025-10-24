@@ -460,7 +460,6 @@ const AnimePlayer: React.FC<{
             <div 
                 ref={playerWrapperRef}
                 className="aspect-video bg-black rounded-lg shadow-xl overflow-hidden mb-4 relative"
-                // FIX: The onMouseMove handler expects an event, but `showOverlay` expects an optional boolean. Wrap it in an arrow function.
                 onMouseMove={() => showOverlay()}
                 onMouseLeave={hideOverlay}
             >
