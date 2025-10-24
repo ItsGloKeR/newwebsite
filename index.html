@@ -12,7 +12,6 @@
     <link rel="preconnect" href="https://s4.anilist.co">
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@800&family=Inter:wght@400;500;600;700;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@800&family=Inter:wght@400;500;600;700;900&display=swap"></noscript>
-    <link href="https://unpkg.com/tailwindcss@3.3.3/dist/tailwind.min.css" rel="stylesheet">
     <style>
       /* FOUC Prevention */
       body { visibility: hidden; opacity: 0; transition: opacity 0.3s ease-in; }
@@ -151,7 +150,7 @@
 </head>
   <body class="bg-gray-950">
     <div id="root"></div>
-    <script>document.body.style.visibility='visible'; document.body.style.opacity='1';</script>
+    <script src="https://cdn.tailwindcss.com" onload="document.body.style.visibility='visible'; document.body.style.opacity='1';"></script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
