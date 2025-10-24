@@ -7,7 +7,7 @@ import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import VerticalAnimeList from './VerticalAnimeList';
 import { useTooltip } from '../contexts/TooltipContext';
-import LoadingSpinner from './LoadingSpinner';
+import EngagingLoader from './EngagingLoader';
 import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
 
@@ -161,11 +161,10 @@ const AnimePlayer: React.FC<{
 }) => {
   const { getStreamUrl } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
-  const episodeCount = anime.totalEpisodes || anime.episodes || 1;
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
-  const [isZenshinLoading, setIsZenshinLoading] = useState(true);
   const [isAiringNotificationVisible, setIsAiringNotificationVisible] = useState(true);
   const [episodeSearch, setEpisodeSearch] = useState('');
+  const [episodeSearchError, setEpisodeSearchError] = useState<string | null>(null);
   const [isRangeSelectorOpen, setIsRangeSelectorOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
   const rangeSelectorRef = useRef<HTMLDivElement>(null);
@@ -180,6 +179,30 @@ const AnimePlayer: React.FC<{
 
   const recsScrollContainerRef = useRef<HTMLDivElement>(null);
   const [showRecsScrollButtons, setShowRecsScrollButtons] = useState(false);
+  const [areSidebarsVisible, setAreSidebarsVisible] = useState(false);
+
+  useEffect(() => {
+    // When a new anime is loaded, sidebars should be hidden initially
+    setAreSidebarsVisible(false); 
+    
+    const timer = setTimeout(() => {
+        setAreSidebarsVisible(true);
+    }, 1200); // Delay sidebars to prioritize player load
+
+    return () => clearTimeout(timer);
+  }, [anime.anilistId]); // Re-run this effect when the anime changes
+
+  const episodeCount = useMemo(() => {
+    if (anime.status === 'RELEASING') {
+        // For airing anime, `anime.episodes` holds the count of released episodes.
+        // If it's null (e.g., info not available), we default to 1, not totalEpisodes,
+        // to avoid showing unreleased episodes.
+        return anime.episodes || 1;
+    }
+    // For finished or other statuses, `totalEpisodes` is the most reliable source.
+    // `anime.episodes` is a fallback and should be the same as totalEpisodes for finished anime.
+    return anime.totalEpisodes || anime.episodes || 1;
+  }, [anime]);
 
   useEffect(() => {
     const checkRecsOverflow = () => {
@@ -301,15 +324,12 @@ const AnimePlayer: React.FC<{
 
   useEffect(() => {
     const fetchMappings = async () => {
-        setIsZenshinLoading(true);
         try {
             const data = await getZenshinMappings(anime.anilistId);
             setZenshinData(data);
         } catch (error) {
             console.error("Failed to fetch zenshin mappings", error);
             setZenshinData(null);
-        } finally {
-            setIsZenshinLoading(false);
         }
     };
     fetchMappings();
@@ -321,6 +341,7 @@ const AnimePlayer: React.FC<{
     }
     // Hide overlay on episode change
     hideOverlay();
+    setEpisodeSearchError(null);
   }, [anime, currentEpisode, hideOverlay]);
 
   const episodeRanges = useMemo(() => {
@@ -354,13 +375,10 @@ const AnimePlayer: React.FC<{
   }, []);
 
   const streamUrl = useMemo(() => {
-    if (isZenshinLoading) {
-      return 'about:blank';
-    }
     return getStreamUrl({
         animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, animeFormat: anime.format
     });
-  }, [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, isZenshinLoading]);
+  }, [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData]);
 
   useEffect(() => {
     setIsPlayerLoading(true);
@@ -381,10 +399,23 @@ const AnimePlayer: React.FC<{
   const handleEpisodeSearch = (e: React.FormEvent) => {
       e.preventDefault();
       const epNum = parseInt(episodeSearch, 10);
-      if (!isNaN(epNum) && epNum >= 1 && epNum <= episodeCount) {
-          onEpisodeChange(epNum);
-          setEpisodeSearch('');
+      if (isNaN(epNum) || epNum < 1) {
+          setEpisodeSearchError("Invalid number.");
+          return;
       }
+      
+      if (epNum > episodeCount) {
+          if (anime.status === 'RELEASING' && anime.totalEpisodes && epNum <= anime.totalEpisodes) {
+              setEpisodeSearchError(`Not released yet.`);
+          } else {
+              setEpisodeSearchError(`Max ep: ${episodeCount}.`);
+          }
+          return;
+      }
+
+      onEpisodeChange(epNum);
+      setEpisodeSearch('');
+      setEpisodeSearchError(null);
   };
 
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
@@ -433,9 +464,9 @@ const AnimePlayer: React.FC<{
                 onMouseMove={showOverlay}
                 onMouseLeave={hideOverlay}
             >
-              {(isPlayerLoading || isZenshinLoading) && (
+              {isPlayerLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-                      <LoadingSpinner />
+                      <EngagingLoader />
                   </div>
               )}
               <iframe
@@ -562,7 +593,8 @@ const AnimePlayer: React.FC<{
                        <button type="submit" className="absolute inset-y-0 left-0 flex items-center pl-3" aria-label="Search episode">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
                         </button>
-                        <input type="number" value={episodeSearch} onChange={e => setEpisodeSearch(e.target.value)} placeholder="Find Ep..." className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-full md:w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
+                        <input type="number" value={episodeSearch} onChange={e => { setEpisodeSearch(e.target.value); setEpisodeSearchError(null); }} placeholder="Find Ep..." className="bg-gray-700/80 text-white rounded-md py-1.5 pl-9 pr-3 w-full md:w-36 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500" />
+                        {episodeSearchError && <p className="absolute left-0 top-full mt-1 text-red-500 text-xs">{episodeSearchError}</p>}
                     </form>
                 </div>
                 <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1 pt-4 border-t border-gray-700/50">
@@ -627,30 +659,32 @@ const AnimePlayer: React.FC<{
             )}
         </div>
         <div className="lg:col-span-1">
-            <div className="sticky top-20 flex flex-col gap-8">
-                {anime.relations && anime.relations.length > 0 && (
-                    <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg">
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xl font-semibold text-white border-l-4 border-cyan-400 pl-3">Related Anime</h3>
-                             <button
-                                onClick={() => onViewMore({ animeList: anime.relations }, 'Related Anime')}
-                                className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-xs"
-                            >
-                                <span>View All</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                </svg>
-                            </button>
+            {areSidebarsVisible && (
+                 <div className="sticky top-20 flex flex-col gap-8 animate-fade-in">
+                    {anime.relations && anime.relations.length > 0 && (
+                        <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg">
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-xl font-semibold text-white border-l-4 border-cyan-400 pl-3">Related Anime</h3>
+                                <button
+                                    onClick={() => onViewMore({ animeList: anime.relations }, 'Related Anime')}
+                                    className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-xs"
+                                >
+                                    <span>View All</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
+                                {anime.relations.map(rel => (<RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />))}
+                            </div>
                         </div>
-                        <div className="flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
-                            {anime.relations.map(rel => (<RelatedAnimeCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />))}
-                        </div>
-                    </div>
-                )}
-                {topAiring && topAiring.length > 0 && (!anime.relations || anime.relations.length < 4) && (
-                    <VerticalAnimeList title="Top Airing" animeList={topAiring} onSelectAnime={(selectedAnime) => onSelectRelated({ anilistId: selectedAnime.anilistId })} icon={<AiringIcon />} showRank={true} />
-                )}
-            </div>
+                    )}
+                    {topAiring && topAiring.length > 0 && (!anime.relations || anime.relations.length < 4) && (
+                        <VerticalAnimeList title="Top Airing" animeList={topAiring} onSelectAnime={(selectedAnime) => onSelectRelated({ anilistId: selectedAnime.anilistId })} icon={<AiringIcon />} showRank={true} />
+                    )}
+                </div>
+            )}
         </div>
       </div>
     </main>
