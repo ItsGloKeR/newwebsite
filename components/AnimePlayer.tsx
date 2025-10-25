@@ -448,10 +448,10 @@ const AnimePlayer: React.FC<{
             <button 
                 onClick={onBack} 
                 className="mb-6 group flex items-center gap-2 text-gray-300 hover:text-white font-semibold transition-colors bg-gray-800/50 hover:bg-gray-700/80 px-4 py-2 rounded-full shadow-lg"
-                aria-label="Go back to details"
+                aria-label="Go back"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                <span>Back to details</span>
+                <span>Back</span>
             </button>
             
             <div className="mb-4 bg-gray-900/50 p-4 rounded-lg">

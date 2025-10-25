@@ -37,8 +37,10 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ anime, episode, onClose, onExpa
                     src={streamUrl}
                     title={`${title} - Episode ${episode}`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
                     allowFullScreen
                     className="w-full h-full border-0"
+                    scrolling="no"
                 ></iframe>
             </div>
             <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/60 to-transparent flex justify-between items-start">
