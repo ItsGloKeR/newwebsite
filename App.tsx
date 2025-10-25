@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -966,7 +965,7 @@ const AppContent: React.FC = () => {
                                 icon={LatestEpisodeIcon}
                                 animeList={latestEpisodesAsAnime}
                                 onSelectAnime={handleSelectAnime}
-                                onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.TRENDING_DESC }, "Recently Released Anime")}
+                                onViewMore={() => handleViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.START_DATE_DESC }, "Recently Released Anime")}
                                 showRank={false}
                                 cardSize="small"
                             />
