@@ -1,3 +1,5 @@
+
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Anime } from '../types';
 import AnimeCard from './AnimeCard';

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -136,7 +137,7 @@ const AppContent: React.FC = () => {
     const [topUpcoming, setTopUpcoming] = useState<Anime[]>([]);
     const [popularThisSeason, setPopularThisSeason] = useState<Anime[]>([]);
     const [latestEpisodes, setLatestEpisodes] = useState<EnrichedAiringSchedule[]>([]);
-    const [searchResults, setSearchResults] = useState<Anime[]>([]);
+    const [currentListViewAnime, setCurrentListViewAnime] = useState<Anime[]>([]); // Renamed from searchResults
     const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
     const [allGenres, setAllGenres] = useState<string[]>([]);
     const [continueWatching, setContinueWatching] = useState<Anime[]>([]);
@@ -156,6 +157,7 @@ const AppContent: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState<FilterState>(initialFilters);
     const [isListView, setIsListView] = useState(false);
+    const [isGeneratedList, setIsGeneratedList] = useState(false); // New state for lists populated directly
     const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
@@ -368,6 +370,9 @@ const AppContent: React.FC = () => {
 
                 setIsLoading(true);
                 setView('details');
+                setCurrentListViewAnime([]); // Clear any existing list view
+                setIsListView(false);
+                setIsGeneratedList(false); // Not a generated list
                 window.scrollTo(0, 0);
                 try {
                     const fullDetails = await getAnimeDetails(animeId);
@@ -397,6 +402,9 @@ const AppContent: React.FC = () => {
                 // This is now the "cold load" path for the player page
                 setView('player');
                 setPlayerState(prev => ({ ...prev, anime: null }));
+                setCurrentListViewAnime([]); // Clear any existing list view
+                setIsListView(false);
+                setIsGeneratedList(false); // Not a generated list
                 window.scrollTo(0, 0);
                 try {
                     const fullAnimeDetails = await getAnimeDetails(animeId);
@@ -419,6 +427,9 @@ const AppContent: React.FC = () => {
             if (reportMatch) {
                 if (view === 'report') return;
                 setView('report');
+                setCurrentListViewAnime([]); // Clear any existing list view
+                setIsListView(false);
+                setIsGeneratedList(false); // Not a generated list
                 window.scrollTo(0, 0);
                 return;
             }
@@ -427,13 +438,34 @@ const AppContent: React.FC = () => {
             if (scheduleMatch) {
                 if (view === 'schedule') return;
                 setView('schedule');
+                setCurrentListViewAnime([]); // Clear any existing list view
+                setIsListView(false);
+                setIsGeneratedList(false); // Not a generated list
                 window.scrollTo(0, 0);
                 return;
             }
 
-            const listMatch = hash.match(/^#\/list\/(watchlist|favorites|continue-watching)/);
-            if (listMatch) {
-                const listType = listMatch[1] as 'watchlist' | 'favorites' | 'continue-watching';
+            const generatedListMatch = hash.match(/^#\/list\/generated\/(.+)/);
+            if (generatedListMatch) {
+                const encodedTitle = generatedListMatch[1];
+                const decodedTitle = decodeURIComponent(encodedTitle);
+                
+                setDiscoverListTitle(decodedTitle);
+                setIsFullSearchView(false);
+                setIsListView(true);
+                setIsGeneratedList(true); // Flag this as a generated list
+                setFilters(initialFilters); // Clear filters to avoid discover effect interference
+                setPageInfo(null);
+                setSelectedAnime(null);
+                if (view !== 'home') setView('home');
+                window.scrollTo(0, 0);
+                // IMPORTANT: Do NOT touch currentListViewAnime here. It's already populated by handleViewMore.
+                return;
+            }
+
+            const predefinedListMatch = hash.match(/^#\/list\/(watchlist|favorites|continue-watching)/);
+            if (predefinedListMatch) {
+                const listType = predefinedListMatch[1] as 'watchlist' | 'favorites' | 'continue-watching';
     
                 const titleMap = {
                     'watchlist': 'My Watchlist',
@@ -442,7 +474,7 @@ const AppContent: React.FC = () => {
                 };
                 const newTitle = titleMap[listType];
     
-                if (view === 'home' && isListView && discoverListTitle === newTitle) {
+                if (view === 'home' && isListView && discoverListTitle === newTitle && !isGeneratedList) {
                     return;
                 }
     
@@ -450,6 +482,7 @@ const AppContent: React.FC = () => {
                 setIsFullSearchView(false);
                 setIsDiscoverLoading(true);
                 setIsListView(true);
+                setIsGeneratedList(false); // Not a generated list
                 setPageInfo(null);
                 setView('home');
                 setSelectedAnime(null);
@@ -468,7 +501,7 @@ const AppContent: React.FC = () => {
                     animeToDisplay = continueWatching;
                 }
                 
-                setSearchResults(applyOverridesToList(animeToDisplay));
+                setCurrentListViewAnime(applyOverridesToList(animeToDisplay)); // Changed from setSearchResults
                 setIsDiscoverLoading(false);
                 return;
             }
@@ -502,6 +535,7 @@ const AppContent: React.FC = () => {
                 }
                 
                 setIsListView(false);
+                setIsGeneratedList(false); // Not a generated list
                 setSelectedAnime(null);
                 if (view !== 'home') setView('home');
                 
@@ -514,10 +548,12 @@ const AppContent: React.FC = () => {
                 window.location.hash = '#/landing';
                 return;
             }
-            if (view !== 'home' || isDiscoveryView) {
+            
+            // Only reset if we are genuinely navigating to home and it's not a generated list already being displayed
+            if (view !== 'home' || isDiscoveryView || isListView || isDiscoverViewForced || isGeneratedList) {
                 setSearchTerm('');
                 setFilters(initialFilters);
-                setSearchResults([]);
+                setCurrentListViewAnime([]); // Changed from setSearchResults
                 setPageInfo(null);
                 setSelectedAnime(null);
                 setIsBannerInView(true);
@@ -525,6 +561,7 @@ const AppContent: React.FC = () => {
                 setIsDiscoverViewForced(false);
                 setIsFullSearchView(false);
                 setDiscoverListTitle('');
+                setIsGeneratedList(false); // Reset this flag when going back to true home
                 setView('home');
                 window.scrollTo(0, 0);
             }
@@ -536,7 +573,7 @@ const AppContent: React.FC = () => {
         return () => {
             window.removeEventListener('hashchange', handleRouteChange);
         };
-    }, [applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, playerState.episode, filters, watchlist, favorites, continueWatching, discoverListTitle, generateDiscoverUrl, applyOverridesToList]);
+    }, [applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, playerState.episode, filters, watchlist, favorites, continueWatching, discoverListTitle, generateDiscoverUrl, applyOverridesToList, isListView, isGeneratedList]);
 
 
     useEffect(() => {
@@ -578,38 +615,34 @@ const AppContent: React.FC = () => {
         setTopRated(list => applyOverridesToList(list));
         setTopUpcoming(list => applyOverridesToList(list));
         setPopularThisSeason(list => applyOverridesToList(list));
-        setSearchResults(list => applyOverridesToList(list));
+        setCurrentListViewAnime(list => applyOverridesToList(list)); // Changed from setSearchResults
         setSelectedAnime(prev => prev ? applyOverrides(prev) : null);
     }, [overrides, applyOverridesToList, applyOverrides]);
 
     const debouncedFilters = useDebounce(filters, 500);
 
     useEffect(() => {
-        if (isListView) {
+        // Only run discover if it's not a generated list AND it's a discovery view
+        if (isGeneratedList || !isDiscoveryView || isListView) {
             return;
         }
 
-        if (!isDiscoveryView) {
-            setSearchResults([]);
-            setPageInfo(null);
-            return;
-        }
         const performSearch = async () => {
             setIsDiscoverLoading(true);
             try {
                 const { results, pageInfo: newPageInfo } = await discoverAnime(debouncedFilters);
-                setSearchResults(applyOverridesToList(results));
+                setCurrentListViewAnime(applyOverridesToList(results)); // Changed from setSearchResults
                 setPageInfo(newPageInfo);
             } catch (error) {
                 console.error("Failed to discover anime:", error);
-                setSearchResults([]);
+                setCurrentListViewAnime([]); // Changed from setSearchResults
                 setPageInfo(null);
             } finally {
                 setIsDiscoverLoading(false);
             }
         };
         performSearch();
-    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, isListView]);
+    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, isListView, isGeneratedList]); // Added isGeneratedList here
     
     useEffect(() => {
         if (debouncedSuggestionsTerm.trim() === '') {
@@ -723,18 +756,6 @@ const AppContent: React.FC = () => {
         }
         
         if (partialFilters.animeList) {
-            setDiscoverListTitle(title);
-            if (window.location.hash.startsWith('#/discover')) {
-                window.history.pushState(null, '', '#/');
-            }
-            
-            setIsFullSearchView(false);
-            setIsDiscoverLoading(true);
-            setIsListView(true);
-            setPageInfo(null);
-            setView('home');
-            window.scrollTo(0, 0);
-    
             const animeListAsAnime: Anime[] = partialFilters.animeList.map((item: RelatedAnime | RecommendedAnime) => ({
                 anilistId: item.id,
                 englishTitle: item.englishTitle,
@@ -767,8 +788,20 @@ const AppContent: React.FC = () => {
                 console.error("handleViewMore: No anime items were mapped for the list display.");
             }
             
-            setSearchResults(applyOverridesToList(animeListAsAnime));
-            setIsDiscoverLoading(false);
+            setCurrentListViewAnime(applyOverridesToList(animeListAsAnime)); // SET THE DATA HERE
+            setDiscoverListTitle(title);
+            setIsFullSearchView(false);
+            setIsDiscoverLoading(false); // No actual loading needed for pre-populated list
+            setIsListView(true);
+            setIsGeneratedList(true); // Signal this is a pre-populated list
+            setFilters(initialFilters); // Reset filters to ensure clean state
+            setPageInfo(null);
+            setView('home');
+            window.scrollTo(0, 0);
+
+            // Change hash AFTER setting state, so handleRouteChange can verify it
+            window.location.hash = `#/list/generated/${encodeURIComponent(title)}`;
+
         } else {
             const newFilters = { ...initialFilters, ...partialFilters, page: 1 };
             window.location.hash = generateDiscoverUrl(newFilters);
@@ -867,8 +900,8 @@ const AppContent: React.FC = () => {
                     )}
                     <AnimeGrid
                         title={title}
-                        resultsCount={isListView ? searchResults.length : pageInfo?.total}
-                        animeList={searchResults}
+                        resultsCount={isListView ? currentListViewAnime.length : pageInfo?.total}
+                        animeList={currentListViewAnime} // Changed from searchResults
                         onSelectAnime={handleSelectAnime}
                         isLoading={isDiscoverLoading}
                         onBackClick={handleGoToAppHome}
