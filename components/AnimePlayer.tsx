@@ -6,7 +6,6 @@ import { getZenshinMappings } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import VerticalAnimeList from './VerticalAnimeList';
 import { useTooltip } from '../contexts/TooltipContext';
-import LoadingSpinner from './LoadingSpinner';
 import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
 
@@ -167,7 +166,6 @@ const AnimePlayer: React.FC<{
   const [isRangeSelectorOpen, setIsRangeSelectorOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
   const rangeSelectorRef = useRef<HTMLDivElement>(null);
-  const [isPlayerLoading, setIsPlayerLoading] = useState(true);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [resumeNotification, setResumeNotification] = useState<string | null>(null);
   const lastWatchedEp = useMemo(() => progressTracker.getMediaData(anime.anilistId)?.last_episode_watched, [anime.anilistId]);
@@ -336,7 +334,6 @@ const AnimePlayer: React.FC<{
   }, [anime.anilistId]);
   
   useEffect(() => {
-    setIsPlayerLoading(true);
     setStreamUrl(null); // Clear previous url while fetching
 
     const url = getStreamUrl({
@@ -433,8 +430,7 @@ const AnimePlayer: React.FC<{
     { id: StreamSource.AnimePahe, label: 'Src 1' },
     { id: StreamSource.Vidnest, label: 'Src 2' },
     { id: StreamSource.Vidsrc, label: 'Src 3' },
-    { id: StreamSource.ExternalPlayer, label: 'Src 4' },
-    { id: StreamSource.VidsrcIcu, label: 'Src 5' },
+    { id: StreamSource.VidsrcIcu, label: 'Src 4' },
   ];
   
   const languages = [
@@ -443,7 +439,7 @@ const AnimePlayer: React.FC<{
     { id: StreamLanguage.Hindi, label: 'HINDI' },
   ];
   
-  const sourcesWithoutLanguageControl = [StreamSource.ExternalPlayer];
+  const sourcesWithoutLanguageControl: StreamSource[] = [];
 
   return (
     <main className="min-h-screen text-white animate-fade-in">
@@ -470,20 +466,15 @@ const AnimePlayer: React.FC<{
                 onMouseMove={() => showOverlay()}
                 onMouseLeave={hideOverlay}
             >
-              {isPlayerLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-                      <LoadingSpinner />
-                  </div>
-              )}
               <iframe
                 key={streamUrl}
                 src={streamUrl || 'about:blank'}
                 title={`${title} - Episode ${currentEpisode}`}
-                onLoad={() => setIsPlayerLoading(false)}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
                 allowFullScreen
                 className="w-full h-full border-0"
+                scrolling="no"
               ></iframe>
                {resumeNotification && (
                 <div className="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-fast pointer-events-none">

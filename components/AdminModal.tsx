@@ -17,7 +17,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const [vidnestUrl, setVidnestUrl] = useState(overrides.globalStreamUrlTemplates.vidnest || '');
   const [animePaheUrl, setAnimePaheUrl] = useState(overrides.globalStreamUrlTemplates.animepahe || '');
   const [vidlinkUrl, setVidlinkUrl] = useState(overrides.globalStreamUrlTemplates.vidlink || '');
-  const [externalPlayerUrl, setExternalPlayerUrl] = useState(overrides.globalStreamUrlTemplates.externalplayer || '');
   const [vidsrcUrl, setVidsrcUrl] = useState(overrides.globalStreamUrlTemplates.vidsrc || '');
   const [vidsrcIcuUrl, setVidsrcIcuUrl] = useState(overrides.globalStreamUrlTemplates.vidsrcicu || '');
   const [copyButtonText, setCopyButtonText] = useState('Generate & Copy Code');
@@ -30,7 +29,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         setVidnestUrl(overrides.globalStreamUrlTemplates.vidnest || '');
         setAnimePaheUrl(overrides.globalStreamUrlTemplates.animepahe || '');
         setVidlinkUrl(overrides.globalStreamUrlTemplates.vidlink || '');
-        setExternalPlayerUrl(overrides.globalStreamUrlTemplates.externalplayer || '');
         setVidsrcUrl(overrides.globalStreamUrlTemplates.vidsrc || '');
         setVidsrcIcuUrl(overrides.globalStreamUrlTemplates.vidsrcicu || '');
     }
@@ -72,8 +70,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
       setAnimePaheUrl(value);
     } else if (source === StreamSource.Vidlink) {
       setVidlinkUrl(value);
-    } else if (source === StreamSource.ExternalPlayer) {
-        setExternalPlayerUrl(value);
     } else if (source === StreamSource.Vidsrc) {
         setVidsrcUrl(value);
     } else if (source === StreamSource.VidsrcIcu) {
@@ -191,7 +187,7 @@ const handleCopy = () => {
                 />
                 </div>
                 <div className="mb-4">
-                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="vidsrcIcu">Global Source 5 Template (Vidsrc.icu)</label>
+                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="vidsrcIcu">Global Source 4 Template (Vidsrc.icu)</label>
                 <input
                     id="vidsrcIcu"
                     type="text"

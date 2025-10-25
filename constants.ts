@@ -5,7 +5,6 @@ export const STREAM_URLS: Record<StreamSource, string> = {
   [StreamSource.Vidnest]: 'https://vidnest.fun/anime/{anilistId}/{episode}/{language}',
   [StreamSource.AnimePahe]: 'https://vidnest.fun/animepahe/{anilistId}/{episode}/{language}',
   [StreamSource.Vidlink]: 'https://vidlink.pro/anime/{malId}/{episode}/{language}',
-  [StreamSource.ExternalPlayer]: '', // This is handled dynamically in AdminContext
   [StreamSource.Vidsrc]: 'https://vidsrc.cc/v2/embed/anime/{id}/{episode}/{language}',
   [StreamSource.VidsrcIcu]: 'https://vidsrc.icu/embed/anime/{id}/{episode}/{dub}',
 };

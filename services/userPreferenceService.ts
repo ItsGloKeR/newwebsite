@@ -25,8 +25,7 @@ function migrateOldSettings(): PlayerSettings | null {
         if (oldSettingsStr) {
             const oldSettings: OldPlayerSettings = JSON.parse(oldSettingsStr);
             if (oldSettings.source && oldSettings.language) {
-                // If the old source was the one we removed, default to a new one.
-                const lastSource = oldSettings.source === 'externalplayer' as StreamSource ? StreamSource.AnimePahe : oldSettings.source;
+                const lastSource = oldSettings.source;
                 const newSettings: PlayerSettings = {
                     lastUsedSource: lastSource,
                     languagePrefs: {
@@ -59,15 +58,14 @@ export const getFullPlayerSettings = (): PlayerSettings => {
         if (storedSettings) {
             const parsed = JSON.parse(storedSettings);
             if (parsed.lastUsedSource && parsed.languagePrefs) {
-                // If last used source is the one we're removing, reset to a new default.
-                if (parsed.lastUsedSource === 'externalplayer') {
-                    parsed.lastUsedSource = defaultSettings.lastUsedSource;
+                // Check if the saved source still exists in our enum
+                if (Object.values(StreamSource).includes(parsed.lastUsedSource)) {
+                    return parsed;
                 }
-                return parsed;
+                // If not, fall through to return default settings.
             }
         }
         
-        // If new settings don't exist, try to migrate from old ones.
         const migratedSettings = migrateOldSettings();
         if (migratedSettings) {
             return migratedSettings;

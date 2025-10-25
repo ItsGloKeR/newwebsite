@@ -148,25 +148,6 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return episodeOverride;
     }
 
-    // Special handling for External Player (Source 4)
-    if (source === StreamSource.ExternalPlayer) {
-        const imdbId = zenshinData?.mappings?.imdb_id;
-        if (!imdbId) {
-            return 'about:blank#external-player-imdb-id-required';
-        }
-
-        if (animeFormat === 'MOVIE') {
-            return `https://vidsrc.to/embed/movie/${imdbId}`;
-        }
-        
-        // For TV shows, use the specific episode and season
-        const episodeData = zenshinData?.episodes?.[String(episode)];
-        const seasonNumber = episodeData?.seasonNumber || 1; 
-        const episodeNumber = episodeData?.episodeNumber || episode; // Fallback to absolute episode number if needed
-        
-        return `https://vidsrc.to/embed/tv/${imdbId}/${seasonNumber}/${episodeNumber}`;
-    }
-
     // Special handling for Vidsrc.icu
     if (source === StreamSource.VidsrcIcu) {
         const dubValue = language === StreamLanguage.Dub ? '1' : '0';

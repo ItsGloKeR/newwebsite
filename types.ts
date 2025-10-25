@@ -6,7 +6,6 @@ export enum StreamSource {
   AnimePahe = 'animepahe',
   Vidnest = 'vidnest',
   Vidlink = 'vidlink',
-  ExternalPlayer = 'externalplayer',
   Vidsrc = 'vidsrc',
   VidsrcIcu = 'vidsrcicu',
 }
