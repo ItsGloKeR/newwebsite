@@ -421,7 +421,7 @@ const AnimePlayer: React.FC<{
 
   const handleReportIssue = () => {
     onReportIssue(); // Call the original handler which navigates to the report page
-    showNotification('Thank you for your feedback! We will look into it!', 'success', 3000); 
+    showNotification('Thank you for your feedback! We will look into it!', 'success'); 
   };
 
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -30,6 +31,8 @@ import LandingPageSkeleton from './components/LandingPageSkeleton';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { syncProgressOnLogin } from './services/firebaseService';
 import MiniPlayer from './components/MiniPlayer';
+import { NotificationProvider, useNotification } from './contexts/NotificationContext'; 
+import SchedulePreview from './components/SchedulePreview'; 
 
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const AnimeDetailPage = React.lazy(() => import('./components/AnimeDetailPage'));
@@ -53,71 +56,6 @@ const initialFilters: FilterState = {
     sort: MediaSort.POPULARITY_DESC,
     scoreRange: [0, 100],
     page: 1,
-};
-
-const SchedulePreview: React.FC<{ schedule: AiringSchedule[]; onSelectAnime: (anime: { anilistId: number }) => void; onShowMore: () => void }> = ({ schedule, onSelectAnime, onShowMore }) => {
-    const todaysSchedule = useMemo(() => {
-        const today = new Date();
-        const startOfDay = new Date(today);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(today);
-        endOfDay.setHours(23, 59, 59, 999);
-
-        return schedule
-            .filter(item => {
-                const itemDate = new Date(item.airingAt * 1000);
-                return itemDate.getTime() >= startOfDay.getTime() && itemDate.getTime() <= endOfDay.getTime();
-            })
-            .sort((a, b) => a.airingAt - b.airingAt);
-    }, [schedule]);
-
-
-    return (
-        <section className="mb-12">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3 font-display tracking-wide uppercase">
-                    <span className="text-cyan-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
-                    </span>
-                    <span>Airing Today</span>
-                </h2>
-                <button 
-                    onClick={onShowMore} 
-                    className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm md:text-base whitespace-nowrap"
-                >
-                    <span>View Full Schedule</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </button>
-            </div>
-            <div className="bg-gray-900/50 rounded-lg p-4">
-                 {todaysSchedule.length > 0 ? (
-                    todaysSchedule.slice(0, 5).map(item => (
-                        <div 
-                            key={item.id}
-                            onClick={() => onSelectAnime({ anilistId: item.media.id })}
-                            className="flex items-center gap-4 py-3 border-b border-gray-800 last:border-b-0 cursor-pointer group rounded-lg"
-                        >
-                            <span className="text-cyan-400 font-mono text-sm w-16 text-center">{new Date(item.airingAt * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
-                            <img src={item.media.coverImage.extraLarge} onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} alt={item.media.title.english || item.media.title.romaji} className="w-10 h-14 object-cover rounded-md flex-shrink-0" />
-                            <div className="flex-grow overflow-hidden">
-                                <p className="text-white font-semibold truncate group-hover:text-cyan-400 transition-colors">{item.media.title.english || item.media.title.romaji}</p>
-                                <p className="text-gray-400 text-xs">Episode {item.episode}</p>
-                            </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 group-hover:text-white transition-colors opacity-0 group-hover:opacity-100 mr-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                    ))
-                ) : (
-                    <div className="text-center py-8 text-gray-500">
-                        No more episodes scheduled for today.
-                    </div>
-                )}
-            </div>
-        </section>
-    );
 };
 
 const FullPageSpinner: React.FC = () => (
@@ -174,6 +112,7 @@ const AppContent: React.FC = () => {
     const [isRandomLoading, setIsRandomLoading] = useState(false);
     const schedulePreviewRef = useRef<HTMLDivElement>(null);
     const prevHashRef = useRef<string>();
+    const { showNotification } = useNotification(); 
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
@@ -241,6 +180,7 @@ const AppContent: React.FC = () => {
         } else {
             window.location.hash = '#/';
         }
+        showNotification('Welcome to AniGloK!', 'info', 2500); 
     };
     
     const handleGoToLanding = () => {
@@ -378,6 +318,7 @@ const AppContent: React.FC = () => {
                     setSelectedAnime(applyOverrides(fullDetails));
                 } catch (error) {
                     console.error("Failed to get anime details:", error);
+                    showNotification('Failed to load anime details.', 'error', 4000); // Notification for fetch failure
                     window.location.hash = '#/';
                 } finally {
                     setIsLoading(false);
@@ -417,6 +358,7 @@ const AppContent: React.FC = () => {
                     });
                 } catch (err) {
                     console.error("Could not fetch player details", err);
+                    showNotification('Failed to load player. Please try again.', 'error', 4000); // Notification for player load failure
                     window.location.hash = '#/';
                 }
                 return;
@@ -572,7 +514,7 @@ const AppContent: React.FC = () => {
         return () => {
             window.removeEventListener('hashchange', handleRouteChange);
         };
-    }, [applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, playerState.episode, filters, watchlist, favorites, continueWatching, discoverListTitle, generateDiscoverUrl, applyOverridesToList, isListView, isGeneratedList]);
+    }, [applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, playerState.episode, filters, watchlist, favorites, continueWatching, discoverListTitle, generateDiscoverUrl, applyOverridesToList, isListView, isGeneratedList, showNotification]);
 
 
     useEffect(() => {
@@ -598,6 +540,7 @@ const AppContent: React.FC = () => {
                 setCurrentYear(currentYear);
             } catch (error) {
                 console.error("Failed to fetch home page data:", error);
+                showNotification('Failed to load some data. Please check your connection.', 'error', 4000); 
             } finally {
                 setIsLoading(false);
             }
@@ -605,7 +548,7 @@ const AppContent: React.FC = () => {
         if (view !== 'landing' && (view === 'home' || view === 'schedule') && trending.length === 0) {
           fetchInitialData();
         }
-    }, [applyOverridesToList, view, trending.length]);
+    }, [applyOverridesToList, view, trending.length, showNotification]);
 
     useEffect(() => {
         setTrending(list => applyOverridesToList(list));
@@ -634,6 +577,7 @@ const AppContent: React.FC = () => {
                 setPageInfo(newPageInfo);
             } catch (error) {
                 console.error("Failed to discover anime:", error);
+                showNotification('Failed to fetch filtered results.', 'error', 4000); 
                 setCurrentListViewAnime([]); // Changed from setSearchResults
                 setPageInfo(null);
             } finally {
@@ -641,7 +585,7 @@ const AppContent: React.FC = () => {
             }
         };
         performSearch();
-    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, isListView, isGeneratedList]); // Added isGeneratedList here
+    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, isListView, isGeneratedList, showNotification]);
     
     useEffect(() => {
         if (debouncedSuggestionsTerm.trim() === '') {
@@ -655,12 +599,13 @@ const AppContent: React.FC = () => {
                 setSearchSuggestions(results);
             } catch (error) {
                 console.error("Failed to fetch search suggestions:", error);
+                showNotification('Failed to fetch search suggestions.', 'error', 4000); 
             } finally {
                 setIsSuggestionsLoading(false);
             }
         };
         fetchSuggestions();
-    }, [debouncedSuggestionsTerm]);
+    }, [debouncedSuggestionsTerm, showNotification]);
 
     const handleRandomAnime = async () => {
         if (isRandomLoading) return;
@@ -670,9 +615,13 @@ const AppContent: React.FC = () => {
             const randomAnime = await getRandomAnime();
             if (randomAnime) {
                 handleSelectAnime(randomAnime);
+                showNotification('Found a random anime!', 'success', 3000); 
+            } else {
+                showNotification('Could not find a random anime. Please try again.', 'warning', 4000); 
             }
         } catch (error) {
             console.error("Failed to get random anime:", error);
+            showNotification('Failed to get a random anime. Please try again.', 'error', 4000); 
         } finally {
             setIsRandomLoading(false);
         }
@@ -707,7 +656,10 @@ const AppContent: React.FC = () => {
         handleWatchNow(anime, lastEpisode);
     };
 
-    const handleRemoveFromContinueWatching = (animeId: number) => progressTracker.removeFromHistory(animeId);
+    const handleRemoveFromContinueWatching = (animeId: number) => {
+        progressTracker.removeFromHistory(animeId);
+        showNotification('Removed from Continue Watching.', 'info', 2500); 
+    };
 
     const handleBackToDetails = () => {
         window.history.back();
@@ -778,9 +730,7 @@ const AppContent: React.FC = () => {
                 staff: [], // Not available
                 characters: [], // Not available
                 relations: [], // Not available
-                trailer: undefined, // Not available
-                recommendations: [], // Not available
-                nextAiringEpisode: undefined, // Not available
+                recommendations: [],
             }));
 
             if (animeListAsAnime.length === 0) {
@@ -805,7 +755,7 @@ const AppContent: React.FC = () => {
             const newFilters = { ...initialFilters, ...partialFilters, page: 1 };
             window.location.hash = generateDiscoverUrl(newFilters);
         }
-    }, [applyOverridesToList, generateDiscoverUrl]);
+    }, [applyOverridesToList, generateDiscoverUrl, showNotification]);
 
 
     const handleFilterBarChange = (newFilters: FilterState) => {
@@ -1111,7 +1061,9 @@ const App: React.FC = () => {
         <AdminProvider>
             <UserDataProvider>
                 <TitleLanguageProvider>
-                    <AppContent />
+                    <NotificationProvider> 
+                        <AppContent />
+                    </NotificationProvider>
                 </TitleLanguageProvider>
             </UserDataProvider>
         </AdminProvider>
