@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -737,18 +734,38 @@ const AppContent: React.FC = () => {
             setView('home');
             window.scrollTo(0, 0);
     
-            const animeListAsAnime: Anime[] = partialFilters.animeList.map((item: any) => ({
+            const animeListAsAnime: Anime[] = partialFilters.animeList.map((item: RelatedAnime | RecommendedAnime) => ({
                 anilistId: item.id,
                 englishTitle: item.englishTitle,
                 romajiTitle: item.romajiTitle,
                 coverImage: item.coverImage,
                 isAdult: item.isAdult,
                 episodes: item.episodes,
-                totalEpisodes: item.episodes,
+                totalEpisodes: item.episodes, // Assuming totalEpisodes is same as episodes for these partial types
                 format: item.format,
                 year: item.year,
-                description: '', bannerImage: '', genres: [], duration: null, rating: 0, status: '', studios: [], staff: [], characters: [], relations: [], recommendations: [],
+                // Default values for fields not present in RelatedAnime/RecommendedAnime
+                malId: undefined, // Not available
+                description: '', // Not available
+                coverImageColor: undefined, // Not available
+                bannerImage: '', // Not available
+                genres: [], // Not available
+                duration: null, // Not available
+                rating: 0, // Not available
+                status: 'FINISHED', // Defaulting to FINISHED as most related/recommended are complete
+                studios: [], // Not available
+                staff: [], // Not available
+                characters: [], // Not available
+                relations: [], // Not available
+                trailer: undefined, // Not available
+                recommendations: [], // Not available
+                nextAiringEpisode: undefined, // Not available
             }));
+
+            if (animeListAsAnime.length === 0) {
+                console.error("handleViewMore: No anime items were mapped for the list display.");
+            }
+            
             setSearchResults(applyOverridesToList(animeListAsAnime));
             setIsDiscoverLoading(false);
         } else {
