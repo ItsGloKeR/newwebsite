@@ -715,6 +715,7 @@ const AppContent: React.FC = () => {
 
     const handleViewMore = useCallback(async (partialFilters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continue-watching', animeList?: (RelatedAnime | RecommendedAnime)[] }, title: string) => {
         hideTooltip();
+        setIsSidebarOpen(false); // Ensure sidebar is closed for list views
     
         if (partialFilters.list) {
             window.location.hash = `#/list/${partialFilters.list}`;
