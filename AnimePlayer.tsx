@@ -17,25 +17,6 @@ const NextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-
 const FullscreenEnterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v5A1.5 1.5 0 004.5 10h5A1.5 1.5 0 0011 8.5v-5A1.5 1.5 0 009.5 2h-5zM3 13.5A1.5 1.5 0 014.5 12h5A1.5 1.5 0 0111 13.5v5A1.5 1.5 0 019.5 20h-5A1.5 1.5 0 013 18.5v-5zM13.5 2A1.5 1.5 0 0115 3.5v5A1.5 1.5 0 0113.5 10h-5A1.5 1.5 0 017 8.5v-5A1.5 1.5 0 018.5 2h5zM12 13.5a1.5 1.5 0 00-1.5 1.5v5a1.5 1.5 0 001.5 1.5h5a1.5 1.5 0 001.5-1.5v-5a1.5 1.5 0 00-1.5-1.5h-5z" clipRule="evenodd" /></svg>;
 const FullscreenExitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a3 3 0 00-3 3v2.5a.5.5 0 001 0V5a2 2 0 012-2h2.5a.5.5 0 000-1H5zM15 2h-2.5a.5.5 0 000 1H15a2 2 0 012 2v2.5a.5.5 0 001 0V5a3 3 0 00-3-3zM5 18H2.5a.5.5 0 000 1H5a3 3 0 003-3v-2.5a.5.5 0 00-1 0V15a2 2 0 01-2-2zM18 15v-2.5a.5.5 0 00-1 0V15a2 2 0 01-2 2h-2.5a.5.5 0 000 1H15a3 3 0 003-3z" clipRule="evenodd" /></svg>;
 
-// Stream Source Icons
-const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>;
-const TvIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1H6a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V7a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
-const FilmIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>;
-const DesktopIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2H3zm0 2v6h14V6H3zm0 8h14v2H3v-2z" clipRule="evenodd" /></svg>;
-// New: Icon for Vidlink
-const LinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.586 10.586a2 2 0 01-2.828 0L7.414 7.414a2 2 0 012.828-2.828l.707.707A1 1 0 0013.121 6.121l.707-.707a4 4 0 00-5.656-5.656L3.464 4.536a4 4 0 000 5.656l2.828 2.828a4 4 0 005.656 0l.707-.707a1 1 0 10-1.414-1.414l-.707.707a2 2 0 01-2.828 0L8 9.414a2 2 0 010-2.828l.707-.707a1 1 0 10-1.414-1.414l-.707.707a4 4 0 000 5.656l2.828 2.828a4 4 0 005.656 0l.707-.707a1 1 0 10-1.414-1.414l-.707.707z" clipRule="evenodd" /></svg>;
-
-
-const streamSourceDisplay: Record<StreamSource, { label: string; icon: React.ReactNode }> = {
-    [StreamSource.AnimePahe]: { label: 'AnimePahe', icon: <PlayIcon /> },
-    [StreamSource.Vidnest]: { label: 'Vidnest', icon: <TvIcon /> },
-    // Fix: Added missing StreamSource.Vidlink
-    [StreamSource.Vidlink]: { label: 'Vidlink', icon: <LinkIcon /> },
-    [StreamSource.Vidsrc]: { label: 'VidSrc', icon: <FilmIcon /> },
-    [StreamSource.VidsrcIcu]: { label: 'VidSrc.icu', icon: <DesktopIcon /> },
-    [StreamSource.Consumet]: { label: 'Consumet', icon: <PlayIcon /> }, // Consumet is dynamic, not a selectable source here.
-};
-
 
 const RecommendationCard: React.FC<{ anime: RecommendedAnime, onSelect: () => void }> = ({ anime, onSelect }) => {
     const { titleLanguage } = useTitleLanguage();
@@ -440,7 +421,7 @@ const AnimePlayer: React.FC<{
 
   const handleReportIssue = () => {
     onReportIssue(); // Call the original handler which navigates to the report page
-    showNotification('Thank you for your feedback! We will look into it!', 'success', 3000); 
+    showNotification('Thank you for your feedback! We will look into it!', 'success'); 
   };
 
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
@@ -452,18 +433,12 @@ const AnimePlayer: React.FC<{
       return episodes.slice(selectedRange.start - 1, selectedRange.end);
   }, [episodes, selectedRange]);
 
-  // Fix: Updated sources array to use streamSourceDisplay for labels and icons
   const sources = [
-    StreamSource.AnimePahe,
-    StreamSource.Vidnest,
-    StreamSource.Vidlink,
-    StreamSource.Vidsrc,
-    StreamSource.VidsrcIcu,
-  ].map(sourceId => ({
-    id: sourceId,
-    label: streamSourceDisplay[sourceId].label,
-    icon: streamSourceDisplay[sourceId].icon
-  }));
+    { id: StreamSource.AnimePahe, label: 'Src 1' },
+    { id: StreamSource.Vidnest, label: 'Src 2' },
+    { id: StreamSource.Vidsrc, label: 'Src 3' },
+    { id: StreamSource.VidsrcIcu, label: 'Src 4' },
+  ];
   
   const languages = [
     { id: StreamLanguage.Sub, label: 'SUB' },
@@ -540,10 +515,7 @@ const AnimePlayer: React.FC<{
               <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 mb-3">
                   <div className="flex items-center gap-2">
                       {sources.map(source => (
-                          <button key={source.id} onClick={() => onSourceChange(source.id)} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-2 ${currentSource === source.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
-                            {source.icon}
-                            {source.label}
-                          </button>
+                          <button key={source.id} onClick={() => onSourceChange(source.id)} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentSource === source.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>{source.label}</button>
                       ))}
                   </div>
                   <div className="h-6 w-px bg-gray-700 hidden sm:block"></div>
@@ -579,7 +551,7 @@ const AnimePlayer: React.FC<{
               </div>
               
               <div className="text-xs text-center bg-gray-800/70 p-2 rounded-md text-gray-400">
-                  Video not playing? Try selecting a different source (e.g., Vidnest) or language (SUB/DUB) above.
+                  Video not playing? Try selecting a different source (e.g., Src 2) or language (SUB/DUB) above.
               </div>
 
               {isAiringNotificationVisible && anime.status === 'RELEASING' && nextAiringDate && (
