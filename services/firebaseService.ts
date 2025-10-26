@@ -16,7 +16,15 @@ import {
     signInWithEmailAndPassword, 
     signOut,
     updateProfile,
-    User as FirebaseUser
+    User as FirebaseUser,
+    sendPasswordResetEmail, // Added
+    sendEmailVerification,  // Added
+    updatePassword,         // Added
+    EmailAuthProvider,      // Added
+    reauthenticateWithCredential, // Added
+    setPersistence,         // Added
+    browserLocalPersistence, // Added
+    browserSessionPersistence // Added
 } from "firebase/auth";
 import { db, auth, isFirebaseConfigured, deleteField } from './firebase';
 import { UserProfile, MediaProgress } from '../types';
@@ -81,6 +89,7 @@ export const createUserProfileDocument = async (userAuth: FirebaseUser, addition
                 displayName: displayName || email?.split('@')[0],
                 email,
                 photoURL,
+                emailVerified: userAuth.emailVerified, // Added emailVerified status
                 createdAt,
                 watchlist: [],
                 favorites: [],
@@ -123,7 +132,7 @@ export const updateUserProgress = async (uid: string, progress: MediaProgress): 
         for (const anilistId in progress) {
             if (Object.prototype.hasOwnProperty.call(progress, anilistId)) {
                 const entry = progress[anilistId];
-                // Use null as a signal to delete the field
+                // Use null as a signal for deletion in the batched update
                 if (entry === null) {
                     updates[`progress.${anilistId}`] = deleteField();
                 } else {
@@ -137,46 +146,14 @@ export const updateUserProgress = async (uid: string, progress: MediaProgress): 
     }
 };
 
-export const syncProgressOnLogin = async (uid: string): Promise<void> => {
-    if (!db) return;
-
-    const localProgress = progressTracker.getAllMediaData();
-    const localProgressExists = Object.keys(localProgress).length > 0;
-    
-    try {
-        const userRef = doc(db, 'users', uid);
-        const userDoc = await getDoc(userRef);
-        
-        let remoteProgress: MediaProgress = {};
-        let remoteProgressExists = false;
-
-        if (userDoc.exists() && userDoc.data()?.progress) {
-            remoteProgress = userDoc.data().progress as MediaProgress;
-            remoteProgressExists = Object.keys(remoteProgress).length > 0;
-        }
-
-        if (remoteProgressExists) {
-            // Priority 1: Remote data exists. Overwrite local state with it.
-            progressTracker.replaceAllProgress(remoteProgress);
-        } else if (localProgressExists) {
-            // Priority 2: No remote data, but local (guest) data exists. Upload it.
-            await updateUserProgress(uid, localProgress);
-        } else {
-            // Priority 3: No remote or local data. Ensure tracker is empty.
-            progressTracker.replaceAllProgress({});
-        }
-    } catch(error) {
-        console.error("Error syncing progress on login. App will use local data as fallback.", error);
-    }
-};
-
-export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: string, photoURL?: string): Promise<void> => {
+export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: string, photoURL?: string, emailVerified?: boolean): Promise<void> => {
     if (!auth?.currentUser || !db) return;
 
     const isDisplayNameChanged = displayName !== user.displayName;
     const isPhotoURLChanged = photoURL !== undefined && photoURL !== user.photoURL;
+    const isEmailVerifiedChanged = emailVerified !== undefined && emailVerified !== user.emailVerified;
 
-    if (!isDisplayNameChanged && !isPhotoURLChanged) {
+    if (!isDisplayNameChanged && !isPhotoURLChanged && !isEmailVerifiedChanged) {
         return; // No changes to apply
     }
     
@@ -188,16 +165,24 @@ export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: 
         if (isPhotoURLChanged) {
             profileUpdates.photoURL = photoURL;
         }
+        // Note: emailVerified cannot be directly updated via updateProfile.
+        // It changes only after the user clicks the verification link.
         
         // Update Firebase Auth profile
         await updateProfile(user, profileUpdates);
         
         // Update Firestore profile document
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, profileUpdates);
+        const firestoreUpdates: { displayName?: string; photoURL?: string; emailVerified?: boolean } = {};
+        if (isDisplayNameChanged) firestoreUpdates.displayName = displayName;
+        if (isPhotoURLChanged) firestoreUpdates.photoURL = photoURL;
+        if (isEmailVerifiedChanged) firestoreUpdates.emailVerified = emailVerified; // Update firestore directly for emailVerified
+
+        await updateDoc(doc(db, 'users', user.uid), firestoreUpdates);
 
     } catch(error) {
         console.error("Error updating user profile", error);
         throw error;
     }
 };
+
+export { sendPasswordResetEmail, sendEmailVerification, updatePassword, EmailAuthProvider, reauthenticateWithCredential, setPersistence, browserLocalPersistence, browserSessionPersistence };

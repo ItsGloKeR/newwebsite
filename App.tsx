@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { Anime, StreamSource, StreamLanguage, SearchSuggestion, FilterState, MediaSort, AiringSchedule, MediaStatus, MediaSeason, EnrichedAiringSchedule, MediaFormat, PageInfo, RelatedAnime, RecommendedAnime } from './types';
 import { getHomePageData, getAnimeDetails, getGenreCollection, getSearchSuggestions, discoverAnime, getLatestEpisodes, getMultipleAnimeDetails, getRandomAnime, getAiringSchedule, setDataSaverMode } from './services/anilistService';
@@ -29,7 +27,7 @@ import FilterBar from './components/GenreFilter'; // Re-using GenreFilter file f
 import Pagination from './components/SidebarMenu'; // Re-using SidebarMenu file for Pagination
 import LandingPageSkeleton from './components/LandingPageSkeleton';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { syncProgressOnLogin } from './services/firebaseService';
+import { /* Removed: syncProgressOnLogin, */ } from './services/firebaseService';
 import MiniPlayer from './components/MiniPlayer';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext'; 
 import SchedulePreview from './components/SchedulePreview'; 
@@ -142,12 +140,12 @@ const AppContent: React.FC = () => {
 
     useEffect(() => {
         if (user) {
-            syncProgressOnLogin(user.uid).then(() => {
-                progressTracker.setUserId(user.uid);
-                reSync(user);
-            });
+            // When user logs in, set the progressTracker's userId to enable Firestore syncing.
+            // The actual data merging/syncing from Firestore to local storage happens in UserDataProvider.
+            progressTracker.setUserId(user.uid);
+            reSync(user); // Trigger re-sync in UserDataProvider
         } else {
-            progressTracker.setUserId(null);
+            progressTracker.setUserId(null); // Clear userId on logout to stop Firestore syncing
         }
     }, [user, reSync]);
 

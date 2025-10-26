@@ -21,13 +21,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const reloadUser = useCallback(async () => {
     if (auth?.currentUser) {
-      // The auth.currentUser object should be updated in memory by the Firebase SDK after updateProfile
-      // We can force a reload to be sure we get the latest from the server
+      // Force reload of auth user to get latest emailVerified status
       await auth.currentUser.reload();
       const freshFirebaseUser = auth.currentUser;
       setFirebaseUser(freshFirebaseUser);
+      // Re-fetch user profile to ensure `emailVerified` is updated in Firestore data
       const userProfile = await getUserProfile(freshFirebaseUser.uid);
-      setUser(userProfile);
+      if (userProfile) {
+        setUser({ ...userProfile, emailVerified: freshFirebaseUser.emailVerified });
+        // Also update Firestore if the emailVerified status changed in Firebase Auth
+        if (userProfile.emailVerified !== freshFirebaseUser.emailVerified) {
+          await createUserProfileDocument(freshFirebaseUser, { emailVerified: freshFirebaseUser.emailVerified });
+        }
+      } else {
+        // If for some reason the profile doesn't exist, create it with latest data
+        await createUserProfileDocument(freshFirebaseUser);
+        const newlyCreatedProfile = await getUserProfile(freshFirebaseUser.uid);
+        setUser(newlyCreatedProfile);
+      }
     }
   }, []);
 
@@ -43,8 +54,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         let userProfile = await getUserProfile(authUser.uid);
         if (!userProfile) {
           // If profile doesn't exist, create it.
-          await createUserProfileDocument(authUser);
+          await createUserProfileDocument(authUser, { emailVerified: authUser.emailVerified });
           userProfile = await getUserProfile(authUser.uid);
+        } else if (userProfile.emailVerified !== authUser.emailVerified) {
+          // Keep Firestore in sync with auth.currentUser for emailVerified status
+          await createUserProfileDocument(authUser, { emailVerified: authUser.emailVerified });
+          userProfile = await getUserProfile(authUser.uid); // Fetch updated profile
         }
         setUser(userProfile);
       } else {

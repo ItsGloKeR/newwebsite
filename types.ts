@@ -257,6 +257,7 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  emailVerified?: boolean; // Added emailVerified property
   watchlist?: number[];
   favorites?: number[];
   progress?: MediaProgress;
