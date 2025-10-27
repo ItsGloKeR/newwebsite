@@ -8,7 +8,6 @@ import { useTooltip } from '../contexts/TooltipContext';
 import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
 import { useNotification } from '../contexts/NotificationContext';
-import LoadingSpinner from './LoadingSpinner';
 import CustomVideoPlayer from './CustomVideoPlayer';
 
 
@@ -26,6 +25,32 @@ const PrevIconButton = () => <svg xmlns="http://www.w3.org/2000/svg" className="
 const NextIconButton = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>;
 const LatestIconButton = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M15 5H5a1 1 0 00-1 1v8a1 1 0 001 1h10a1 1 0 001-1V6a1 1 0 00-1-1zm-1 8H6V7h8v6z" /><path d="M18 7h-1V6a1 1 0 00-1-1H4a1 1 0 000 2h1v8H4a1 1 0 000 2h11a1 1 0 001-1v-1h1a1 1 0 000-2z" /></svg>;
 
+const RadarPulse: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <div
+    onClick={onClick}
+    className="absolute bottom-[calc(0.5rem-0.5cm)] left-[calc(0.5rem+1cm)] w-16 h-16 text-white drop-shadow-lg cursor-pointer animate-fade-in z-30"
+    aria-label="Unmute player"
+    role="button"
+  >
+    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <style>{`
+            .radar-circle-pulse {
+                transform-origin: center;
+                animation: radar-pulse 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .radar-circle-pulse-2 { animation-delay: 0.8s; }
+            @keyframes radar-pulse {
+                0% { transform: scale(0.3); opacity: 0; }
+                50% { opacity: 0.7; }
+                100% { transform: scale(1); opacity: 0; }
+            }
+        `}</style>
+        <circle cx="50" cy="50" r="8" fill="currentColor" />
+        <circle className="radar-circle-pulse" cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="4" />
+        <circle className="radar-circle-pulse radar-circle-pulse-2" cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="4" />
+    </svg>
+  </div>
+);
 
 const DiscoverCard: React.FC<{ anime: RecommendedAnime | RelatedAnime, onSelect: () => void }> = ({ anime, onSelect }) => {
     const { titleLanguage } = useTitleLanguage();
@@ -145,8 +170,8 @@ const AnimePlayer: React.FC<{
   const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
   const rangeSelectorRef = useRef<HTMLDivElement>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [isStreamLoading, setIsStreamLoading] = useState(false);
   const [subtitles, setSubtitles] = useState<{ src: string; label: string; srclang: string; default?: boolean; kind?: string }[]>([]);
-  const [isPlayerLoading, setIsPlayerLoading] = useState(true);
   const [resumeNotification, setResumeNotification] = useState<string | null>(null);
   const lastWatchedEp = useMemo(() => progressTracker.getMediaData(anime.anilistId)?.last_episode_watched, [anime.anilistId]);
   
@@ -155,6 +180,8 @@ const AnimePlayer: React.FC<{
   const inactivityTimeoutRef = useRef<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const [episodeView, setEpisodeView] = useState<'list' | 'grid'>('list');
+  const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(false);
+  const unmuteTimersRef = useRef<{ show: number | null; hide: number | null }>({ show: null, hide: null });
 
   const relatedScrollContainerRef = useRef<HTMLDivElement>(null);
   const recsScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -173,6 +200,36 @@ const AnimePlayer: React.FC<{
     }
     return anime.totalEpisodes || anime.episodes || 1;
   }, [anime]);
+
+  useEffect(() => {
+    // Clear any existing timers when source/episode changes
+    if (unmuteTimersRef.current.show) clearTimeout(unmuteTimersRef.current.show);
+    if (unmuteTimersRef.current.hide) clearTimeout(unmuteTimersRef.current.hide);
+    setShowUnmuteOverlay(false);
+
+    // Apply only to source 1 (Vidsrc), which is often muted by browsers by default
+    if (currentSource === StreamSource.Vidsrc) {
+      unmuteTimersRef.current.show = window.setTimeout(() => {
+        setShowUnmuteOverlay(true);
+      }, 8000); // Show after 8 seconds
+
+      unmuteTimersRef.current.hide = window.setTimeout(() => {
+        setShowUnmuteOverlay(false);
+      }, 18000); // Hide after another 10 seconds (18s total)
+    }
+
+    return () => {
+      if (unmuteTimersRef.current.show) clearTimeout(unmuteTimersRef.current.show);
+      if (unmuteTimersRef.current.hide) clearTimeout(unmuteTimersRef.current.hide);
+    };
+  }, [currentSource, currentEpisode]);
+
+  const handleUnmuteClick = () => {
+    if (unmuteTimersRef.current.hide) clearTimeout(unmuteTimersRef.current.hide);
+    setShowUnmuteOverlay(false);
+    // Programmatically unmuting iframe content is not possible due to browser security policies.
+    // This overlay acts as a prompt for the user to interact with the player.
+  };
 
   useEffect(() => {
     if (episodeCount > 100) {
@@ -424,31 +481,31 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   }, [anime.anilistId]);
   
   useEffect(() => {
-    setIsPlayerLoading(true);
+    setIsStreamLoading(true);
     setStreamUrl(null);
     setSubtitles([]);
 
     const handleStreamUrl = async () => {
         if (currentSource === StreamSource.HiAnimeV2) {
-            if (!hiAnimeInfo || !hiAnimeInfo.episodesList) {
-                setStreamUrl('about:blank#hianime-info-loading');
-                return;
-            }
-
-            const hianimeEpisode = hiAnimeInfo.episodesList.find(ep => ep.number === currentEpisode);
-            if (!hianimeEpisode) {
-                setStreamUrl('about:blank#hianime-episode-not-found');
-                return;
-            }
-
-            const hianimeId = hiAnimeInfo.id;
-            const hianimeEpId = hianimeEpisode.episodeId;
-            const streamType = currentLanguage === StreamLanguage.Dub ? 'dub' : 'sub';
-            
-            const compositeId = `${hianimeId}?ep=${hianimeEpId}`;
-            const apiUrl = `https://cors-anywhere-6mov.onrender.com/https://hianime-api-n.onrender.com/api/stream?id=${encodeURIComponent(compositeId)}&server=hd-2&type=${streamType}`;
-
             try {
+                if (!hiAnimeInfo || !hiAnimeInfo.episodesList) {
+                    setStreamUrl('about:blank#hianime-info-loading');
+                    return;
+                }
+
+                const hianimeEpisode = hiAnimeInfo.episodesList.find(ep => ep.number === currentEpisode);
+                if (!hianimeEpisode) {
+                    setStreamUrl('about:blank#hianime-episode-not-found');
+                    return;
+                }
+
+                const hianimeId = hiAnimeInfo.id;
+                const hianimeEpId = hianimeEpisode.episodeId;
+                const streamType = currentLanguage === StreamLanguage.Dub ? 'dub' : 'sub';
+                
+                const compositeId = `${hianimeId}?ep=${hianimeEpId}`;
+                const apiUrl = `https://cors-anywhere-6mov.onrender.com/https://hianime-api-n.onrender.com/api/stream?id=${encodeURIComponent(compositeId)}&server=hd-2&type=${streamType}`;
+
                 const response = await fetch(apiUrl);
                 if (!response.ok) throw new Error(`API returned status ${response.status}`);
                 
@@ -475,9 +532,10 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                 }
             } catch (error) {
                 console.error("Error fetching HiAnimeV2 stream:", error);
-                showNotification('Failed to load Source 6 stream.', 'error');
+                showNotification('Failed to load Source 4 stream.', 'error');
                 setStreamUrl('about:blank#stream-fetch-error');
-                setIsPlayerLoading(false);
+            } finally {
+                setIsStreamLoading(false);
             }
 
         } else {
@@ -554,7 +612,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   };
   
   const handleRefresh = () => {
-    setIsPlayerLoading(true); setRefreshKey(prev => prev + 1); showNotification('Refreshing player...', 'info', 1500);
+    setRefreshKey(prev => prev + 1); showNotification('Refreshing player...', 'info', 1500);
   };
 
   const playerAllowString = useMemo(() => {
@@ -733,34 +791,51 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         onMouseMove={() => showOverlay()}
                         onMouseLeave={hideOverlay}
                     >
-                      {isPlayerLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-                            <div className="text-center">
-                                <LoadingSpinner />
-                                {(streamUrl?.includes('#hianime-info-loading') || currentSource === StreamSource.HiAnimeV2) && <p className="text-gray-400 text-sm mt-4">Preparing HiAnime stream...</p>}
-                            </div>
+                      {(isStreamLoading && currentSource === StreamSource.HiAnime) && (
+                        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70">
+                            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-400"></div>
                         </div>
                       )}
                       {currentSource === StreamSource.HiAnimeV2 && streamUrl && !streamUrl.includes('about:blank') ? (
                           <CustomVideoPlayer
                               src={streamUrl}
                               subtitles={subtitles}
-                              onLoad={() => setIsPlayerLoading(false)}
                           />
                       ) : (
                         <iframe
                           key={`${streamUrl}-${refreshKey}`}
                           src={streamUrl || 'about:blank'}
-                          onLoad={(e) => { if (e.currentTarget.src !== 'about:blank' && !e.currentTarget.src.includes('about:blank#')) setIsPlayerLoading(false); }}
                           title={`${title} - Episode ${currentEpisode}`}
                           allow={playerAllowString}
                           sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
                           allowFullScreen
                           className="w-full h-full border-0"
                           scrolling="no"
+                          onLoad={() => setIsStreamLoading(false)}
                         ></iframe>
                       )}
                       
+                      {showUnmuteOverlay && (
+                        <>
+                          {/* Centered Unmute button */}
+                          <div
+                            onClick={handleUnmuteClick}
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 cursor-pointer animate-fade-in"
+                            role="button"
+                            aria-label="Unmute player"
+                          >
+                            <div className="bg-cyan-500/80 backdrop-blur-sm text-white font-bold py-2 px-4 rounded-lg text-base transform transition-transform hover:scale-105 shadow-lg flex items-center gap-2 animate-pulse">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                              Unmute
+                            </div>
+                          </div>
+                           {/* Radar icon in the bottom-left corner */}
+                           <RadarPulse onClick={handleUnmuteClick} />
+                        </>
+                      )}
+
                        {resumeNotification && (
                         <div className="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-fast pointer-events-none">
                             <p className="font-semibold flex items-center gap-2">
@@ -834,7 +909,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                   <div className="px-4 py-1.5 text-sm text-gray-400"> No subtitle options for this source. </div>
                               ) : (
                                   languages.map(lang => {
-                                      const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnime && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnimeV2 && lang.id === StreamLanguage.Hindi);
+                                      const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnime && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnimeV2 && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.VidsrcIcu && lang.id === StreamLanguage.Sub);
                                       return ( <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button> )
                                   })
                               )}

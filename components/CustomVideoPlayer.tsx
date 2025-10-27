@@ -4,10 +4,9 @@ import React, { useEffect, useRef } from 'react';
 interface CustomVideoPlayerProps {
   src: string | null;
   subtitles: { src: string; label: string; srclang: string; default?: boolean; kind?: string }[];
-  onLoad?: () => void;
 }
 
-const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, subtitles, onLoad }) => {
+const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, subtitles }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -26,12 +25,6 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, subtitles, o
       video.load();
     }
   }, [src]);
-  
-  const handleLoadedData = () => {
-    if (onLoad) {
-      onLoad();
-    }
-  };
 
   if (!src) {
     return null; // Don't render anything if there's no source
@@ -44,7 +37,6 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, subtitles, o
       autoPlay
       crossOrigin="anonymous"
       className="w-full h-full bg-black"
-      onLoadedData={handleLoadedData}
       playsInline
     >
       {subtitles.map((sub, index) => (
