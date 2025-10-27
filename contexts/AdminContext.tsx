@@ -250,15 +250,6 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     }
 
-    if ((source === StreamSource.Vidnest || source === StreamSource.AnimePahe) && animeFormat !== 'MOVIE') {
-        const paramsToAdd = 'prevepisode=hide&nextepisode=hide';
-        if (url.includes('?')) {
-            url += `&${paramsToAdd}`;
-        } else {
-            url += `?${paramsToAdd}`;
-        }
-    }
-
     return url;
   }, [mergedOverrides]);
 

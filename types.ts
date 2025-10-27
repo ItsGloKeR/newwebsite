@@ -199,6 +199,7 @@ export interface ZenshinMapping {
       seasonNumber?: number;
       episodeNumber?: number;
       id?: string;
+      isFiller?: boolean;
     };
   };
 }

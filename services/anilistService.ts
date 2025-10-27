@@ -719,7 +719,8 @@ export const getZenshinMappings = async (anilistId: number): Promise<ZenshinMapp
                                     en: ep.title,
                                 },
                                 overview: ep.description,
-                                id: ep.id
+                                id: ep.id,
+                                isFiller: ep.isFiller,
                             };
                         }
                     }
