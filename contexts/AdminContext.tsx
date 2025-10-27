@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useMemo, useCallback } from 'react';
-import { AdminOverrides, StreamSource, StreamLanguage, AnimeOverride, ZenshinMapping } from '../types';
+import { AdminOverrides, StreamSource, StreamLanguage, AnimeOverride, ZenshinMapping, HiAnimeInfo } from '../types';
 import { STREAM_URLS } from '../constants';
 import { staticOverrides } from '../overrides/data';
 
@@ -14,6 +14,7 @@ interface GetStreamUrlParams {
   language: StreamLanguage;
   zenshinData?: ZenshinMapping | null;
   animeFormat?: string;
+  hiAnimeInfo?: HiAnimeInfo | null;
 }
 
 interface AdminContextType {
@@ -140,12 +141,35 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const getStreamUrl = useCallback((params: GetStreamUrlParams): string => {
-    const { animeId, malId, episode, source, language, zenshinData, animeFormat } = params;
+    const { animeId, malId, episode, source, language, zenshinData, animeFormat, hiAnimeInfo } = params;
 
     // Priority 1: Episode-specific full URL override
     const episodeOverride = mergedOverrides.anime[animeId]?.episodes?.[episode]?.[source];
     if (episodeOverride && episodeOverride.trim() !== '') {
       return episodeOverride;
+    }
+
+    // Special handling for HiAnime
+    if (source === StreamSource.HiAnime) {
+        if (!hiAnimeInfo || !hiAnimeInfo.episodesList) {
+            return 'about:blank#hianime-info-loading';
+        }
+
+        const hianimeEpisode = hiAnimeInfo.episodesList.find(ep => ep.number === episode);
+        if (!hianimeEpisode) {
+            return 'about:blank#hianime-episode-not-found';
+        }
+        
+        const hianimeEpId = hianimeEpisode.episodeId;
+        const template = mergedOverrides.anime[animeId]?.streamUrlTemplates?.[source] || mergedOverrides.globalStreamUrlTemplates[source] || STREAM_URLS[source];
+        
+        const streamLanguage = (language === StreamLanguage.Dub) ? 'dub' : 'sub';
+
+        const streamUrl = template
+            .replace('{hianime-ep-id}', String(hianimeEpId))
+            .replace('{language}', streamLanguage);
+        
+        return `https://deno-m3u8-proxy-1.onrender.com/m3u8-proxy?url=${streamUrl}`;
     }
 
     // Special handling for Vidsrc.icu

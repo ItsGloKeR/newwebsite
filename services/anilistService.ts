@@ -1,6 +1,6 @@
 // services/anilistService.ts
 
-import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus, Character, VoiceActor, PageInfo, ConsumetWatchData } from '../types';
+import { Anime, RelatedAnime, StaffMember, AiringSchedule, SearchSuggestion, FilterState, RecommendedAnime, AnimeTrailer, NextAiringEpisode, MediaSeason, ZenshinMapping, MediaFormat, MediaStatus, Character, VoiceActor, PageInfo, ConsumetWatchData, HiAnimeInfo } from '../types';
 import * as db from './dbService';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 
@@ -15,6 +15,7 @@ const SEARCH_SUGGESTIONS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (dynamic
 const DISCOVER_ANIME_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes for discover to reflect updates
 const ZENSHIN_MAPPINGS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 const CONSUMET_STREAM_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour (stream links can expire)
+const HIANIME_MAPPER_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 
 // A map to store in-flight promises to prevent race conditions.
 const inFlightRequests = new Map<string, Promise<any>>();
@@ -657,6 +658,24 @@ export const getAnimeDetails = async (id: number): Promise<Anime> => {
         `;
         const data = await fetchAniListData(query, { id });
         return mapToAnime(data.Media);
+    });
+};
+
+export const getHiAnimeInfo = async (anilistId: number): Promise<HiAnimeInfo | null> => {
+    const cacheKey = `hianime_info_v1_${anilistId}`;
+    return getOrSetCache(cacheKey, HIANIME_MAPPER_CACHE_DURATION, async () => {
+        try {
+            const response = await fetch(`https://cors-anywhere-6mov.onrender.com/hianime-mapper-1.onrender.com/anime/info/${anilistId}`);
+            if (!response.ok) {
+                console.warn(`[HiAnime Mapper] Failed to fetch info for ${anilistId}: ${response.statusText}`);
+                return null;
+            }
+            const data = await response.json();
+            return data.data as HiAnimeInfo;
+        } catch (error) {
+            console.error(`[HiAnime Mapper] Error fetching info for ${anilistId}`, error);
+            return null;
+        }
     });
 };
 

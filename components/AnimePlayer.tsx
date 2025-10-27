@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Anime, StreamSource, StreamLanguage, RelatedAnime, RecommendedAnime, ZenshinMapping } from '../types';
+import { Anime, StreamSource, StreamLanguage, RelatedAnime, RecommendedAnime, ZenshinMapping, HiAnimeInfo } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
-import { getZenshinMappings } from '../services/anilistService';
+import { getZenshinMappings, getHiAnimeInfo } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import VerticalAnimeList from './VerticalAnimeList';
 import { useTooltip } from '../contexts/TooltipContext';
@@ -161,6 +161,7 @@ const AnimePlayer: React.FC<{
   const { getStreamUrl } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null>(null);
+  const [hiAnimeInfo, setHiAnimeInfo] = useState<HiAnimeInfo | null>(null);
   const [isAiringNotificationVisible, setIsAiringNotificationVisible] = useState(true);
   const [episodeSearch, setEpisodeSearch] = useState('');
   const [episodeSearchError, setEpisodeSearchError] = useState<string | null>(null);
@@ -324,13 +325,12 @@ const AnimePlayer: React.FC<{
 
   useEffect(() => {
     const fetchMappings = async () => {
-        try {
-            const data = await getZenshinMappings(anime.anilistId);
-            setZenshinData(data);
-        } catch (error) {
-            console.error("Failed to fetch zenshin mappings", error);
-            setZenshinData(null);
-        }
+        const [zenshin, hianime] = await Promise.all([
+            getZenshinMappings(anime.anilistId),
+            getHiAnimeInfo(anime.anilistId)
+        ]);
+        setZenshinData(zenshin);
+        setHiAnimeInfo(hianime);
     };
     fetchMappings();
   }, [anime.anilistId]);
@@ -339,11 +339,18 @@ const AnimePlayer: React.FC<{
     setStreamUrl(null); // Clear previous url while fetching
 
     const url = getStreamUrl({
-        animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, animeFormat: anime.format
+        animeId: anime.anilistId,
+        malId: anime.malId,
+        episode: currentEpisode,
+        source: currentSource,
+        language: currentLanguage,
+        zenshinData,
+        hiAnimeInfo,
+        animeFormat: anime.format
     });
 
     setStreamUrl(url);
-  }, [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData]);
+  }, [anime, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo]);
 
 
   useEffect(() => {
@@ -438,6 +445,7 @@ const AnimePlayer: React.FC<{
     { id: StreamSource.Vidnest, label: 'Src 2' },
     { id: StreamSource.Vidsrc, label: 'Src 3' },
     { id: StreamSource.VidsrcIcu, label: 'Src 4' },
+    { id: StreamSource.HiAnime, label: 'Src 5' },
   ];
   
   const languages = [
@@ -526,7 +534,7 @@ const AnimePlayer: React.FC<{
                           </div>
                       ) : (
                           languages.map(lang => {
-                              const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi);
+                              const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnime && lang.id === StreamLanguage.Hindi);
                               return (
                                 <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button>
                               )
