@@ -9,6 +9,7 @@ import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
 import { useNotification } from '../contexts/NotificationContext';
 import LoadingSpinner from './LoadingSpinner';
+import CustomVideoPlayer from './CustomVideoPlayer';
 
 
 // Player control icons
@@ -144,6 +145,7 @@ const AnimePlayer: React.FC<{
   const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
   const rangeSelectorRef = useRef<HTMLDivElement>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [subtitles, setSubtitles] = useState<{ src: string; label: string; srclang: string; default?: boolean; kind?: string }[]>([]);
   const [isPlayerLoading, setIsPlayerLoading] = useState(true);
   const [resumeNotification, setResumeNotification] = useState<string | null>(null);
   const lastWatchedEp = useMemo(() => progressTracker.getMediaData(anime.anilistId)?.last_episode_watched, [anime.anilistId]);
@@ -374,13 +376,75 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   }, [anime.anilistId]);
   
   useEffect(() => {
-    setIsPlayerLoading(true); setStreamUrl(null);
-    const timer = setTimeout(() => {
-        const url = getStreamUrl({ animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, hiAnimeInfo, animeFormat: anime.format });
-        setStreamUrl(url);
-    }, 50);
+    setIsPlayerLoading(true);
+    setStreamUrl(null);
+    setSubtitles([]);
+
+    const handleStreamUrl = async () => {
+        if (currentSource === StreamSource.HiAnimeV2) {
+            if (!hiAnimeInfo || !hiAnimeInfo.episodesList) {
+                setStreamUrl('about:blank#hianime-info-loading');
+                return;
+            }
+
+            const hianimeEpisode = hiAnimeInfo.episodesList.find(ep => ep.number === currentEpisode);
+            if (!hianimeEpisode) {
+                setStreamUrl('about:blank#hianime-episode-not-found');
+                return;
+            }
+
+            const hianimeId = hiAnimeInfo.id;
+            const hianimeEpId = hianimeEpisode.episodeId;
+            const streamType = currentLanguage === StreamLanguage.Dub ? 'dub' : 'sub';
+            
+            const compositeId = `${hianimeId}?ep=${hianimeEpId}`;
+            const apiUrl = `https://cors-anywhere-6mov.onrender.com/https://hianime-api-n.onrender.com/api/stream?id=${encodeURIComponent(compositeId)}&server=hd-2&type=${streamType}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`API returned status ${response.status}`);
+                
+                const data = await response.json();
+
+                if (data.success && data.results?.streamingLink?.link?.file) {
+                    const finalUrl = `https://deno-m3u8-proxy-1.onrender.com/m3u8-proxy?url=${data.results.streamingLink.link.file}`;
+                    setStreamUrl(finalUrl);
+
+                    const subs = data.results?.streamingLink?.tracks || [];
+                    const englishSubs = subs.find((s: any) => s.label === 'English' && s.kind === 'captions');
+
+                    setSubtitles(subs
+                        .filter((sub: any) => sub.kind === 'captions')
+                        .map((sub: any) => ({
+                            src: `https://cors-anywhere-6mov.onrender.com/${sub.file}`,
+                            label: sub.label || 'Subtitle',
+                            srclang: sub.label ? sub.label.substring(0, 2).toLowerCase() : 'en',
+                            default: !!englishSubs && sub.file === englishSubs.file,
+                            kind: 'subtitles',
+                    })));
+                } else {
+                    throw new Error('Streaming link not found in API response');
+                }
+            } catch (error) {
+                console.error("Error fetching HiAnimeV2 stream:", error);
+                showNotification('Failed to load Source 6 stream.', 'error');
+                setStreamUrl('about:blank#stream-fetch-error');
+                setIsPlayerLoading(false);
+            }
+
+        } else {
+            // Existing logic for other sources
+            const url = getStreamUrl({ animeId: anime.anilistId, malId: anime.malId, episode: currentEpisode, source: currentSource, language: currentLanguage, zenshinData, hiAnimeInfo, animeFormat: anime.format });
+            setStreamUrl(url);
+        }
+    };
+    
+    // This setTimeout provides a small delay to allow state to settle before fetching.
+    const timer = setTimeout(handleStreamUrl, 50);
+    
     return () => clearTimeout(timer);
-  }, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, refreshKey]);
+}, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, refreshKey, showNotification]);
+
 
   useEffect(() => {
     if (anime && currentEpisode > 0) progressTracker.setLastWatchedEpisode(anime, currentEpisode);
@@ -447,7 +511,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
 
   const playerAllowString = useMemo(() => {
     const permissions = ['accelerometer', 'autoplay', 'clipboard-write', 'encrypted-media', 'gyroscope'];
-    if (currentSource !== StreamSource.HiAnime) permissions.push('picture-in-picture');
+    if (currentSource !== StreamSource.HiAnime && currentSource !== StreamSource.HiAnimeV2) permissions.push('picture-in-picture');
     return permissions.join('; ');
   }, [currentSource]);
 
@@ -457,7 +521,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
   const filteredEpisodes = useMemo(() => selectedRange ? episodes.slice(selectedRange.start - 1, selectedRange.end) : episodes, [episodes, selectedRange]);
 
-  const sources = [ { id: StreamSource.AnimePahe, label: 'Src 1' }, { id: StreamSource.Vidnest, label: 'Src 2' }, { id: StreamSource.Vidsrc, label: 'Src 3' }, { id: StreamSource.VidsrcIcu, label: 'Src 4' }, { id: StreamSource.HiAnime, label: 'Src 5' }, ];
+  const sources = [ { id: StreamSource.AnimePahe, label: 'Src 1' }, { id: StreamSource.Vidnest, label: 'Src 2' }, { id: StreamSource.Vidsrc, label: 'Src 3' }, { id: StreamSource.VidsrcIcu, label: 'Src 4' }, { id: StreamSource.HiAnime, label: 'Src 5' }, { id: StreamSource.HiAnimeV2, label: 'Src 6' } ];
   const languages = [ { id: StreamLanguage.Sub, label: 'SUB' }, { id: StreamLanguage.Dub, label: 'DUB' }, { id: StreamLanguage.Hindi, label: 'HINDI' } ];
   const sourcesWithoutLanguageControl: StreamSource[] = [];
 
@@ -625,21 +689,29 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
                             <div className="text-center">
                                 <LoadingSpinner />
-                                {streamUrl?.includes('#hianime-info-loading') && <p className="text-gray-400 text-sm mt-4">Preparing HiAnime stream...</p>}
+                                {(streamUrl?.includes('#hianime-info-loading') || currentSource === StreamSource.HiAnimeV2) && <p className="text-gray-400 text-sm mt-4">Preparing HiAnime stream...</p>}
                             </div>
                         </div>
                       )}
-                      <iframe
-                        key={`${streamUrl}-${refreshKey}`}
-                        src={streamUrl || 'about:blank'}
-                        onLoad={(e) => { if (e.currentTarget.src !== 'about:blank' && !e.currentTarget.src.includes('about:blank#')) setIsPlayerLoading(false); }}
-                        title={`${title} - Episode ${currentEpisode}`}
-                        allow={playerAllowString}
-                        sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
-                        allowFullScreen
-                        className="w-full h-full border-0"
-                        scrolling="no"
-                      ></iframe>
+                      {currentSource === StreamSource.HiAnimeV2 && streamUrl && !streamUrl.includes('about:blank') ? (
+                          <CustomVideoPlayer
+                              src={streamUrl}
+                              subtitles={subtitles}
+                              onLoad={() => setIsPlayerLoading(false)}
+                          />
+                      ) : (
+                        <iframe
+                          key={`${streamUrl}-${refreshKey}`}
+                          src={streamUrl || 'about:blank'}
+                          onLoad={(e) => { if (e.currentTarget.src !== 'about:blank' && !e.currentTarget.src.includes('about:blank#')) setIsPlayerLoading(false); }}
+                          title={`${title} - Episode ${currentEpisode}`}
+                          allow={playerAllowString}
+                          sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
+                          allowFullScreen
+                          className="w-full h-full border-0"
+                          scrolling="no"
+                        ></iframe>
+                      )}
                       
                        {resumeNotification && (
                         <div className="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-fast pointer-events-none">
@@ -714,7 +786,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                   <div className="px-4 py-1.5 text-sm text-gray-400"> No subtitle options for this source. </div>
                               ) : (
                                   languages.map(lang => {
-                                      const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnime && lang.id === StreamLanguage.Hindi);
+                                      const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnime && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnimeV2 && lang.id === StreamLanguage.Hindi);
                                       return ( <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button> )
                                   })
                               )}

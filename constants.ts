@@ -8,6 +8,7 @@ export const STREAM_URLS: Record<StreamSource, string> = {
   [StreamSource.Vidsrc]: 'https://vidsrc.cc/v2/embed/anime/{id}/{episode}/{language}',
   [StreamSource.VidsrcIcu]: 'https://vidsrc.icu/embed/anime/{id}/{episode}/{dub}',
   [StreamSource.HiAnime]: 'https://megaplay.buzz/stream/s-2/{hianime-ep-id}/{language}',
+  [StreamSource.HiAnimeV2]: '', // Handled dynamically by the player
 };
 
 // SVG data URI for a simple grey placeholder image with a 2:3 aspect ratio

@@ -9,6 +9,7 @@ export enum StreamSource {
   Vidsrc = 'vidsrc',
   VidsrcIcu = 'vidsrcicu',
   HiAnime = 'hianime',
+  HiAnimeV2 = 'hianimev2',
 }
 
 export enum StreamLanguage {
@@ -218,6 +219,7 @@ export interface HiAnimeEpisodeInfo {
 }
 
 export interface HiAnimeInfo {
+  id: string;
   episodesList: HiAnimeEpisodeInfo[];
 }
 
