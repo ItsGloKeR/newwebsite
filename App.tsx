@@ -221,19 +221,33 @@ const AppContent: React.FC = () => {
 
     const handleSourceChange = (source: StreamSource) => {
         const settings = getFullPlayerSettings();
-        const languageForNewSource = settings.languagePrefs[source] || StreamLanguage.Sub;
+        const currentAnimeId = playerState.anime?.anilistId;
+        let languageForNewSource: StreamLanguage;
+
+        if (currentAnimeId) {
+            // Priority 1: Anime-specific preference for the new source
+            languageForNewSource = settings.perAnimeLanguagePrefs?.[source]?.[currentAnimeId] || 
+                                   // Priority 2: Fallback to global preference for the new source
+                                   settings.languagePrefs[source] || 
+                                   // Priority 3: Final fallback
+                                   StreamLanguage.Sub;
+        } else {
+            // If no anime context (should not happen in player), use global pref or default
+            languageForNewSource = settings.languagePrefs[source] || StreamLanguage.Sub;
+        }
+
         setPlayerState(prev => {
             const newState = { ...prev, source, language: languageForNewSource };
-            // Save the new state: the source we just switched to, and its corresponding language preference.
-            setLastPlayerSettings(source, languageForNewSource);
+            setLastPlayerSettings(source, languageForNewSource, prev.anime?.anilistId); 
             return newState;
         });
     };
 
+
     const handleLanguageChange = (language: StreamLanguage) => {
         setPlayerState(prev => {
-            // Save the new language preference for the current source.
-            setLastPlayerSettings(prev.source, language);
+            // Save the new language preference for the current source, passing animeId
+            setLastPlayerSettings(prev.source, language, prev.anime?.anilistId);
             return { ...prev, language };
         });
     };
@@ -347,7 +361,7 @@ const AppContent: React.FC = () => {
                 try {
                     const fullAnimeDetails = await getAnimeDetails(animeId);
                     progressTracker.addToHistory(fullAnimeDetails);
-                    const lastSettings = getLastPlayerSettings();
+                    const lastSettings = getLastPlayerSettings(animeId);
                     setPlayerState({
                         anime: applyOverrides(fullAnimeDetails),
                         episode: episode,

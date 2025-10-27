@@ -479,7 +479,6 @@ const AnimePlayer: React.FC<{
                 ref={playerWrapperRef}
                 className="aspect-video bg-black rounded-lg shadow-xl overflow-hidden mb-4 relative"
                 onMouseMove={() => showOverlay()}
-                onMouseLeave={hideOverlay}
             >
               <iframe
                 key={streamUrl}
@@ -491,6 +490,11 @@ const AnimePlayer: React.FC<{
                 className="w-full h-full border-0"
                 scrolling="no"
               ></iframe>
+              
+              <div className="absolute top-4 right-4 z-20 pointer-events-none opacity-50 transition-opacity duration-300">
+                  <Logo />
+              </div>
+
                {resumeNotification && (
                 <div className="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-fast pointer-events-none">
                     <p className="font-semibold flex items-center gap-2">
@@ -501,7 +505,6 @@ const AnimePlayer: React.FC<{
               )}
               {/* Custom Player Overlay */}
               <div className={`absolute inset-0 z-20 transition-opacity duration-300 pointer-events-none ${ isOverlayVisible ? 'opacity-100' : 'opacity-0'}`}>
-                  <div className="absolute top-4 right-4 pointer-events-auto opacity-70"><Logo /></div>
                   <div className="absolute inset-0 flex items-center justify-between px-4">
                       <button
                           onClick={handlePrevEpisode}
