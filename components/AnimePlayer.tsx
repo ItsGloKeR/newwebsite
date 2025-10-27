@@ -198,23 +198,71 @@ const AnimePlayer: React.FC<{
     document.body.appendChild(testContainer);
     
     const sourcesToTest: StreamSource[] = [
-        StreamSource.AnimePahe,
-        StreamSource.Vidnest,
-        StreamSource.Vidsrc,
-        StreamSource.VidsrcIcu,
         StreamSource.HiAnime,
+        StreamSource.Vidsrc,
+        StreamSource.Vidnest,
+        StreamSource.HiAnimeV2,
+        StreamSource.AnimePahe,
+        StreamSource.VidsrcIcu,
     ];
 
     setSourceLoadTimes({});
 
     const timers = sourcesToTest.map((source, index) => {
-        return setTimeout(() => {
+        return setTimeout(async () => {
             if (currentTestRun !== episodeSourceTestRunRef.current -1 || !testContainer.isConnected) {
                 return;
             }
             
             setSourceLoadTimes(prev => ({ ...prev, [source]: 'loading' }));
             const startTime = performance.now();
+
+            // Special handling for HiAnimeV2
+            if (source === StreamSource.HiAnimeV2) {
+                if (!hiAnimeInfo || !hiAnimeInfo.episodesList) {
+                    setSourceLoadTimes(prev => ({ ...prev, [source]: undefined }));
+                    return;
+                }
+                const hianimeEpisode = hiAnimeInfo.episodesList.find(ep => ep.number === currentEpisode);
+                if (!hianimeEpisode) {
+                    setSourceLoadTimes(prev => ({ ...prev, [source]: undefined }));
+                    return;
+                }
+
+                const hianimeId = hiAnimeInfo.id;
+                const hianimeEpId = hianimeEpisode.episodeId;
+                const streamType = currentLanguage === StreamLanguage.Dub ? 'dub' : 'sub';
+                
+                const compositeId = `${hianimeId}?ep=${hianimeEpId}`;
+                const apiUrl = `https://cors-anywhere-6mov.onrender.com/https://hianime-api-n.onrender.com/api/stream?id=${encodeURIComponent(compositeId)}&server=hd-2&type=${streamType}`;
+
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+                    
+                    const response = await fetch(apiUrl, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.results?.streamingLink?.link?.file) {
+                            const endTime = performance.now();
+                            if (currentTestRun === episodeSourceTestRunRef.current - 1) {
+                                setSourceLoadTimes(prev => ({ ...prev, [source]: Math.round(endTime - startTime) }));
+                            }
+                        } else {
+                            throw new Error('No stream link found');
+                        }
+                    } else {
+                        throw new Error(`API status ${response.status}`);
+                    }
+                } catch (error) {
+                     if (currentTestRun === episodeSourceTestRunRef.current - 1) {
+                        setSourceLoadTimes(prev => ({ ...prev, [source]: 'timeout' }));
+                    }
+                }
+                return; // End special handling for HiAnimeV2
+            }
 
             const url = getStreamUrl({
                 animeId: anime.anilistId,
@@ -521,7 +569,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
   const filteredEpisodes = useMemo(() => selectedRange ? episodes.slice(selectedRange.start - 1, selectedRange.end) : episodes, [episodes, selectedRange]);
 
-  const sources = [ { id: StreamSource.AnimePahe, label: 'Src 1' }, { id: StreamSource.Vidnest, label: 'Src 2' }, { id: StreamSource.Vidsrc, label: 'Src 3' }, { id: StreamSource.VidsrcIcu, label: 'Src 4' }, { id: StreamSource.HiAnime, label: 'Src 5' }, { id: StreamSource.HiAnimeV2, label: 'Src 6' } ];
+  const sources = [ { id: StreamSource.HiAnime, label: 'Src 1' }, { id: StreamSource.Vidsrc, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' } ];
   const languages = [ { id: StreamLanguage.Sub, label: 'SUB' }, { id: StreamLanguage.Dub, label: 'DUB' }, { id: StreamLanguage.Hindi, label: 'HINDI' } ];
   const sourcesWithoutLanguageControl: StreamSource[] = [];
 
@@ -575,16 +623,16 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         </div>
                     ) : null}
                     <form onSubmit={handleEpisodeSearch} className="relative h-full flex items-center">
-                        <div className={`absolute inset-0 flex items-center justify-center gap-1 text-gray-400 pointer-events-none transition-opacity ${episodeSearch ? 'opacity-0' : 'opacity-100'}`}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
-                            <span className="text-xs">Ep #</span>
+                        <div className={`absolute inset-0 flex items-center justify-center gap-1.5 text-gray-400 pointer-events-none transition-opacity ${episodeSearch ? 'opacity-0' : 'opacity-100'}`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                            <span className="text-xs">Find episode...</span>
                         </div>
                         <input
                             type="number"
                             value={episodeSearch}
                             onChange={e => { setEpisodeSearch(e.target.value); setEpisodeSearchError(null); }}
                             placeholder=""
-                            className={`bg-transparent text-white h-full px-2 w-24 text-sm focus:outline-none text-center ${episodeRanges.length > 0 && selectedRange ? 'rounded-r-md' : 'rounded-md'}`}
+                            className={`bg-transparent text-white h-full px-2 w-32 text-sm focus:outline-none text-center ${episodeRanges.length > 0 && selectedRange ? 'rounded-r-md' : 'rounded-md'}`}
                         />
                         {episodeSearchError && <p className="absolute left-0 top-full mt-1 text-red-500 text-xs">{episodeSearchError}</p>}
                     </form>

@@ -22,7 +22,7 @@ interface PlayerSettings {
 }
 
 const defaultSettings: PlayerSettings = {
-    lastUsedSource: StreamSource.AnimePahe,
+    lastUsedSource: StreamSource.HiAnime,
     languagePrefs: {},
     perAnimeLanguagePrefs: {},
 };
