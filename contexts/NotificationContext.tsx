@@ -140,9 +140,9 @@ const NotificationDisplay: React.FC<NotificationDisplayProps> = ({ notification,
   return (
     <div
       key={notification.id}
-      className={`fixed top-4 right-4 z-[100] p-4 pr-6 rounded-lg shadow-lg text-white max-w-sm transition-all duration-300 transform flex items-center gap-3 ${
+      className={`fixed bottom-4 left-4 z-[100] p-4 pr-6 rounded-lg shadow-lg text-white max-w-sm transition-all duration-300 transform flex items-center gap-3 ${
         bgColorClass(notification.type)
-      } ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+      } ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}
       role="alert"
     >
       <div className="flex-shrink-0">{icon(notification.type)}</div>

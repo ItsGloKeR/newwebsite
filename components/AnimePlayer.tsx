@@ -569,7 +569,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
   const filteredEpisodes = useMemo(() => selectedRange ? episodes.slice(selectedRange.start - 1, selectedRange.end) : episodes, [episodes, selectedRange]);
 
-  const sources = [ { id: StreamSource.HiAnime, label: 'Src 1' }, { id: StreamSource.Vidsrc, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' } ];
+  const sources = [ { id: StreamSource.Vidsrc, label: 'Src 1' }, { id: StreamSource.HiAnime, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' } ];
   const languages = [ { id: StreamLanguage.Sub, label: 'SUB' }, { id: StreamLanguage.Dub, label: 'DUB' }, { id: StreamLanguage.Hindi, label: 'HINDI' } ];
   const sourcesWithoutLanguageControl: StreamSource[] = [];
 
@@ -615,7 +615,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                 <div className="flex items-center bg-gray-700/80 rounded-md border border-gray-600/50 h-8">
                      {episodeRanges.length > 0 && selectedRange ? (
                         <div className="relative border-r border-gray-600/50 h-full" ref={rangeSelectorRef}>
-                            <button onClick={() => setIsRangeSelectorOpen(p => !p)} className="flex items-center justify-between gap-1.5 h-full text-gray-300 rounded-l-md px-2 text-xs font-semibold hover:bg-gray-600 transition-colors">
+                            <button onClick={() => setIsRangeSelectorOpen(p => !p)} className="flex items-center justify-between gap-1.5 h-full text-gray-300 rounded-l-md px-3 text-xs font-semibold hover:bg-gray-600 transition-colors w-28">
                                 <span>{`${selectedRange.start}-${selectedRange.end}`}</span>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                             </button>
@@ -662,13 +662,13 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                             : 'text-gray-300 hover:bg-gray-700/50'
                                     }`}
                                 >
-                                    {isActive && <div className="absolute left-0 h-3/4 w-1 bg-pink-500 rounded-r-full"></div>}
+                                    {isActive && <div className="absolute left-0 h-3/4 w-1 bg-blue-500 rounded-r-full"></div>}
                                     <div className="flex items-center gap-4">
-                                        <span className={`font-semibold w-8 text-center ${isActive ? 'text-pink-400' : 'text-gray-500'}`}>{ep}</span>
+                                        <span className={`font-semibold w-8 text-center ${isActive ? 'text-blue-400' : 'text-gray-500'}`}>{ep}</span>
                                         <span className={`font-semibold truncate ${isActive ? 'text-cyan-300' : isFiller ? 'text-yellow-300' : 'text-white'}`}>{epTitle}</span>
                                     </div>
                                     {isActive && (
-                                        <span className="text-pink-400">
+                                        <span className="text-blue-400">
                                             <PlayIcon />
                                         </span>
                                     )}
@@ -844,8 +844,8 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                       <div className="text-xs text-center bg-gray-800/70 p-2 rounded-md text-gray-400"> Video not playing? Try selecting a different source (e.g., Src 2) or language (SUB/DUB) above. </div>
                     </div>
                     {isAiringNotificationVisible && anime.status === 'RELEASING' && nextAiringDate && (
-                      <div className="bg-cyan-900/50 border border-cyan-700/50 text-cyan-200 text-sm p-3 rounded-lg flex justify-between items-start gap-3 animate-fade-in mt-4">
-                        <div className="flex items-start gap-3">
+                      <div className="bg-cyan-900/50 border border-cyan-700/50 text-cyan-200 text-sm p-2 rounded-lg flex justify-between items-start gap-2 animate-fade-in mt-4">
+                        <div className="flex items-start gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
                           <p className="font-semibold">Next episode ({anime.nextAiringEpisode?.episode}) airs around: {nextAiringDate.formattedDate} <span className="text-cyan-300/80">{nextAiringDate.countdown}</span></p>
                         </div>

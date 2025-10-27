@@ -111,6 +111,7 @@ const AppContent: React.FC = () => {
     const schedulePreviewRef = useRef<HTMLDivElement>(null);
     const prevHashRef = useRef<string>();
     const { showNotification } = useNotification(); 
+    const seenEpisodeIds = useRef(new Set<number>());
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
     const { overrides } = useAdmin();
@@ -547,6 +548,7 @@ const AppContent: React.FC = () => {
                 setPopularThisSeason(applyOverridesToList(popularThisSeason));
                 setAllGenres(genres);
                 setLatestEpisodes(latest);
+                latest.forEach(ep => seenEpisodeIds.current.add(ep.id));
                 setScheduleList(schedules);
                 setCurrentSeason(currentSeason);
                 setCurrentYear(currentYear);
@@ -561,6 +563,36 @@ const AppContent: React.FC = () => {
           fetchInitialData();
         }
     }, [applyOverridesToList, view, trending.length, showNotification]);
+
+    // Poll for new episodes
+    useEffect(() => {
+        if (view === 'landing') return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                const latest = await getLatestEpisodes();
+                const newEpisodes = latest.filter(ep => !seenEpisodeIds.current.has(ep.id));
+                
+                if (newEpisodes.length > 0) {
+                    const firstNew = newEpisodes[0];
+                    const title = firstNew.media.title.english || firstNew.media.title.romaji;
+                    showNotification(
+                        `New episode! ${title} - Ep ${firstNew.episode}`, 
+                        'success', 
+                        6000
+                    );
+                    
+                    // Update seen IDs and UI
+                    newEpisodes.forEach(ep => seenEpisodeIds.current.add(ep.id));
+                    setLatestEpisodes(latest);
+                }
+            } catch (error) {
+                console.error("Error polling for new episodes:", error);
+            }
+        }, 15 * 60 * 1000); // Poll every 15 minutes
+
+        return () => clearInterval(intervalId);
+    }, [view, showNotification]);
 
     useEffect(() => {
         setTrending(list => applyOverridesToList(list));
