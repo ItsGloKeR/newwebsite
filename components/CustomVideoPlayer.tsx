@@ -4,9 +4,11 @@ import React, { useEffect, useRef } from 'react';
 interface CustomVideoPlayerProps {
   src: string | null;
   subtitles: { src: string; label: string; srclang: string; default?: boolean; kind?: string }[];
+  onLoadedData: () => void;
+  onError: () => void;
 }
 
-const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, subtitles }) => {
+const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, subtitles, onLoadedData, onError }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -38,6 +40,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, subtitles })
       crossOrigin="anonymous"
       className="w-full h-full bg-black"
       playsInline
+      onLoadedData={onLoadedData}
+      onError={onError}
     >
       {subtitles.map((sub, index) => (
         <track

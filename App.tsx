@@ -28,7 +28,6 @@ import Pagination from './components/SidebarMenu'; // Re-using SidebarMenu file 
 import LandingPageSkeleton from './components/LandingPageSkeleton';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { /* Removed: syncProgressOnLogin, */ } from './services/firebaseService';
-import MiniPlayer from './components/MiniPlayer';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext'; 
 import SchedulePreview from './components/SchedulePreview'; 
 
@@ -85,7 +84,6 @@ const AppContent: React.FC = () => {
         source: StreamSource.Consumet,
         language: StreamLanguage.Sub,
     });
-    const [miniPlayerState, setMiniPlayerState] = useState<{ anime: Anime; episode: number } | null>(null);
     
     const [isLoading, setIsLoading] = useState(true);
     const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
@@ -295,15 +293,6 @@ const AppContent: React.FC = () => {
             hideTooltip();
             setIsScheduleVisibleOnHome(false);
             const hash = window.location.hash;
-            const prevHash = prevHashRef.current;
-
-            const isLeavingPlayer = prevHash?.startsWith('#/watch/') && !hash.startsWith('#/watch/');
-            if (isLeavingPlayer && playerState.anime) {
-                setMiniPlayerState({ anime: playerState.anime, episode: playerState.episode });
-            }
-            if (hash.startsWith('#/watch/')) {
-                setMiniPlayerState(null); // Close mini player when navigating to a full player
-            }
 
             if (hash === '#/landing') {
                 if(view !== 'landing') setView('landing');
@@ -937,6 +926,7 @@ const AppContent: React.FC = () => {
                                 onSelectAnime={handleContinueWatching}
                                 showRank={false}
                                 onRemoveItem={handleRemoveFromContinueWatching}
+                                isCollapsible={true}
                             />
                         </div>
                     )}
@@ -1086,14 +1076,6 @@ const AppContent: React.FC = () => {
                 {isProfileModalOpen && <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} onOpenAdminPanel={() => setIsAdminModalOpen(true)} />}
             </Suspense>
 
-             {miniPlayerState && (
-                <MiniPlayer 
-                    anime={miniPlayerState.anime} 
-                    episode={miniPlayerState.episode} 
-                    onClose={() => setMiniPlayerState(null)} 
-                    onExpand={() => handleWatchNow(miniPlayerState.anime, miniPlayerState.episode)}
-                />
-            )}
         </TooltipProvider>
     );
 };

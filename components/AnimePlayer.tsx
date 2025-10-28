@@ -9,13 +9,14 @@ import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
 import { useNotification } from '../contexts/NotificationContext';
 import CustomVideoPlayer from './CustomVideoPlayer';
+import EngagingLoader from './EngagingLoader';
 
 
 // Player control icons
 const PrevIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>;
 const NextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>;
-const FullscreenEnterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4h4m12 4V4h-4M4 16v4h4m12-4v4h-4" /></svg>;
-const FullscreenExitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 4H4v4m0 8v4h4m8-16h4v4m0 8v4h-4" /></svg>;
+const FullscreenEnterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8V3h5m13 5V3h-5M8 21H3v-5m13 5h5v-5" /></svg>;
+const FullscreenExitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3H3v5m5 13v-5H3m13 5h5v-5m-5-13v5h5" /></svg>;
 const RefreshIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" /></svg>;
 const ReportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
 const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>;
@@ -25,14 +26,13 @@ const PrevIconButton = () => <svg xmlns="http://www.w3.org/2000/svg" className="
 const NextIconButton = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>;
 const LatestIconButton = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M15 5H5a1 1 0 00-1 1v8a1 1 0 001 1h10a1 1 0 001-1V6a1 1 0 00-1-1zm-1 8H6V7h8v6z" /><path d="M18 7h-1V6a1 1 0 00-1-1H4a1 1 0 000 2h1v8H4a1 1 0 000 2h11a1 1 0 001-1v-1h1a1 1 0 000-2z" /></svg>;
 
-const RadarPulse: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+const RadarPulse: React.FC<{ onClick: (e: React.MouseEvent<SVGSVGElement>) => void }> = ({ onClick }) => (
   <div
-    onClick={onClick}
-    className="absolute bottom-[calc(0.5rem-0.5cm)] left-[calc(0.5rem+1cm)] w-16 h-16 text-white drop-shadow-lg cursor-pointer animate-fade-in z-30"
+    className="absolute bottom-[calc(0.5rem-0.5cm)] left-[calc(0.5rem+1cm)] w-16 h-16 text-white drop-shadow-lg animate-fade-in z-30"
     aria-label="Unmute player"
     role="button"
   >
-    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg onClick={onClick} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="pointer-events-auto cursor-pointer">
         <style>{`
             .radar-circle-pulse {
                 transform-origin: center;
@@ -131,6 +131,200 @@ const SourceIndicator = ({ status }: { status: number | 'loading' | 'timeout' | 
     return null;
 };
 
+type PlayerStatus = 'loading' | 'loaded' | 'error' | 'idle';
+
+const EpisodeSelector: React.FC<{
+    episodeCount: number;
+    currentEpisode: number;
+    onEpisodeChange: (ep: number) => void;
+    zenshinData: ZenshinMapping | null | undefined;
+    fillerEpisodes: number[];
+    animeStatus: string;
+    animeTotalEpisodes: number | null;
+}> = ({ episodeCount, currentEpisode, onEpisodeChange, zenshinData, fillerEpisodes, animeStatus, animeTotalEpisodes }) => {
+    const [episodeView, setEpisodeView] = useState<'list' | 'grid'>('list');
+    const [episodeSearch, setEpisodeSearch] = useState('');
+    const [episodeSearchError, setEpisodeSearchError] = useState<string | null>(null);
+    const [isRangeSelectorOpen, setIsRangeSelectorOpen] = useState(false);
+    const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
+    const rangeSelectorRef = useRef<HTMLDivElement>(null);
+    const activeEpisodeListItemRef = useRef<HTMLLIElement>(null);
+    const activeEpisodeButtonRef = useRef<HTMLButtonElement>(null);
+
+    const episodeRanges = useMemo(() => {
+        if (!episodeCount || episodeCount <= 100) return [];
+        const ranges = [];
+        for (let i = 0; i < episodeCount; i += 100) {
+            ranges.push({ start: i + 1, end: Math.min(i + 100, episodeCount) });
+        }
+        return ranges;
+    }, [episodeCount]);
+
+    const episodes = useMemo(() => Array.from({ length: episodeCount }, (_, i) => i + 1), [episodeCount]);
+    const filteredEpisodes = useMemo(() => selectedRange ? episodes.slice(selectedRange.start - 1, selectedRange.end) : episodes, [episodes, selectedRange]);
+
+    useEffect(() => {
+        if (episodeCount > 100) {
+            setEpisodeView('grid');
+        } else {
+            setEpisodeView('list');
+        }
+    }, [episodeCount]);
+
+    useEffect(() => {
+        if (episodeRanges.length > 0) {
+            const currentRange = episodeRanges.find(r => currentEpisode >= r.start && currentEpisode <= r.end);
+            setSelectedRange(currentRange || episodeRanges[0]);
+        } else {
+            setSelectedRange(null);
+        }
+    }, [currentEpisode, episodeRanges]);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (rangeSelectorRef.current && !rangeSelectorRef.current.contains(e.target as Node)) {
+                setIsRangeSelectorOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (episodeView === 'list' && activeEpisodeListItemRef.current) {
+                activeEpisodeListItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else if (episodeView === 'grid' && activeEpisodeButtonRef.current) {
+                activeEpisodeButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }, 100);
+
+        return () => clearTimeout(timer);
+    }, [episodeView, currentEpisode, selectedRange]);
+    
+    const handleEpisodeSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        const epNum = parseInt(episodeSearch, 10);
+        if (isNaN(epNum) || epNum < 1) { setEpisodeSearchError("Invalid number."); return; }
+        if (epNum > episodeCount) {
+            if (animeStatus === 'RELEASING' && animeTotalEpisodes && epNum <= animeTotalEpisodes) {
+                setEpisodeSearchError(`Not released yet.`);
+            } else {
+                setEpisodeSearchError(`Max ep: ${episodeCount}.`);
+            }
+            return;
+        }
+        onEpisodeChange(epNum);
+        setEpisodeSearch('');
+        setEpisodeSearchError(null);
+    };
+
+    return (
+        <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg flex flex-col h-full">
+            <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-2 mb-4 flex-shrink-0">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                    <span>List of episodes:</span>
+                </h3>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-gray-700/80 rounded-md border border-gray-600/50 h-8">
+                        {episodeRanges.length > 0 && selectedRange ? (
+                            <div className="relative border-r border-gray-600/50 h-full" ref={rangeSelectorRef}>
+                                <button onClick={() => setIsRangeSelectorOpen(p => !p)} className="flex items-center justify-between gap-1.5 h-full text-gray-300 rounded-l-md px-3 text-xs font-semibold hover:bg-gray-600 transition-colors w-28">
+                                    <span>{`${selectedRange.start}-${selectedRange.end}`}</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                </button>
+                                {isRangeSelectorOpen && ( <div className="absolute top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10 animate-fade-in-fast"><ul>{episodeRanges.map((range, i) => <li key={i}><button onClick={() => { setSelectedRange(range); setIsRangeSelectorOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm ${range.start === selectedRange?.start ? 'text-cyan-400' : ''}`}>{`${range.start} - ${range.end}`}</button></li>)}</ul></div> )}
+                            </div>
+                        ) : null}
+                        <form onSubmit={handleEpisodeSearch} className="relative h-full flex items-center">
+                            <div className={`absolute inset-0 flex items-center justify-center gap-1.5 text-gray-400 pointer-events-none transition-opacity ${episodeSearch ? 'opacity-0' : 'opacity-100'}`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                                <span className="text-xs">Find episode...</span>
+                            </div>
+                            <input
+                                type="number"
+                                value={episodeSearch}
+                                onChange={e => { setEpisodeSearch(e.target.value); setEpisodeSearchError(null); }}
+                                placeholder=""
+                                className={`bg-transparent text-white h-full px-2 w-32 text-sm focus:outline-none text-center ${episodeRanges.length > 0 && selectedRange ? 'rounded-r-md' : 'rounded-md'}`}
+                            />
+                            {episodeSearchError && <p className="absolute left-0 top-full mt-1 text-red-500 text-xs">{episodeSearchError}</p>}
+                        </form>
+                    </div>
+                    <button onClick={() => setEpisodeView(p => p === 'list' ? 'grid' : 'list')} className="bg-gray-700/80 rounded-md text-gray-300 hover:bg-gray-600 transition-colors h-8 w-8 flex items-center justify-center" aria-label={episodeView === 'list' ? "Switch to grid view" : "Switch to list view"}>
+                        {episodeView === 'list' ? <GridIcon /> : <ListIconSvg />}
+                    </button>
+                </div>
+            </div>
+            <div className="flex-grow overflow-y-auto -mr-2 pr-2 max-h-[580px]">
+                {episodeView === 'list' ? (
+                    <ul className="space-y-1">
+                        {filteredEpisodes.map(ep => {
+                            const zenshinEp = zenshinData?.episodes?.[ep];
+                            const epTitle = zenshinEp?.title?.en || `Episode ${ep}`;
+                            const isActive = ep === currentEpisode;
+                            const isFillerFromZenshin = zenshinEp?.isFiller;
+                            const isFillerFromApi = fillerEpisodes.includes(ep);
+                            const isFiller = isFillerFromApi || isFillerFromZenshin;
+                            return (
+                                <li key={ep} ref={isActive ? activeEpisodeListItemRef : null}>
+                                    <button
+                                        onClick={() => onEpisodeChange(ep)}
+                                        className={`w-full p-2.5 rounded-md transition-colors text-left flex items-center justify-between group relative ${
+                                            isActive
+                                                ? 'bg-cyan-500/20'
+                                                : isFiller
+                                                ? 'bg-amber-800/40 hover:bg-amber-700/50'
+                                                : 'text-gray-300 hover:bg-gray-700/50'
+                                        }`}
+                                    >
+                                        {isActive && <div className="absolute left-0 h-3/4 w-1 bg-blue-500 rounded-r-full"></div>}
+                                        <div className="flex items-center gap-4">
+                                            <span className={`font-semibold w-8 text-center ${isActive ? 'text-blue-400' : 'text-gray-500'}`}>{ep}</span>
+                                            <span className={`font-semibold truncate ${isActive ? 'text-cyan-300' : isFiller ? 'text-amber-200' : 'text-white'}`}>{epTitle}</span>
+                                        </div>
+                                        {isActive && (
+                                            <span className="text-blue-400">
+                                                <PlayIcon />
+                                            </span>
+                                        )}
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                ) : (
+                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                        {filteredEpisodes.map(ep => {
+                            const zenshinEp = zenshinData?.episodes?.[ep];
+                            const isFillerFromZenshin = zenshinEp?.isFiller;
+                            const isFillerFromApi = fillerEpisodes.includes(ep);
+                            const isFiller = isFillerFromApi || isFillerFromZenshin;
+                            const isActive = ep === currentEpisode;
+                            return (
+                            <button
+                                key={ep}
+                                ref={isActive ? activeEpisodeButtonRef : null}
+                                onClick={() => onEpisodeChange(ep)}
+                                className={`py-2 px-1 flex items-center justify-center font-bold rounded transition-colors text-xs ${
+                                    isActive 
+                                    ? 'bg-cyan-500 text-white' 
+                                    : isFiller
+                                    ? 'bg-amber-800/40 text-amber-200 hover:bg-amber-700/50'
+                                    : 'bg-gray-700/80 text-gray-300 hover:bg-gray-600'
+                                }`}
+                            >
+                                {ep}
+                            </button>
+                        )})}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 
 const AnimePlayer: React.FC<{
   anime: Anime;
@@ -164,13 +358,7 @@ const AnimePlayer: React.FC<{
   const [zenshinData, setZenshinData] = useState<ZenshinMapping | null | undefined>();
   const [hiAnimeInfo, setHiAnimeInfo] = useState<HiAnimeInfo | null | undefined>();
   const [isAiringNotificationVisible, setIsAiringNotificationVisible] = useState(true);
-  const [episodeSearch, setEpisodeSearch] = useState('');
-  const [episodeSearchError, setEpisodeSearchError] = useState<string | null>(null);
-  const [isRangeSelectorOpen, setIsRangeSelectorOpen] = useState(false);
-  const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
-  const rangeSelectorRef = useRef<HTMLDivElement>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [isStreamLoading, setIsStreamLoading] = useState(false);
   const [subtitles, setSubtitles] = useState<{ src: string; label: string; srclang: string; default?: boolean; kind?: string }[]>([]);
   const [resumeNotification, setResumeNotification] = useState<string | null>(null);
   const lastWatchedEp = useMemo(() => progressTracker.getMediaData(anime.anilistId)?.last_episode_watched, [anime.anilistId]);
@@ -180,7 +368,6 @@ const AnimePlayer: React.FC<{
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const inactivityTimeoutRef = useRef<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
-  const [episodeView, setEpisodeView] = useState<'list' | 'grid'>('list');
   const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(false);
   const unmuteTimersRef = useRef<{ show: number | null; hide: number | null }>({ show: null, hide: null });
 
@@ -194,6 +381,40 @@ const AnimePlayer: React.FC<{
   const [refreshKey, setRefreshKey] = useState(0);
   const testRunRef = useRef<string | null>(null);
   const episodeSourceTestRunRef = useRef<number>(0);
+
+  const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const loadTimeoutRef = useRef<number | null>(null);
+
+  const sources = [ { id: StreamSource.Vidsrc, label: 'Src 1' }, { id: StreamSource.HiAnime, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' } ];
+  
+  const handleLoadSuccess = useCallback(() => {
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    
+    const sourcesWithDelay: StreamSource[] = [StreamSource.Vidnest, StreamSource.AnimePahe, StreamSource.VidsrcIcu];
+
+    if (sourcesWithDelay.includes(currentSource)) {
+        setTimeout(() => {
+            setPlayerStatus('loaded');
+        }, 4000);
+    } else {
+        setPlayerStatus('loaded');
+    }
+  }, [currentSource]);
+
+  const handleLoadError = useCallback(() => {
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    setPlayerStatus('error');
+    console.error("Player failed to load stream.");
+  }, []);
+
+  const handleRetrySource = useCallback(() => {
+    const currentIndex = sources.findIndex(s => s.id === currentSource);
+    const nextIndex = (currentIndex + 1) % sources.length;
+    const nextSource = sources[nextIndex].id;
+    onSourceChange(nextSource);
+    showNotification(`Source failed. Trying ${sources[nextIndex].label}...`, 'info');
+  }, [currentSource, onSourceChange, showNotification, sources]);
 
   const episodeCount = useMemo(() => {
     if (anime.status === 'RELEASING') {
@@ -225,20 +446,13 @@ const AnimePlayer: React.FC<{
     };
   }, [currentSource, currentEpisode]);
 
-  const handleUnmuteClick = () => {
+  const handleUnmuteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (unmuteTimersRef.current.hide) clearTimeout(unmuteTimersRef.current.hide);
     setShowUnmuteOverlay(false);
     // Programmatically unmuting iframe content is not possible due to browser security policies.
     // This overlay acts as a prompt for the user to interact with the player.
   };
-
-  useEffect(() => {
-    if (episodeCount > 100) {
-        setEpisodeView('grid');
-    } else {
-        setEpisodeView('list');
-    }
-  }, [episodeCount]);
 
   useEffect(() => {
     const currentTestRun = episodeSourceTestRunRef.current;
@@ -490,9 +704,16 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   }, [anime.anilistId, anime.romajiTitle]);
   
   useEffect(() => {
-    setIsStreamLoading(true);
+    setPlayerStatus('loading');
+    setLoadingMessage(`Loading Episode ${currentEpisode}...`);
     setStreamUrl(null);
     setSubtitles([]);
+
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+
+    loadTimeoutRef.current = window.setTimeout(() => {
+        setPlayerStatus('error');
+    }, 20000); // 20-second timeout
 
     const handleStreamUrl = async () => {
         if (currentSource === StreamSource.HiAnimeV2) {
@@ -543,8 +764,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                 console.error("Error fetching HiAnimeV2 stream:", error);
                 showNotification('Failed to load Source 4 stream.', 'error');
                 setStreamUrl('about:blank#stream-fetch-error');
-            } finally {
-                setIsStreamLoading(false);
+                handleLoadError();
             }
 
         } else {
@@ -557,38 +777,17 @@ const scrollRecs = createScroller(recsScrollContainerRef);
     // This setTimeout provides a small delay to allow state to settle before fetching.
     const timer = setTimeout(handleStreamUrl, 50);
     
-    return () => clearTimeout(timer);
-}, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, refreshKey, showNotification]);
+    return () => {
+      clearTimeout(timer)
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+    };
+}, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, refreshKey, showNotification, handleLoadError]);
 
 
   useEffect(() => {
     if (anime && currentEpisode > 0) progressTracker.setLastWatchedEpisode(anime, currentEpisode);
-    hideOverlay(); setEpisodeSearchError(null);
+    hideOverlay();
   }, [anime, currentEpisode, hideOverlay]);
-
-  const episodeRanges = useMemo(() => {
-      if (!episodeCount || episodeCount <= 100) return [];
-      const ranges = [];
-      for (let i = 0; i < episodeCount; i += 100) {
-          ranges.push({ start: i + 1, end: Math.min(i + 100, episodeCount) });
-      }
-      return ranges;
-  }, [episodeCount]);
-
-  useEffect(() => {
-      if (episodeRanges.length > 0) {
-          const currentRange = episodeRanges.find(r => currentEpisode >= r.start && currentEpisode <= r.end);
-          setSelectedRange(currentRange || episodeRanges[0]);
-      } else setSelectedRange(null);
-  }, [currentEpisode, episodeRanges]);
-
-  useEffect(() => {
-      const handleClickOutside = (e: MouseEvent) => {
-          if (rangeSelectorRef.current && !rangeSelectorRef.current.contains(e.target as Node)) setIsRangeSelectorOpen(false);
-      };
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const nextAiringDate = useMemo(() => {
     if (!anime.nextAiringEpisode) return null;
@@ -602,19 +801,6 @@ const scrollRecs = createScroller(recsScrollContainerRef);
         countdown: `(${days}d ${hours}h ${minutes}m)`
     };
   }, [anime.nextAiringEpisode]);
-
-  const handleEpisodeSearch = (e: React.FormEvent) => {
-      e.preventDefault();
-      const epNum = parseInt(episodeSearch, 10);
-      if (isNaN(epNum) || epNum < 1) { setEpisodeSearchError("Invalid number."); return; }
-      if (epNum > episodeCount) {
-          if (anime.status === 'RELEASING' && anime.totalEpisodes && epNum <= anime.totalEpisodes) setEpisodeSearchError(`Not released yet.`);
-          else setEpisodeSearchError(`Max ep: ${episodeCount}.`);
-          return;
-      }
-      onEpisodeChange(epNum);
-      setEpisodeSearch(''); setEpisodeSearchError(null);
-  };
 
   const handleReportIssue = () => {
     onReportIssue(); showNotification('Thank you for your feedback! We will look into it!', 'success', 3000); 
@@ -633,10 +819,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
   const currentZenshinEpisode = zenshinData?.episodes?.[currentEpisode];
   const episodeTitle = currentZenshinEpisode?.title?.en || `Episode ${currentEpisode}`;
-  const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
-  const filteredEpisodes = useMemo(() => selectedRange ? episodes.slice(selectedRange.start - 1, selectedRange.end) : episodes, [episodes, selectedRange]);
-
-  const sources = [ { id: StreamSource.Vidsrc, label: 'Src 1' }, { id: StreamSource.HiAnime, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' } ];
+  
   const languages = [ { id: StreamLanguage.Sub, label: 'SUB' }, { id: StreamLanguage.Dub, label: 'DUB' }, { id: StreamLanguage.Hindi, label: 'HINDI' } ];
   const sourcesWithoutLanguageControl: StreamSource[] = [];
 
@@ -671,110 +854,6 @@ const scrollRecs = createScroller(recsScrollContainerRef);
     </div>
   );
 
-  const EpisodeSelector = () => (
-    <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg flex flex-col h-full">
-        <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-2 mb-4 flex-shrink-0">
-             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                <span>List of episodes:</span>
-            </h3>
-            <div className="flex items-center gap-2">
-                <div className="flex items-center bg-gray-700/80 rounded-md border border-gray-600/50 h-8">
-                     {episodeRanges.length > 0 && selectedRange ? (
-                        <div className="relative border-r border-gray-600/50 h-full" ref={rangeSelectorRef}>
-                            <button onClick={() => setIsRangeSelectorOpen(p => !p)} className="flex items-center justify-between gap-1.5 h-full text-gray-300 rounded-l-md px-3 text-xs font-semibold hover:bg-gray-600 transition-colors w-28">
-                                <span>{`${selectedRange.start}-${selectedRange.end}`}</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                            </button>
-                            {isRangeSelectorOpen && ( <div className="absolute top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10 animate-fade-in-fast"><ul>{episodeRanges.map((range, i) => <li key={i}><button onClick={() => { setSelectedRange(range); setIsRangeSelectorOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm ${range.start === selectedRange?.start ? 'text-cyan-400' : ''}`}>{`${range.start} - ${range.end}`}</button></li>)}</ul></div> )}
-                        </div>
-                    ) : null}
-                    <form onSubmit={handleEpisodeSearch} className="relative h-full flex items-center">
-                        <div className={`absolute inset-0 flex items-center justify-center gap-1.5 text-gray-400 pointer-events-none transition-opacity ${episodeSearch ? 'opacity-0' : 'opacity-100'}`}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
-                            <span className="text-xs">Find episode...</span>
-                        </div>
-                        <input
-                            type="number"
-                            value={episodeSearch}
-                            onChange={e => { setEpisodeSearch(e.target.value); setEpisodeSearchError(null); }}
-                            placeholder=""
-                            className={`bg-transparent text-white h-full px-2 w-32 text-sm focus:outline-none text-center ${episodeRanges.length > 0 && selectedRange ? 'rounded-r-md' : 'rounded-md'}`}
-                        />
-                        {episodeSearchError && <p className="absolute left-0 top-full mt-1 text-red-500 text-xs">{episodeSearchError}</p>}
-                    </form>
-                </div>
-                 <button onClick={() => setEpisodeView(p => p === 'list' ? 'grid' : 'list')} className="bg-gray-700/80 rounded-md text-gray-300 hover:bg-gray-600 transition-colors h-8 w-8 flex items-center justify-center" aria-label={episodeView === 'list' ? "Switch to grid view" : "Switch to list view"}>
-                    {episodeView === 'list' ? <GridIcon /> : <ListIconSvg />}
-                </button>
-            </div>
-        </div>
-        <div className="flex-grow overflow-y-auto -mr-2 pr-2 max-h-[580px]">
-            {episodeView === 'list' ? (
-                <ul className="space-y-1">
-                    {filteredEpisodes.map(ep => {
-                        const zenshinEp = zenshinData?.episodes?.[ep];
-                        const epTitle = zenshinEp?.title?.en || `Episode ${ep}`;
-                        const isActive = ep === currentEpisode;
-                        const isFillerFromZenshin = zenshinEp?.isFiller;
-                        const isFillerFromApi = fillerEpisodes.includes(ep);
-                        const isFiller = isFillerFromApi || isFillerFromZenshin;
-                        return (
-                            <li key={ep}>
-                                <button
-                                    onClick={() => onEpisodeChange(ep)}
-                                    className={`w-full p-2.5 rounded-md transition-colors text-left flex items-center justify-between group relative ${
-                                        isActive
-                                            ? 'bg-cyan-500/20'
-                                            : isFiller
-                                            ? 'bg-amber-800/40 hover:bg-amber-700/50'
-                                            : 'text-gray-300 hover:bg-gray-700/50'
-                                    }`}
-                                >
-                                    {isActive && <div className="absolute left-0 h-3/4 w-1 bg-blue-500 rounded-r-full"></div>}
-                                    <div className="flex items-center gap-4">
-                                        <span className={`font-semibold w-8 text-center ${isActive ? 'text-blue-400' : 'text-gray-500'}`}>{ep}</span>
-                                        <span className={`font-semibold truncate ${isActive ? 'text-cyan-300' : isFiller ? 'text-amber-200' : 'text-white'}`}>{epTitle}</span>
-                                    </div>
-                                    {isActive && (
-                                        <span className="text-blue-400">
-                                            <PlayIcon />
-                                        </span>
-                                    )}
-                                </button>
-                            </li>
-                        );
-                    })}
-                </ul>
-            ) : (
-                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                    {filteredEpisodes.map(ep => {
-                        const zenshinEp = zenshinData?.episodes?.[ep];
-                        const isFillerFromZenshin = zenshinEp?.isFiller;
-                        const isFillerFromApi = fillerEpisodes.includes(ep);
-                        const isFiller = isFillerFromApi || isFillerFromZenshin;
-                        return (
-                        <button
-                            key={ep}
-                            onClick={() => onEpisodeChange(ep)}
-                            className={`py-2 px-1 flex items-center justify-center font-bold rounded transition-colors text-xs ${
-                                ep === currentEpisode 
-                                ? 'bg-cyan-500 text-white' 
-                                : isFiller
-                                ? 'bg-amber-800/40 text-amber-200 hover:bg-amber-700/50'
-                                : 'bg-gray-700/80 text-gray-300 hover:bg-gray-600'
-                            }`}
-                        >
-                            {ep}
-                        </button>
-                    )})}
-                </div>
-            )}
-        </div>
-    </div>
-);
-
-
   return (
     <main className="min-h-screen text-white animate-fade-in">
        <div className="container mx-auto max-w-screen-2xl px-4 pt-4 pb-2">
@@ -804,15 +883,14 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         onMouseMove={() => showOverlay()}
                         onMouseLeave={hideOverlay}
                     >
-                      {(isStreamLoading && currentSource === StreamSource.HiAnime) && (
-                        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70">
-                            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-400"></div>
-                        </div>
-                      )}
+                      <EngagingLoader status={playerStatus} message={loadingMessage} onRetry={handleRetrySource} />
+                      
                       {currentSource === StreamSource.HiAnimeV2 && streamUrl && !streamUrl.includes('about:blank') ? (
                           <CustomVideoPlayer
                               src={streamUrl}
                               subtitles={subtitles}
+                              onLoadedData={handleLoadSuccess}
+                              onError={handleLoadError}
                           />
                       ) : (
                         <iframe
@@ -824,16 +902,17 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                           allowFullScreen
                           className="w-full h-full border-0"
                           scrolling="no"
-                          onLoad={() => setIsStreamLoading(false)}
+                          onLoad={handleLoadSuccess}
+                          onError={handleLoadError}
                         ></iframe>
                       )}
                       
                       {showUnmuteOverlay && (
                         <>
-                          {/* Centered Unmute button */}
                           <div
                             onClick={handleUnmuteClick}
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 cursor-pointer animate-fade-in"
+                            className={`absolute -translate-x-1/2 z-30 cursor-pointer animate-fade-in ${currentSource === StreamSource.Vidsrc ? 'bottom-[calc(5.92rem+1.1cm)] left-[4.87rem]' : 'bottom-[5.92rem] left-[4.87rem]'}`}
+                            style={currentSource === StreamSource.Vidsrc ? { pointerEvents: 'none' } : {}}
                             role="button"
                             aria-label="Unmute player"
                           >
@@ -844,7 +923,6 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                               Unmute
                             </div>
                           </div>
-                           {/* Radar icon in the bottom-left corner */}
                            <RadarPulse onClick={handleUnmuteClick} />
                         </>
                       )}
@@ -857,10 +935,10 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                             </p>
                         </div>
                       )}
+                        <div className="absolute top-4 right-4 z-20 opacity-70 pointer-events-none">
+                            <Logo />
+                        </div>
                        <div className={`absolute inset-0 z-20 transition-opacity duration-300 pointer-events-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'}`}>
-                            <div className="absolute top-4 right-4 pointer-events-auto opacity-70">
-                                <Logo />
-                            </div>
                             <div className="absolute inset-0 flex items-center justify-between px-4">
                                 <button
                                     onClick={handlePrevEpisode}
@@ -875,6 +953,13 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                     aria-label="Next Episode"
                                 ><NextIcon /></button>
                             </div>
+                            <button
+                                onClick={handleFullscreen}
+                                className="absolute bottom-3 right-3 p-2.5 bg-gray-900/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-white hover:bg-gray-800/70 transition-colors pointer-events-auto"
+                                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                            >
+                                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+                            </button>
                         </div>
                     </div>
                     <div className="bg-gray-900/80 p-2 rounded-b-lg flex items-center justify-between gap-x-1 sm:gap-x-1.5 gap-y-2 flex-wrap shadow-lg">
@@ -899,9 +984,12 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                             <button onClick={handleReportIssue} className="flex-shrink-0 flex items-center gap-1.5 text-xs text-yellow-400 bg-yellow-900/50 hover:bg-yellow-800/50 font-semibold px-2 py-1 rounded-md transition-colors">
                                 <ReportIcon /> <span className="hidden sm:inline">Report Issue</span>
                             </button>
-                            <button onClick={handleFullscreen} className="flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-2 py-1 rounded-md transition-colors" aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
+                            <button
+                                onClick={handleFullscreen}
+                                className="flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-2 py-1 rounded-md transition-colors"
+                                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                            >
                                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
-                                <span className={`sm:hidden ${!isFullscreen ? 'animate-pulse' : ''}`}>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
                                 <span className="hidden sm:inline">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
                             </button>
                         </div>
@@ -936,22 +1024,39 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                       </div>
                       
                       <div className="text-xs text-center bg-gray-800/70 p-2 rounded-md text-gray-400"> Video not playing? Try selecting a different source (e.g., Src 2) or language (SUB/DUB) above. </div>
-                    </div>
-                    {isAiringNotificationVisible && anime.status === 'RELEASING' && nextAiringDate && (
-                      <div className="bg-cyan-900/50 border border-cyan-700/50 text-cyan-200 text-sm p-2 rounded-lg flex justify-between items-start gap-2 animate-fade-in mt-4">
-                        <div className="flex items-start gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
-                          <p className="font-semibold">Next episode ({anime.nextAiringEpisode?.episode}) airs around: {nextAiringDate.formattedDate} <span className="text-cyan-300/80">{nextAiringDate.countdown}</span></p>
+
+                      {isAiringNotificationVisible && anime.status === 'RELEASING' && nextAiringDate && (
+                        <div className="-mx-4 -mb-4 mt-4 px-4 pt-3 pb-3 bg-cyan-500/10 border-t border-cyan-500/20 rounded-b-lg animate-fade-in">
+                            <div className="relative text-cyan-200 text-sm flex justify-center items-center gap-2">
+                                <div className="flex items-center gap-2 text-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
+                                    <p className="font-semibold">Next episode ({anime.nextAiringEpisode?.episode}) airs around: {nextAiringDate.formattedDate} <span className="text-cyan-300/80">{nextAiringDate.countdown}</span></p>
+                                </div>
+                                <button 
+                                    onClick={() => setIsAiringNotificationVisible(false)} 
+                                    className="absolute top-1/2 -translate-y-1/2 right-0 text-cyan-200 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10 flex-shrink-0"
+                                    aria-label="Dismiss airing notification"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
                         </div>
-                        <button onClick={() => setIsAiringNotificationVisible(false)} className="text-cyan-200 hover:text-white transition-colors p-1 rounded-full hover:bg-cyan-800/50 flex-shrink-0 -mt-1 -mr-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                 </div>
             </div>
 
             <div className="lg:col-span-1">
                 <div className="lg:sticky lg:top-20 z-10 mt-8 lg:mt-0">
-                    <EpisodeSelector />
+                    <EpisodeSelector 
+                        episodeCount={episodeCount}
+                        currentEpisode={currentEpisode}
+                        onEpisodeChange={onEpisodeChange}
+                        zenshinData={zenshinData}
+                        fillerEpisodes={fillerEpisodes}
+                        animeStatus={anime.status}
+                        animeTotalEpisodes={anime.totalEpisodes}
+                    />
                 </div>
             </div>
         </div>
