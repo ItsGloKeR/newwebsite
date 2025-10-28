@@ -16,6 +16,7 @@ const DISCOVER_ANIME_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes for discover
 const ZENSHIN_MAPPINGS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 const CONSUMET_STREAM_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour (stream links can expire)
 const HIANIME_MAPPER_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
+const FILLER_API_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (static)
 
 // A map to store in-flight promises to prevent race conditions.
 const inFlightRequests = new Map<string, Promise<any>>();
@@ -982,5 +983,36 @@ export const getAiringSchedule = async (): Promise<AiringSchedule[]> => {
 
         const data = await fetchAniListData(query, { airingAt_greater: startTimestamp, airingAt_lesser: endTimestamp });
         return data.Page.airingSchedules;
+    });
+};
+
+export const getFillerEpisodes = async (animeName: string): Promise<number[]> => {
+    // Sanitize name for API: lowercase, spaces to hyphens, remove special characters except hyphen
+    const sanitizedName = animeName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    if (!sanitizedName) return [];
+
+    const cacheKey = `filler_episodes_${sanitizedName}`;
+    
+    return getOrSetCache(cacheKey, FILLER_API_CACHE_DURATION, async () => {
+        try {
+            const response = await fetch(`https://anime-filler-episodes-api-i02m.onrender.com/${sanitizedName}`);
+            if (!response.ok) {
+                if (response.status !== 404) {
+                    console.warn(`[Filler API] Failed to fetch filler episodes for "${sanitizedName}": ${response.statusText}`);
+                }
+                return [];
+            }
+            const data = await response.json();
+            
+            if (data.fillerEpisodes && data.fillerEpisodes.length > 0 && typeof data.fillerEpisodes[0] === 'string') {
+                const episodeString = data.fillerEpisodes[0];
+                const episodes = episodeString.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+                return episodes;
+            }
+            return [];
+        } catch (error) {
+            console.error(`[Filler API] Error fetching filler episodes for "${sanitizedName}"`, error);
+            return [];
+        }
     });
 };

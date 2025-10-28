@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Anime, StreamSource, StreamLanguage, RelatedAnime, RecommendedAnime, ZenshinMapping, HiAnimeInfo } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
-import { getZenshinMappings, getHiAnimeInfo } from '../services/anilistService';
+import { getZenshinMappings, getHiAnimeInfo, getFillerEpisodes } from '../services/anilistService';
 import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { useTooltip } from '../contexts/TooltipContext';
 import { progressTracker } from '../utils/progressTracking';
@@ -174,6 +174,7 @@ const AnimePlayer: React.FC<{
   const [subtitles, setSubtitles] = useState<{ src: string; label: string; srclang: string; default?: boolean; kind?: string }[]>([]);
   const [resumeNotification, setResumeNotification] = useState<string | null>(null);
   const lastWatchedEp = useMemo(() => progressTracker.getMediaData(anime.anilistId)?.last_episode_watched, [anime.anilistId]);
+  const [fillerEpisodes, setFillerEpisodes] = useState<number[]>([]);
   
   const playerWrapperRef = useRef<HTMLDivElement>(null);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
@@ -477,8 +478,16 @@ const scrollRecs = createScroller(recsScrollContainerRef);
         setZenshinData(zenshin);
         setHiAnimeInfo(hianime);
     };
+    const fetchFillerData = async () => {
+        if (anime?.romajiTitle) {
+            setFillerEpisodes([]); // Reset for new anime
+            const fillers = await getFillerEpisodes(anime.romajiTitle);
+            setFillerEpisodes(fillers);
+        }
+    };
     fetchMappings();
-  }, [anime.anilistId]);
+    fetchFillerData();
+  }, [anime.anilistId, anime.romajiTitle]);
   
   useEffect(() => {
     setIsStreamLoading(true);
@@ -707,7 +716,9 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         const zenshinEp = zenshinData?.episodes?.[ep];
                         const epTitle = zenshinEp?.title?.en || `Episode ${ep}`;
                         const isActive = ep === currentEpisode;
-                        const isFiller = zenshinEp?.isFiller;
+                        const isFillerFromZenshin = zenshinEp?.isFiller;
+                        const isFillerFromApi = fillerEpisodes.includes(ep);
+                        const isFiller = isFillerFromApi || isFillerFromZenshin;
                         return (
                             <li key={ep}>
                                 <button
@@ -716,14 +727,14 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                         isActive
                                             ? 'bg-cyan-500/20'
                                             : isFiller
-                                            ? 'bg-yellow-900/50 hover:bg-yellow-800/50'
+                                            ? 'bg-amber-800/40 hover:bg-amber-700/50'
                                             : 'text-gray-300 hover:bg-gray-700/50'
                                     }`}
                                 >
                                     {isActive && <div className="absolute left-0 h-3/4 w-1 bg-blue-500 rounded-r-full"></div>}
                                     <div className="flex items-center gap-4">
                                         <span className={`font-semibold w-8 text-center ${isActive ? 'text-blue-400' : 'text-gray-500'}`}>{ep}</span>
-                                        <span className={`font-semibold truncate ${isActive ? 'text-cyan-300' : isFiller ? 'text-yellow-300' : 'text-white'}`}>{epTitle}</span>
+                                        <span className={`font-semibold truncate ${isActive ? 'text-cyan-300' : isFiller ? 'text-amber-200' : 'text-white'}`}>{epTitle}</span>
                                     </div>
                                     {isActive && (
                                         <span className="text-blue-400">
@@ -739,7 +750,9 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                 <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
                     {filteredEpisodes.map(ep => {
                         const zenshinEp = zenshinData?.episodes?.[ep];
-                        const isFiller = zenshinEp?.isFiller;
+                        const isFillerFromZenshin = zenshinEp?.isFiller;
+                        const isFillerFromApi = fillerEpisodes.includes(ep);
+                        const isFiller = isFillerFromApi || isFillerFromZenshin;
                         return (
                         <button
                             key={ep}
@@ -748,7 +761,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                 ep === currentEpisode 
                                 ? 'bg-cyan-500 text-white' 
                                 : isFiller
-                                ? 'bg-yellow-800/60 text-yellow-200 hover:bg-yellow-700/60'
+                                ? 'bg-amber-800/40 text-amber-200 hover:bg-amber-700/50'
                                 : 'bg-gray-700/80 text-gray-300 hover:bg-gray-600'
                             }`}
                         >
@@ -864,28 +877,34 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                             </div>
                         </div>
                     </div>
-                    <div className="bg-gray-900/80 p-2 rounded-b-lg flex items-center justify-center gap-x-1 sm:gap-x-1.5 gap-y-2 flex-wrap shadow-lg">
-                        <button onClick={handlePrevEpisode} title="Previous Episode" className="p-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={currentEpisode <= 1}>
-                            <PrevIconButton />
-                        </button>
-                         <button onClick={() => onEpisodeChange(episodeCount)} title="Latest Episode" className="p-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={currentEpisode === episodeCount}>
-                            <LatestIconButton />
-                        </button>
-                        <button onClick={handleNextEpisode} title="Next Episode" className="p-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={currentEpisode >= episodeCount}>
-                            <NextIconButton />
-                        </button>
-                        <div className="h-5 w-px bg-gray-700 hidden sm:block"></div>
-                        <button onClick={handleFullscreen} className="flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-2 py-1 rounded-md transition-colors" aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
-                            {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
-                            <span className={`sm:hidden ${!isFullscreen ? 'animate-pulse' : ''}`}>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
-                            <span className="hidden sm:inline">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
-                        </button>
-                         <button onClick={handleRefresh} className="flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-2 py-1 rounded-md transition-colors">
-                            <RefreshIcon /> <span className="hidden sm:inline">Refresh</span>
-                        </button>
-                        <button onClick={handleReportIssue} className="flex-shrink-0 flex items-center gap-1.5 text-xs text-yellow-400 bg-yellow-900/50 hover:bg-yellow-800/50 font-semibold px-2 py-1 rounded-md transition-colors">
-                            <ReportIcon /> <span className="hidden sm:inline">Report Issue</span>
-                        </button>
+                    <div className="bg-gray-900/80 p-2 rounded-b-lg flex items-center justify-between gap-x-1 sm:gap-x-1.5 gap-y-2 flex-wrap shadow-lg">
+                        {/* Left Buttons */}
+                        <div className="flex items-center gap-x-1 sm:gap-x-1.5">
+                            <button onClick={handlePrevEpisode} title="Previous Episode" className="p-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={currentEpisode <= 1}>
+                                <PrevIconButton />
+                            </button>
+                            <button onClick={() => onEpisodeChange(episodeCount)} title="Latest Episode" className="p-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={currentEpisode === episodeCount}>
+                                <LatestIconButton />
+                            </button>
+                            <button onClick={handleNextEpisode} title="Next Episode" className="p-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={currentEpisode >= episodeCount}>
+                                <NextIconButton />
+                            </button>
+                            <button onClick={handleRefresh} className="flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-2 py-1 rounded-md transition-colors">
+                                <RefreshIcon /> <span className="hidden sm:inline">Refresh</span>
+                            </button>
+                        </div>
+                        
+                        {/* Right Buttons */}
+                        <div className="flex items-center gap-x-1 sm:gap-x-1.5">
+                            <button onClick={handleReportIssue} className="flex-shrink-0 flex items-center gap-1.5 text-xs text-yellow-400 bg-yellow-900/50 hover:bg-yellow-800/50 font-semibold px-2 py-1 rounded-md transition-colors">
+                                <ReportIcon /> <span className="hidden sm:inline">Report Issue</span>
+                            </button>
+                            <button onClick={handleFullscreen} className="flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-2 py-1 rounded-md transition-colors" aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
+                                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+                                <span className={`sm:hidden ${!isFullscreen ? 'animate-pulse' : ''}`}>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
+                                <span className="hidden sm:inline">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
+                            </button>
+                        </div>
                     </div>
                     <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg my-4">
                       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 mb-3">

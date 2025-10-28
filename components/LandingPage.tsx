@@ -37,9 +37,48 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
     const [imageOpacity, setImageOpacity] = useState([1, 1, 1, 1, 1]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-    const [typedText, setTypedText] = useState('');
-    const [isTyping, setIsTyping] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
+    const [typedText, setTypedText] = useState('');
+    const phrases = useMemo(() => ["Your Anime Universe.", "Discover New Worlds.", "Track Your Journey."], []);
+
+    useEffect(() => {
+        let phraseIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        let timeoutId: number;
+
+        const type = () => {
+            const currentPhrase = phrases[phraseIndex];
+            
+            if (isDeleting) {
+                setTypedText(currentPhrase.substring(0, charIndex - 1));
+                charIndex--;
+            } else {
+                setTypedText(currentPhrase.substring(0, charIndex + 1));
+                charIndex++;
+            }
+
+            let typeSpeed = isDeleting ? 75 : 150;
+
+            if (!isDeleting && charIndex === currentPhrase.length) {
+                typeSpeed = 2000;
+                isDeleting = true;
+            } else if (isDeleting && charIndex === 0) {
+                isDeleting = false;
+                phraseIndex = (phraseIndex + 1) % phrases.length;
+                typeSpeed = 500;
+            }
+            
+            timeoutId = window.setTimeout(type, typeSpeed);
+        };
+
+        const startTimeout = window.setTimeout(type, 500);
+
+        return () => {
+            clearTimeout(startTimeout);
+            if (timeoutId) clearTimeout(timeoutId);
+        }
+    }, [phrases]);
 
     useEffect(() => {
         const checkScreenSize = () => setIsMobile(window.innerWidth < 768);
@@ -48,8 +87,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
         return () => window.removeEventListener('resize', checkScreenSize);
     }, []);
 
-    const fullText = "The Ultimate Anime Streaming Destination.";
-
     useEffect(() => {
         // Prefetch homepage data when the landing page loads to make the transition faster.
         getHomePageData();
@@ -57,21 +94,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
         getLatestEpisodes();
         getAiringSchedule();
     }, []);
-
-    useEffect(() => {
-        let timeoutId: number;
-        const type = (index = 0) => {
-            if (index <= fullText.length) {
-                setTypedText(fullText.substring(0, index));
-                timeoutId = window.setTimeout(() => type(index + 1), 80);
-            } else {
-                setIsTyping(false);
-            }
-        };
-        const startTimeout = setTimeout(() => type(), 500);
-        return () => { clearTimeout(startTimeout); window.clearTimeout(timeoutId); };
-    }, []);
-
 
     useEffect(() => {
         const fetchData = async () => {
@@ -112,7 +134,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
     const handleSearch = (e: React.FormEvent) => { e.preventDefault(); onEnter(searchTerm.trim() || undefined); };
     const handleNavClick = (filters: Partial<FilterState>, title: string) => { onNavigate(filters, title); onEnter(); };
 
-    const topSearches = ['My Hero Academia', 'One-Punch Man', 'One Piece', 'Demon Slayer', 'Spy x Family', 'Jujutsu Kaisen', 'Attack on Titan'];
+    const topSearches = ['My Hero Academia', 'One-Punch Man', 'One Piece', 'Demon Slayer', 'Spy x Family', 'Jujutsu Kaisen', 'Attack on Titan', 'Naruto', 'Death Note', 'Fullmetal Alchemist: Brotherhood'];
     
     const navLinks = [
         { title: 'Home', icon: <HomeIcon />, action: () => onEnter() },
@@ -181,9 +203,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
             <section className="container mx-auto max-w-screen-2xl px-4 py-16 md:py-24">
                 <div className="grid grid-cols-1 gap-8 lg:gap-16 items-center justify-items-center">
                         <div className="text-center animate-fade-in">
-                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-lg min-h-[6rem] sm:min-h-[9rem] lg:min-h-0">
-                                {typedText}
-                                {isTyping && <span className="animate-blink text-cyan-400">|</span>}
+                            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-tight drop-shadow-lg min-h-[2.5em] md:min-h-[1.25em] flex items-center justify-center">
+                                <span>
+                                    <span className="text-cyan-400">{typedText}</span>
+                                    <span className="animate-blink text-cyan-400">|</span>
+                                </span>
                             </h1>
                             <p className="mt-6 text-base sm:text-lg text-gray-300 max-w-lg mx-auto">Discover, watch, and track your favorite anime seamlessly. All your shows, all in one place.</p>
                             <form onSubmit={handleSearch} className="mt-10 max-w-lg mx-auto">
@@ -195,7 +219,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onLogoClick, onNavig
                             </form>
                             <div className="mt-4 text-sm max-w-lg mx-auto">
                                 <span className="font-semibold text-white mr-2">Top Searches:</span>
-                                <span className="text-gray-400">{topSearches.slice(0, 4).map((term, index) => (<React.Fragment key={term}><button onClick={() => onEnter(term)} className="hover:text-cyan-400 transition-colors">{term}</button>{index < 3 && ', '}</React.Fragment>))}</span>
+                                <span className="text-gray-400">{topSearches.slice(0, 10).map((term, index) => (<React.Fragment key={term}><button onClick={() => onEnter(term)} className="hover:text-cyan-400 transition-colors">{term}</button>{index < 9 && ', '}</React.Fragment>))}</span>
                             </div>
                             <div className="mt-10 flex justify-center">
                                 <button onClick={() => onEnter()} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg transition-transform shadow-lg flex items-center gap-3 text-lg animate-bump">
