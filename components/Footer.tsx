@@ -28,7 +28,6 @@ const DataSaverIndicator: React.FC = () => (
 
 
 interface FooterProps {
-  onAdminClick: () => void;
   onNavigate: (filters: Partial<FilterState> & { list?: 'watchlist' | 'favorites' | 'continue-watching' }, title: string) => void;
   onLogoClick: () => void;
   isDataSaverActive: boolean;
@@ -40,7 +39,7 @@ const DiscordIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick, isDataSaverActive }) => {
+const Footer: React.FC<FooterProps> = ({ onNavigate, onLogoClick, isDataSaverActive }) => {
     const [modalContent, setModalContent] = useState<{ title: string; content: React.ReactNode } | null>(null);
     const currentYear = new Date().getFullYear();
 
@@ -172,7 +171,6 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick, onNavigate, onLogoClick, 
                         </div>
                         <p className="mt-2 text-xs">
                             This site does not store any files on our server, we only link to the media which is hosted on 3rd party services.
-                            <button onClick={onAdminClick} className="text-cyan-500 hover:underline ml-2">Admin</button>
                         </p>
                     </div>
                 </div>

@@ -10,7 +10,7 @@ interface AdminModalProps {
 
 const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const { isAdmin, login, logout, overrides, localOverrides, updateGlobalStreamUrlTemplate } = useAdmin();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   
@@ -48,18 +48,17 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
     };
   }, [isOpen, onClose]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username !== 'itsgloker') {
-        setError('Invalid username.');
-        return;
-    }
-    const success = login(password);
+    setError('');
+    const success = await login(email, password);
     if (!success) {
-      setError('Invalid password.');
+      setError('Invalid admin credentials or an error occurred.');
     } else {
       setError('');
       setPassword('');
+      setEmail('');
+      onClose();
     }
   };
 
@@ -113,14 +112,15 @@ const handleCopy = () => {
         {!isAdmin ? (
           <form onSubmit={handleLogin}>
             <div className="mb-4">
-              <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="username">Username</label>
+              <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="email">Admin Email</label>
               <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus-ring-2 focus:ring-cyan-500"
                 required
+                autoComplete="email"
               />
             </div>
             <div className="mb-6">
@@ -132,6 +132,7 @@ const handleCopy = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus-ring-2 focus:ring-cyan-500"
                 required
+                autoComplete="current-password"
               />
             </div>
             {error && <p className="text-red-500 text-xs italic mb-4">{error}</p>}

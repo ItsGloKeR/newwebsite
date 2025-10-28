@@ -1076,14 +1076,14 @@ const AppContent: React.FC = () => {
                 {view === 'schedule' && (isLoading ? <FullPageSpinner /> : <SchedulePage schedule={scheduleList} onSelectAnime={handleSelectAnime} onClose={handleGoToAppHome} />)}
             </Suspense>
 
-            {view !== 'landing' && <Footer onAdminClick={() => setIsAdminModalOpen(true)} onNavigate={handleViewMore} onLogoClick={handleGoToAppHome} isDataSaverActive={isDataSaverActive} />}
+            {view !== 'landing' && <Footer onNavigate={handleViewMore} onLogoClick={handleGoToAppHome} isDataSaverActive={isDataSaverActive} />}
             {view !== 'landing' && <BackToTopButton />}
             
             {/* Modals */}
             <Suspense fallback={null}>
                 {isAdminModalOpen && <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />}
                 {isLoginModalOpen && <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />}
-                {isProfileModalOpen && <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />}
+                {isProfileModalOpen && <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} onOpenAdminPanel={() => setIsAdminModalOpen(true)} />}
             </Suspense>
 
              {miniPlayerState && (

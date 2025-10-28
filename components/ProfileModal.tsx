@@ -11,10 +11,12 @@ import {
 import { auth } from '../services/firebase'; // Added
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { DEFAULT_AVATAR_URL, PREDEFINED_AVATARS } from '../constants';
+import { useAdmin } from '../contexts/AdminContext';
 
 interface ProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onOpenAdminPanel: () => void;
 }
 
 const hasUppercase = /[A-Z]/;
@@ -31,8 +33,9 @@ const validatePassword = (pwd: string): string | null => {
     return null;
 };
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
+const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onOpenAdminPanel }) => {
     const { user, firebaseUser, reloadUser } = useAuth();
+    const { isAdmin, isAdminMode, toggleAdminMode } = useAdmin();
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [selectedAvatar, setSelectedAvatar] = useState<string>(user?.photoURL || DEFAULT_AVATAR_URL);
     const [currentPassword, setCurrentPassword] = useState('');
@@ -195,7 +198,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             </div>
                         </div>
 
-                        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                        {error && !showPasswordChange && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
                         <button type="submit" disabled={loading} className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:bg-gray-600">
                             {loading ? 'Saving...' : 'Save Changes'}
@@ -231,13 +234,45 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                     <input id="confirmNewPassword" type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
                                     {confirmNewPassword && newPassword !== confirmNewPassword && <p className="text-red-400 text-xs mt-1">New passwords do not match.</p>}
                                 </div>
-                                {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                                {error && showPasswordChange && <p className="text-red-500 text-sm mb-4">{error}</p>}
                                 <button type="submit" disabled={loading} className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded transition-colors disabled:bg-gray-600">
                                     {loading ? 'Changing...' : 'Change Password'}
                                 </button>
                             </form>
                         )}
                     </div>
+                    
+                    {isAdmin && (
+                        <div className="mt-8 pt-6 border-t border-gray-700">
+                            <h3 className="text-xl font-bold mb-4 text-cyan-400">Admin Settings</h3>
+                            <div className="flex items-center justify-between mb-4 bg-gray-800 p-3 rounded-lg">
+                                <label htmlFor="admin-mode-toggle" className="font-semibold text-white">Admin Mode</label>
+                                <button
+                                    id="admin-mode-toggle"
+                                    onClick={toggleAdminMode}
+                                    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${isAdminMode ? 'bg-cyan-500' : 'bg-gray-600'}`}
+                                    role="switch"
+                                    aria-checked={isAdminMode}
+                                >
+                                    <span
+                                        className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${isAdminMode ? 'translate-x-6' : 'translate-x-1'}`}
+                                    />
+                                </button>
+                            </div>
+
+                            {isAdminMode && (
+                                <div className="animate-fade-in-fast">
+                                    <p className="text-sm text-gray-400 mb-2">Access admin-only tools.</p>
+                                    <button
+                                        onClick={() => { onClose(); onOpenAdminPanel(); }}
+                                        className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors"
+                                    >
+                                        Open Global URL Editor
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

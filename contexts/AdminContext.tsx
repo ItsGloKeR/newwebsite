@@ -2,9 +2,12 @@ import React, { createContext, useState, useContext, useEffect, ReactNode, useMe
 import { AdminOverrides, StreamSource, StreamLanguage, AnimeOverride, ZenshinMapping, HiAnimeInfo } from '../types';
 import { STREAM_URLS } from '../constants';
 import { staticOverrides } from '../overrides/data';
+import { useAuth } from './AuthContext';
+import { signInWithEmail, logout as firebaseLogout, getUserProfile } from '../services/firebaseService';
 
 const ADMIN_STORAGE_KEY = 'aniGlokAdminOverrides_v2'; // New key for new structure
 const ADMIN_SESSION_KEY = 'aniGlokAdminSession';
+const ADMIN_MODE_KEY = 'aniGlokAdminMode';
 
 interface GetStreamUrlParams {
   animeId: number;
@@ -19,9 +22,11 @@ interface GetStreamUrlParams {
 
 interface AdminContextType {
   isAdmin: boolean;
+  isAdminMode: boolean;
+  toggleAdminMode: () => void;
   overrides: AdminOverrides;
   localOverrides: AdminOverrides;
-  login: (password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   updateTitle: (animeId: number, newTitle: string) => void;
   updateGlobalStreamUrlTemplate: (source: StreamSource, newUrl: string) => void;
@@ -56,7 +61,44 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return false;
     }
   });
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(ADMIN_MODE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [localOverrides, setLocalOverrides] = useState<AdminOverrides>(getInitialLocalOverrides);
+  const { user } = useAuth();
+
+  // Automatically determine admin status based on the globally logged-in user
+  useEffect(() => {
+    if (user?.isAdmin) {
+      setIsAdmin(true);
+      try {
+        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      } catch {}
+    } else {
+      setIsAdmin(false);
+      setIsAdminMode(false); // Not an admin, so turn off admin mode
+      try {
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        localStorage.removeItem(ADMIN_MODE_KEY);
+      } catch {}
+    }
+  }, [user]);
+
+  const toggleAdminMode = () => {
+    setIsAdminMode(prev => {
+      const newMode = !prev;
+      try {
+        localStorage.setItem(ADMIN_MODE_KEY, String(newMode));
+      } catch (error) {
+        console.error("Failed to save admin mode to localStorage", error);
+      }
+      return newMode;
+    });
+  };
 
   useEffect(() => {
     try {
@@ -71,22 +113,32 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       anime: { ...staticOverrides.anime, ...localOverrides.anime },
   }), [localOverrides]);
 
-  const login = (password: string): boolean => {
-    if (password === 'qwerty@204') {
-      setIsAdmin(true);
-      try {
-        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-      } catch {}
-      return true;
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+        const firebaseUser = await signInWithEmail(email, password);
+        if (firebaseUser) {
+            const userProfile = await getUserProfile(firebaseUser.uid);
+            if (userProfile?.isAdmin) {
+                // The useEffect hook will handle setting the `isAdmin` state
+                // once the `user` from useAuth() updates.
+                return true;
+            } else {
+                // User logged in but is not an admin. Log them out immediately
+                // to prevent them from having a regular user session.
+                await firebaseLogout();
+                return false;
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error("Admin login failed:", error);
+        return false;
     }
-    return false;
   };
 
   const logout = () => {
-    setIsAdmin(false);
-    try {
-        sessionStorage.removeItem(ADMIN_SESSION_KEY);
-    } catch {}
+    firebaseLogout();
+    // The useEffect hook will handle clearing the `isAdmin` state.
   };
 
   const updateAnimeRecord = (animeId: number, updateFn: (record: AnimeOverride) => AnimeOverride) => {
@@ -256,6 +308,8 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const value = {
     isAdmin,
+    isAdminMode,
+    toggleAdminMode,
     overrides: mergedOverrides,
     localOverrides,
     login,

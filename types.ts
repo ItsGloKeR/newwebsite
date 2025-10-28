@@ -276,6 +276,7 @@ export interface UserProfile {
   watchlist?: number[];
   favorites?: number[];
   progress?: MediaProgress;
+  isAdmin?: boolean;
 }
 
 // Consumet API Types
