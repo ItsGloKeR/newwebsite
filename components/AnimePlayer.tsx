@@ -652,43 +652,12 @@ const scrollRecs = createScroller(recsScrollContainerRef);
     setIsOverlayVisible(false);
   }, []);
 
-  const showOverlay = useCallback((autoHide = true) => {
-    if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+  const showOverlay = useCallback(() => {
     setIsOverlayVisible(true);
-    if (autoHide) {
-      inactivityTimeoutRef.current = window.setTimeout(() => setIsOverlayVisible(false), 3500);
-    }
+    if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+    inactivityTimeoutRef.current = window.setTimeout(() => setIsOverlayVisible(false), 3500);
   }, []);
   
-  const handlePlayerClick = useCallback((e?: React.MouseEvent) => {
-    // This logic prevents closing the overlay when clicking on buttons inside it, especially useful on mobile.
-    if (e) {
-        const target = e.target as HTMLElement;
-        if (target.closest('button')) {
-            if (isMobile) {
-                // On mobile, clicking a button should not close the overlay. Instead, reset the hide timer.
-                if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
-                inactivityTimeoutRef.current = window.setTimeout(() => setIsOverlayVisible(false), 3500);
-            }
-            return; // Always stop propagation for button clicks.
-        }
-    }
-    
-    setIsOverlayVisible(prev => {
-        const newVisibility = !prev;
-        if (inactivityTimeoutRef.current) {
-            clearTimeout(inactivityTimeoutRef.current);
-        }
-        if (newVisibility) {
-            // If we are making it visible, set a timeout to hide it.
-            inactivityTimeoutRef.current = window.setTimeout(() => {
-                setIsOverlayVisible(false);
-            }, 3500);
-        }
-        return newVisibility;
-    });
-  }, [isMobile]);
-
   useEffect(() => {
     const handlePlayerEvent = (data: any) => {
         const eventName = data.name || data.event;
@@ -926,9 +895,8 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                     <div 
                         ref={playerWrapperRef}
                         className="aspect-video bg-black rounded-t-lg shadow-xl overflow-hidden relative"
-                        onMouseMove={() => showOverlay()}
+                        onMouseMove={showOverlay}
                         onMouseLeave={hideOverlay}
-                        onClick={handlePlayerClick}
                     >
                       <EngagingLoader status={playerStatus} message={loadingMessage} onRetry={handleRetrySource} onCancel={handleCancelLoad} />
                       
@@ -985,23 +953,27 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         <div className="absolute top-4 right-4 z-20 opacity-70 pointer-events-none">
                             <Logo />
                         </div>
-                       <div className={`absolute inset-0 z-20 transition-opacity duration-300 pointer-events-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'}`}>
+                       
+                        {/* The visible controls part of the overlay. It is on top of the click handler and has pointer-events-none so clicks fall through to the handler, except for the buttons. */}
+                       <div 
+                        className={`absolute inset-0 z-30 transition-opacity duration-300 pointer-events-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'}`}
+                       >
                             <div className="absolute inset-0 flex items-center justify-between px-4">
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); handlePrevEpisode(); }}
+                                    onClick={handlePrevEpisode}
                                     disabled={currentEpisode <= 1}
-                                    className="p-2 md:p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="p-2 md:p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed pointer-events-auto"
                                     aria-label="Previous Episode"
                                 ><PrevIcon /></button>
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); handleNextEpisode(); }}
+                                    onClick={handleNextEpisode}
                                     disabled={currentEpisode >= episodeCount}
-                                    className="p-2 md:p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="p-2 md:p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed pointer-events-auto"
                                     aria-label="Next Episode"
                                 ><NextIcon /></button>
                             </div>
                             <button
-                                onClick={(e) => { e.stopPropagation(); handleFullscreen(); }}
+                                onClick={handleFullscreen}
                                 className="absolute bottom-1.5 right-1.5 p-2 md:p-3 bg-gray-900/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-white hover:bg-gray-800/70 transition-colors pointer-events-auto"
                                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                             >
