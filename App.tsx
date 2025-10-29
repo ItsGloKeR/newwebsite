@@ -28,7 +28,7 @@ import Pagination from './components/SidebarMenu'; // Re-using SidebarMenu file 
 import LandingPageSkeleton from './components/LandingPageSkeleton';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { /* Removed: syncProgressOnLogin, */ } from './services/firebaseService';
-import { NotificationProvider, useNotification } from './contexts/NotificationContext'; 
+import { NotificationProvider } from './contexts/NotificationContext'; 
 import SchedulePreview from './components/SchedulePreview'; 
 
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
@@ -108,7 +108,6 @@ const AppContent: React.FC = () => {
     const [isRandomLoading, setIsRandomLoading] = useState(false);
     const schedulePreviewRef = useRef<HTMLDivElement>(null);
     const prevHashRef = useRef<string>();
-    const { showNotification } = useNotification(); 
     const seenEpisodeIds = useRef(new Set<number>());
 
     const debouncedSuggestionsTerm = useDebounce(searchTerm, 300);
@@ -177,7 +176,6 @@ const AppContent: React.FC = () => {
         } else {
             window.location.hash = '#/';
         }
-        showNotification('Welcome to AniGloK!', 'info', 2500); 
     };
     
     const handleGoToLanding = () => {
@@ -194,9 +192,9 @@ const AppContent: React.FC = () => {
         return list.map(applyOverrides);
     }, [applyOverrides]);
 
-    const handleSelectAnime = (anime: { anilistId: number }) => {
+    const handleSelectAnime = useCallback((anime: { anilistId: number }) => {
         window.location.hash = `#/anime/${anime.anilistId}`;
-    };
+    }, []);
     
     const getStartEpisode = (anime: Anime, preferredEpisode?: number): number => {
         if (preferredEpisode) {
@@ -218,38 +216,33 @@ const AppContent: React.FC = () => {
         }
     }, [playerState.anime]);
 
-    const handleSourceChange = (source: StreamSource) => {
-        const settings = getFullPlayerSettings();
-        const currentAnimeId = playerState.anime?.anilistId;
-        let languageForNewSource: StreamLanguage;
-
-        if (currentAnimeId) {
-            // Priority 1: Anime-specific preference for the new source
-            languageForNewSource = settings.perAnimeLanguagePrefs?.[source]?.[currentAnimeId] || 
-                                   // Priority 2: Fallback to global preference for the new source
-                                   settings.languagePrefs[source] || 
-                                   // Priority 3: Final fallback
-                                   StreamLanguage.Sub;
-        } else {
-            // If no anime context (should not happen in player), use global pref or default
-            languageForNewSource = settings.languagePrefs[source] || StreamLanguage.Sub;
-        }
-
+    const handleSourceChange = useCallback((source: StreamSource) => {
         setPlayerState(prev => {
+            const settings = getFullPlayerSettings();
+            const currentAnimeId = prev.anime?.anilistId;
+            let languageForNewSource: StreamLanguage;
+
+            if (currentAnimeId) {
+                languageForNewSource = settings.perAnimeLanguagePrefs?.[source]?.[currentAnimeId] || 
+                                       settings.languagePrefs[source] || 
+                                       StreamLanguage.Sub;
+            } else {
+                languageForNewSource = settings.languagePrefs[source] || StreamLanguage.Sub;
+            }
+            
             const newState = { ...prev, source, language: languageForNewSource };
             setLastPlayerSettings(source, languageForNewSource, prev.anime?.anilistId); 
             return newState;
         });
-    };
+    }, []);
 
-
-    const handleLanguageChange = (language: StreamLanguage) => {
+    const handleLanguageChange = useCallback((language: StreamLanguage) => {
         setPlayerState(prev => {
             // Save the new language preference for the current source, passing animeId
             setLastPlayerSettings(prev.source, language, prev.anime?.anilistId);
             return { ...prev, language };
         });
-    };
+    }, []);
 
     const loadContinueWatching = useCallback(async () => {
         const progressData = progressTracker.getAllMediaData();
@@ -320,7 +313,6 @@ const AppContent: React.FC = () => {
                     setSelectedAnime(applyOverrides(fullDetails));
                 } catch (error) {
                     console.error("Failed to get anime details:", error);
-                    showNotification('Failed to load anime details.', 'error', 4000); // Notification for fetch failure
                     window.location.hash = '#/';
                 } finally {
                     setIsLoading(false);
@@ -360,7 +352,6 @@ const AppContent: React.FC = () => {
                     });
                 } catch (err) {
                     console.error("Could not fetch player details", err);
-                    showNotification('Failed to load player. Please try again.', 'error', 4000); // Notification for player load failure
                     window.location.hash = '#/';
                 }
                 return;
@@ -516,7 +507,7 @@ const AppContent: React.FC = () => {
         return () => {
             window.removeEventListener('hashchange', handleRouteChange);
         };
-    }, [applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, playerState.episode, filters, watchlist, favorites, continueWatching, discoverListTitle, generateDiscoverUrl, applyOverridesToList, isListView, isGeneratedList, showNotification]);
+    }, [applyOverrides, view, isDiscoveryView, selectedAnime, playerState.anime, playerState.episode, filters, watchlist, favorites, continueWatching, discoverListTitle, generateDiscoverUrl, applyOverridesToList, isListView, isGeneratedList]);
 
 
     useEffect(() => {
@@ -543,7 +534,6 @@ const AppContent: React.FC = () => {
                 setCurrentYear(currentYear);
             } catch (error) {
                 console.error("Failed to fetch home page data:", error);
-                showNotification('Failed to load some data. Please check your connection.', 'error', 4000); 
             } finally {
                 setIsLoading(false);
             }
@@ -551,37 +541,7 @@ const AppContent: React.FC = () => {
         if (view !== 'landing' && (view === 'home' || view === 'schedule') && trending.length === 0) {
           fetchInitialData();
         }
-    }, [applyOverridesToList, view, trending.length, showNotification]);
-
-    // Poll for new episodes
-    useEffect(() => {
-        if (view === 'landing') return;
-
-        const intervalId = setInterval(async () => {
-            try {
-                const latest = await getLatestEpisodes();
-                const newEpisodes = latest.filter(ep => !seenEpisodeIds.current.has(ep.id));
-                
-                if (newEpisodes.length > 0) {
-                    const firstNew = newEpisodes[0];
-                    const title = firstNew.media.title.english || firstNew.media.title.romaji;
-                    showNotification(
-                        `New episode! ${title} - Ep ${firstNew.episode}`, 
-                        'success', 
-                        6000
-                    );
-                    
-                    // Update seen IDs and UI
-                    newEpisodes.forEach(ep => seenEpisodeIds.current.add(ep.id));
-                    setLatestEpisodes(latest);
-                }
-            } catch (error) {
-                console.error("Error polling for new episodes:", error);
-            }
-        }, 15 * 60 * 1000); // Poll every 15 minutes
-
-        return () => clearInterval(intervalId);
-    }, [view, showNotification]);
+    }, [applyOverridesToList, view, trending.length]);
 
     useEffect(() => {
         setTrending(list => applyOverridesToList(list));
@@ -610,7 +570,6 @@ const AppContent: React.FC = () => {
                 setPageInfo(newPageInfo);
             } catch (error) {
                 console.error("Failed to discover anime:", error);
-                showNotification('Failed to fetch filtered results.', 'error', 4000); 
                 setCurrentListViewAnime([]); // Changed from setSearchResults
                 setPageInfo(null);
             } finally {
@@ -618,7 +577,7 @@ const AppContent: React.FC = () => {
             }
         };
         performSearch();
-    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, isListView, isGeneratedList, showNotification]);
+    }, [debouncedFilters, isDiscoveryView, applyOverridesToList, isListView, isGeneratedList]);
     
     useEffect(() => {
         if (debouncedSuggestionsTerm.trim() === '') {
@@ -632,13 +591,12 @@ const AppContent: React.FC = () => {
                 setSearchSuggestions(results);
             } catch (error) {
                 console.error("Failed to fetch search suggestions:", error);
-                showNotification('Failed to fetch search suggestions.', 'error', 4000); 
             } finally {
                 setIsSuggestionsLoading(false);
             }
         };
         fetchSuggestions();
-    }, [debouncedSuggestionsTerm, showNotification]);
+    }, [debouncedSuggestionsTerm]);
 
     const handleRandomAnime = async () => {
         if (isRandomLoading) return;
@@ -648,13 +606,9 @@ const AppContent: React.FC = () => {
             const randomAnime = await getRandomAnime();
             if (randomAnime) {
                 handleSelectAnime(randomAnime);
-                showNotification('Found a random anime!', 'success', 3000); 
-            } else {
-                showNotification('Could not find a random anime. Please try again.', 'warning', 4000); 
             }
         } catch (error) {
             console.error("Failed to get random anime:", error);
-            showNotification('Failed to get a random anime. Please try again.', 'error', 4000); 
         } finally {
             setIsRandomLoading(false);
         }
@@ -691,20 +645,19 @@ const AppContent: React.FC = () => {
 
     const handleRemoveFromContinueWatching = (animeId: number) => {
         progressTracker.removeFromHistory(animeId);
-        showNotification('Removed from Continue Watching.', 'info', 2500); 
     };
 
-    const handleBackToDetails = () => {
+    const handleBackToDetails = useCallback(() => {
         window.history.back();
-    };
+    }, []);
     
     const handleBackFromDetails = () => {
         window.history.back();
     };
 
-    const handleGoToReport = () => {
+    const handleGoToReport = useCallback(() => {
         window.location.hash = '#/report';
-    };
+    }, []);
 
     const handleBackFromReport = () => {
         window.history.back();
@@ -788,7 +741,7 @@ const AppContent: React.FC = () => {
             const newFilters = { ...initialFilters, ...partialFilters, page: 1 };
             window.location.hash = generateDiscoverUrl(newFilters);
         }
-    }, [applyOverridesToList, generateDiscoverUrl, showNotification]);
+    }, [applyOverridesToList, generateDiscoverUrl]);
 
 
     const handleFilterBarChange = (newFilters: FilterState) => {

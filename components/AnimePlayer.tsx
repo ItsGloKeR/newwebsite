@@ -7,16 +7,31 @@ import { useTitleLanguage } from '../contexts/TitleLanguageContext';
 import { useTooltip } from '../contexts/TooltipContext';
 import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
-import { useNotification } from '../contexts/NotificationContext';
 import CustomVideoPlayer from './CustomVideoPlayer';
 import EngagingLoader from './EngagingLoader';
 
 
+const useIsMobile = () => {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    return isMobile;
+};
+
 // Player control icons
-const PrevIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>;
-const NextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>;
-const FullscreenEnterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8V3h5m13 5V3h-5M8 21H3v-5m13 5h5v-5" /></svg>;
-const FullscreenExitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3H3v5m5 13v-5H3m13 5h5v-5m-5-13v5h5" /></svg>;
+const PrevIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 md:h-10 md:w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>;
+const NextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 md:h-10 md:w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>;
+const FullscreenOverlayEnterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 md:h-7 md:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8V3h5m13 5V3h-5M8 21H3v-5m13 5h5v-5" /></svg>;
+const FullscreenOverlayExitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 md:h-7 md:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3H3v5m5 13v-5H3m13 5h5v-5m-5-13v5h5" /></svg>;
+const FullscreenBarEnterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8V3h5m13 5V3h-5M8 21H3v-5m13 5h5v-5" /></svg>;
+const FullscreenBarExitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3H3v5m5 13v-5H3m13 5h5v-5m-5-13v5h5" /></svg>;
 const RefreshIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" /></svg>;
 const ReportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
 const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>;
@@ -376,7 +391,6 @@ const AnimePlayer: React.FC<{
   const [showRelatedScrollButtons, setShowRelatedScrollButtons] = useState(false);
   const [showRecsScrollButtons, setShowRecsScrollButtons] = useState(false);
 
-  const { showNotification } = useNotification(); 
   const [sourceLoadTimes, setSourceLoadTimes] = useState<Partial<Record<StreamSource, number | 'loading' | 'timeout'>>>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const testRunRef = useRef<string | null>(null);
@@ -385,6 +399,7 @@ const AnimePlayer: React.FC<{
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
   const [loadingMessage, setLoadingMessage] = useState('');
   const loadTimeoutRef = useRef<number | null>(null);
+  const isMobile = useIsMobile();
 
   const sources = [ { id: StreamSource.Vidsrc, label: 'Src 1' }, { id: StreamSource.HiAnime, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' } ];
   
@@ -408,13 +423,17 @@ const AnimePlayer: React.FC<{
     console.error("Player failed to load stream.");
   }, []);
 
+  const handleCancelLoad = useCallback(() => {
+    setPlayerStatus('loaded'); // Force the player to be shown
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+  }, []);
+
   const handleRetrySource = useCallback(() => {
     const currentIndex = sources.findIndex(s => s.id === currentSource);
     const nextIndex = (currentIndex + 1) % sources.length;
     const nextSource = sources[nextIndex].id;
     onSourceChange(nextSource);
-    showNotification(`Source failed. Trying ${sources[nextIndex].label}...`, 'info');
-  }, [currentSource, onSourceChange, showNotification, sources]);
+  }, [currentSource, onSourceChange, sources]);
 
   const episodeCount = useMemo(() => {
     if (anime.status === 'RELEASING') {
@@ -641,6 +660,35 @@ const scrollRecs = createScroller(recsScrollContainerRef);
     }
   }, []);
   
+  const handlePlayerClick = useCallback((e?: React.MouseEvent) => {
+    // This logic prevents closing the overlay when clicking on buttons inside it, especially useful on mobile.
+    if (e) {
+        const target = e.target as HTMLElement;
+        if (target.closest('button')) {
+            if (isMobile) {
+                // On mobile, clicking a button should not close the overlay. Instead, reset the hide timer.
+                if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+                inactivityTimeoutRef.current = window.setTimeout(() => setIsOverlayVisible(false), 3500);
+            }
+            return; // Always stop propagation for button clicks.
+        }
+    }
+    
+    setIsOverlayVisible(prev => {
+        const newVisibility = !prev;
+        if (inactivityTimeoutRef.current) {
+            clearTimeout(inactivityTimeoutRef.current);
+        }
+        if (newVisibility) {
+            // If we are making it visible, set a timeout to hide it.
+            inactivityTimeoutRef.current = window.setTimeout(() => {
+                setIsOverlayVisible(false);
+            }, 3500);
+        }
+        return newVisibility;
+    });
+  }, [isMobile]);
+
   useEffect(() => {
     const handlePlayerEvent = (data: any) => {
         const eventName = data.name || data.event;
@@ -706,7 +754,6 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   useEffect(() => {
     setPlayerStatus('loading');
     setLoadingMessage(`Loading Episode ${currentEpisode}...`);
-    setStreamUrl(null);
     setSubtitles([]);
 
     if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
@@ -762,7 +809,6 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                 }
             } catch (error) {
                 console.error("Error fetching HiAnimeV2 stream:", error);
-                showNotification('Failed to load Source 4 stream.', 'error');
                 setStreamUrl('about:blank#stream-fetch-error');
                 handleLoadError();
             }
@@ -781,7 +827,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
       clearTimeout(timer)
       if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
     };
-}, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, refreshKey, showNotification, handleLoadError]);
+}, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, refreshKey, handleLoadError]);
 
 
   useEffect(() => {
@@ -803,11 +849,11 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   }, [anime.nextAiringEpisode]);
 
   const handleReportIssue = () => {
-    onReportIssue(); showNotification('Thank you for your feedback! We will look into it!', 'success', 3000); 
+    onReportIssue();
   };
   
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1); showNotification('Refreshing player...', 'info', 1500);
+    setRefreshKey(prev => prev + 1);
   };
 
   const playerAllowString = useMemo(() => {
@@ -882,8 +928,9 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         className="aspect-video bg-black rounded-t-lg shadow-xl overflow-hidden relative"
                         onMouseMove={() => showOverlay()}
                         onMouseLeave={hideOverlay}
+                        onClick={handlePlayerClick}
                     >
-                      <EngagingLoader status={playerStatus} message={loadingMessage} onRetry={handleRetrySource} />
+                      <EngagingLoader status={playerStatus} message={loadingMessage} onRetry={handleRetrySource} onCancel={handleCancelLoad} />
                       
                       {currentSource === StreamSource.HiAnimeV2 && streamUrl && !streamUrl.includes('about:blank') ? (
                           <CustomVideoPlayer
@@ -941,24 +988,24 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                        <div className={`absolute inset-0 z-20 transition-opacity duration-300 pointer-events-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'}`}>
                             <div className="absolute inset-0 flex items-center justify-between px-4">
                                 <button
-                                    onClick={handlePrevEpisode}
+                                    onClick={(e) => { e.stopPropagation(); handlePrevEpisode(); }}
                                     disabled={currentEpisode <= 1}
-                                    className="p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="p-2 md:p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
                                     aria-label="Previous Episode"
                                 ><PrevIcon /></button>
                                 <button
-                                    onClick={handleNextEpisode}
+                                    onClick={(e) => { e.stopPropagation(); handleNextEpisode(); }}
                                     disabled={currentEpisode >= episodeCount}
-                                    className="p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="p-2 md:p-3 bg-black/50 rounded-full hover:bg-black/80 transition-colors pointer-events-auto disabled:opacity-30 disabled:cursor-not-allowed"
                                     aria-label="Next Episode"
                                 ><NextIcon /></button>
                             </div>
                             <button
-                                onClick={handleFullscreen}
-                                className="absolute bottom-3 right-3 p-2.5 bg-gray-900/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-white hover:bg-gray-800/70 transition-colors pointer-events-auto"
+                                onClick={(e) => { e.stopPropagation(); handleFullscreen(); }}
+                                className="absolute bottom-1.5 right-1.5 p-2 md:p-3 bg-gray-900/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-white hover:bg-gray-800/70 transition-colors pointer-events-auto"
                                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                             >
-                                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+                                {isFullscreen ? <FullscreenOverlayExitIcon /> : <FullscreenOverlayEnterIcon />}
                             </button>
                         </div>
                     </div>
@@ -989,7 +1036,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                 className="flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 font-semibold px-2 py-1 rounded-md transition-colors"
                                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                             >
-                                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+                                {isFullscreen ? <FullscreenBarExitIcon /> : <FullscreenBarEnterIcon />}
                                 <span className="hidden sm:inline">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
                             </button>
                         </div>
@@ -1118,4 +1165,4 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   );
 };
 
-export default AnimePlayer;
+export default React.memo(AnimePlayer);
