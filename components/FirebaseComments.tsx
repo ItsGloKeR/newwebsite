@@ -111,7 +111,8 @@ const CommentForm: React.FC<{
     };
 
     const handleEmoji = () => {
-        alert("Emoji support is coming soon!");
+        setError("Emoji support is coming soon!");
+        setTimeout(() => setError(''), 3000);
     };
 
     const handleSubmit = () => {
@@ -390,6 +391,8 @@ const FirebaseComments: React.FC<FirebaseCommentsProps> = ({ animeId, episodeNum
                     likes: [],
                     likeCount: 0,
                     parentId,
+                    isEdited: false,
+                    isPinned: false,
                 };
                 setComments(prev => [newComment, ...prev]);
                 setReplyingTo(null);
@@ -540,19 +543,22 @@ const FirebaseComments: React.FC<FirebaseCommentsProps> = ({ animeId, episodeNum
                 {authLoading ? (<div className="h-24 bg-gray-700 rounded-lg animate-pulse"></div>) 
                 : user ? (<CommentForm user={user} isPosting={isPosting} onSubmit={(text) => handlePostComment(text)} placeholder="Add a public comment..." submitLabel="Post" />) 
                 : (
-                    <button
-                        onClick={onLoginClick}
-                        className="w-full bg-gray-700/50 hover:bg-gray-700/80 transition-colors rounded-lg flex items-start gap-3 text-left p-2"
+                    <div 
+                        className="w-full flex items-start gap-3 p-3 bg-gray-800/50 rounded-lg"
                     >
                         <img 
                             src={DEFAULT_AVATAR_URL} 
                             alt="Guest"
-                            className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-1"
+                            className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-1 opacity-50"
                         />
-                        <div className="flex-grow text-gray-400 pt-1.5">
-                            Add a public comment...
+                        <div className="flex-grow">
+                            <div className="w-full bg-gray-700/80 rounded-lg p-3 text-left">
+                                <button onClick={onLoginClick} className="text-gray-400 hover:text-cyan-400 font-semibold transition-colors hover:underline">
+                                    You must be logged in to comment...
+                                </button>
+                            </div>
                         </div>
-                    </button>
+                    </div>
                 )}
                 {postError && <p className="text-red-500 text-xs mt-1">{postError}</p>}
             </div>

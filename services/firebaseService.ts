@@ -233,6 +233,7 @@ export const postComment = async (
             likes: [],
             likeCount: 0,
             isPinned: false,
+            isEdited: false,
         };
         if (parentId) {
             commentData.parentId = parentId;
