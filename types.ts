@@ -296,20 +296,3 @@ export interface ConsumetWatchData {
   sources: ConsumetStreamSource[];
   download?: string;
 }
-
-// Commenting System
-export interface Comment {
-  id: string; // Firestore document ID
-  threadId: string; // e.g., "12345-1" for animeId-episodeNumber
-  userId: string;
-  displayName: string;
-  photoURL: string;
-  text: string;
-  createdAt: { seconds: number; nanoseconds: number }; // Firestore Timestamp structure
-  likes: string[];
-  likeCount: number;
-  parentId?: string; // ID of the parent comment for threading
-  isEdited?: boolean; // Flag to show "edited" status
-  isPinned?: boolean; // Flag for pinned comments
-  replies?: Comment[]; // Client-side only for nesting
-}
