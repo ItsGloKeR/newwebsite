@@ -352,6 +352,7 @@ const AnimePlayer: React.FC<{
   onViewMore: (filters: Partial<{ animeList: (RelatedAnime | RecommendedAnime)[]; statuses: MediaStatus[]; sort: MediaSort; }>, title: string) => void;
   onReportIssue: () => void;
   topAiring: Anime[];
+  onLoginClick: () => void;
 }> = ({
   anime,
   currentEpisode,
@@ -366,6 +367,7 @@ const AnimePlayer: React.FC<{
   onViewMore,
   onReportIssue,
   topAiring,
+  onLoginClick,
 }) => {
   const { getStreamUrl } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
@@ -450,11 +452,11 @@ const AnimePlayer: React.FC<{
     if (currentSource === StreamSource.Vidsrc) {
       unmuteTimersRef.current.show = window.setTimeout(() => {
         setShowUnmuteOverlay(true);
-      }, 3000); // Show after 3 seconds
+      }, 5000); // Show after 5 seconds
 
       unmuteTimersRef.current.hide = window.setTimeout(() => {
         setShowUnmuteOverlay(false);
-      }, 6000); // Hide after 3 more seconds (6s total)
+      }, 8000); // Hide after 3 more seconds (8s total)
     }
 
     return () => {
@@ -948,7 +950,7 @@ const AnimePlayer: React.FC<{
                                     aria-label="Next Episode"
                                 ><NextIcon /></button>
                             </div>
-                            {(currentSource !== StreamSource.Vidsrc && currentSource !== StreamSource.HiAnimeV2) && (
+                            {currentSource !== StreamSource.Vidsrc && currentSource !== StreamSource.HiAnimeV2 && (
                             <button
                                 onClick={handleFullscreen}
                                 className="absolute bottom-1.5 right-1.5 p-2 md:p-3 bg-gray-900/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-white hover:bg-gray-800/70 transition-colors pointer-events-auto"
@@ -1054,7 +1056,7 @@ const AnimePlayer: React.FC<{
                 </div>
                 <DetailsComponent />
                  <div className="mt-8">
-                    <FirebaseComments animeId={anime.anilistId} episodeNumber={currentEpisode} animeTitle={title} />
+                    <FirebaseComments animeId={anime.anilistId} episodeNumber={currentEpisode} onLoginClick={onLoginClick} />
                 </div>
             </div>
 

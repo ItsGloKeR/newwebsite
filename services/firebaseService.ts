@@ -3,7 +3,23 @@ import {
     doc, 
     setDoc, 
     getDoc, 
-    updateDoc
+    updateDoc, 
+    arrayUnion, 
+    arrayRemove,
+    writeBatch,
+    DocumentData,
+    collection,
+    query,
+    where,
+    orderBy,
+    limit,
+    getDocs,
+    startAfter,
+    Timestamp,
+    addDoc,
+    deleteDoc,
+    increment,
+    QueryOrderByConstraint
 } from "firebase/firestore";
 import { 
     GoogleAuthProvider, 
@@ -23,7 +39,7 @@ import {
     browserSessionPersistence // Added
 } from "firebase/auth";
 import { db, auth, isFirebaseConfigured, deleteField } from './firebase';
-import { UserProfile, MediaProgress } from '../types';
+import { UserProfile, MediaProgress, Comment } from '../types';
 import { progressTracker } from '../utils/progressTracking';
 
 if (!isFirebaseConfigured) {
@@ -196,5 +212,186 @@ export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: 
         throw error;
     }
 };
+
+// --- COMMENT FUNCTIONS ---
+
+export const postComment = async (
+    threadId: string,
+    user: UserProfile,
+    text: string,
+    parentId?: string
+): Promise<string | null> => {
+    if (!db || !user) return null;
+    try {
+        const commentData: any = {
+            threadId,
+            userId: user.uid,
+            displayName: user.displayName || 'Anonymous',
+            photoURL: user.photoURL || '',
+            text,
+            createdAt: Timestamp.now(),
+            likes: [],
+            likeCount: 0,
+            isPinned: false,
+            isEdited: false,
+        };
+        if (parentId) {
+            commentData.parentId = parentId;
+        }
+        const docRef = await addDoc(collection(db, 'comments'), commentData);
+        return docRef.id;
+    } catch (error) {
+        console.error("Error posting comment:", error);
+        return null;
+    }
+};
+
+export const editComment = async (commentId: string, newText: string): Promise<boolean> => {
+    if (!db) return false;
+    try {
+        const commentRef = doc(db, 'comments', commentId);
+        await updateDoc(commentRef, {
+            text: newText,
+            isEdited: true
+        });
+        return true;
+    } catch (error) {
+        console.error("Error editing comment:", error);
+        return false;
+    }
+};
+
+export const reportComment = async (commentId: string, reportingUserId: string): Promise<boolean> => {
+    if (!db) return false;
+    try {
+        await addDoc(collection(db, 'reports'), {
+            commentId,
+            reportingUserId,
+            reportedAt: Timestamp.now(),
+            status: 'pending'
+        });
+        return true;
+    } catch (error) {
+        console.error("Error reporting comment:", error);
+        return false;
+    }
+};
+
+export const togglePinComment = async (commentId: string): Promise<boolean> => {
+    if (!db) return false;
+    const commentRef = doc(db, 'comments', commentId);
+    try {
+        const commentSnap = await getDoc(commentRef);
+        if (commentSnap.exists()) {
+            const currentStatus = commentSnap.data().isPinned || false;
+            await updateDoc(commentRef, { isPinned: !currentStatus });
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error(`Error toggling pin on comment ${commentId}:`, error);
+        return false;
+    }
+};
+
+
+export const getComments = async (
+    threadId: string,
+    sortBy: 'newest' | 'oldest' | 'top',
+    lastVisibleDoc?: DocumentData
+): Promise<{ comments: Comment[]; lastVisible: DocumentData | null }> => {
+    if (!db) return { comments: [], lastVisible: null };
+
+    // Fetch up to 100 comments at a time to build threads on the client
+    const commentsPerPage = 100;
+    const commentsRef = collection(db, 'comments');
+    
+    const orderByConstraints: QueryOrderByConstraint[] = [orderBy('isPinned', 'desc')]; // ALWAYS pin first
+    if (sortBy === 'top') {
+        orderByConstraints.push(orderBy('likeCount', 'desc'));
+        orderByConstraints.push(orderBy('createdAt', 'desc')); // Secondary sort for tie-breaking
+    } else if (sortBy === 'oldest') {
+        orderByConstraints.push(orderBy('createdAt', 'asc'));
+    } else { // 'newest' is the default
+        orderByConstraints.push(orderBy('createdAt', 'desc'));
+    }
+
+    let q;
+    if (lastVisibleDoc) {
+        q = query(
+            commentsRef,
+            where('threadId', '==', threadId),
+            ...orderByConstraints,
+            startAfter(lastVisibleDoc),
+            limit(commentsPerPage)
+        );
+    } else {
+        q = query(
+            commentsRef,
+            where('threadId', '==', threadId),
+            ...orderByConstraints,
+            limit(commentsPerPage)
+        );
+    }
+
+    try {
+        const querySnapshot = await getDocs(q);
+        const comments = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as Comment));
+        
+        const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] || null;
+
+        return { comments, lastVisible };
+    } catch (error) {
+        console.error("Error getting comments:", error);
+        return { comments: [], lastVisible: null };
+    }
+};
+
+export const deleteComment = async (commentId: string): Promise<boolean> => {
+    if (!db) return false;
+    try {
+        const commentRef = doc(db, 'comments', commentId);
+        await deleteDoc(commentRef);
+        // In a real app, you'd also delete all replies via a cloud function.
+        return true;
+    } catch (error) {
+        console.error("Error deleting comment:", error);
+        return false;
+    }
+};
+
+export const toggleLikeComment = async (commentId: string, userId: string): Promise<boolean> => {
+    if (!db) return false;
+    try {
+        const commentRef = doc(db, 'comments', commentId);
+        const commentSnap = await getDoc(commentRef);
+        if (commentSnap.exists()) {
+            const commentData = commentSnap.data();
+            const likes: string[] = commentData.likes || [];
+            if (likes.includes(userId)) {
+                // User has liked, so unlike
+                await updateDoc(commentRef, { 
+                    likes: arrayRemove(userId),
+                    likeCount: increment(-1) 
+                });
+            } else {
+                // User has not liked, so like
+                await updateDoc(commentRef, { 
+                    likes: arrayUnion(userId),
+                    likeCount: increment(1)
+                });
+            }
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error("Error toggling like on comment:", error);
+        return false;
+    }
+};
+
 
 export { sendPasswordResetEmail, sendEmailVerification, updatePassword, EmailAuthProvider, reauthenticateWithCredential, setPersistence, browserLocalPersistence, browserSessionPersistence };
