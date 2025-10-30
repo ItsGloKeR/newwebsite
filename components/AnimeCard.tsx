@@ -16,7 +16,8 @@ interface AnimeCardProps {
   onSelect: (anime: Anime) => void;
 }
 
-const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
+// FIX: Changed to a named export to resolve import errors.
+export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
   const { titleLanguage } = useTitleLanguage();
   const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
   const { showTooltip, hideTooltip } = useTooltip();
@@ -101,17 +102,8 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, onSelect }) => {
         <div className="flex items-center gap-3 text-gray-300 text-xs">
           {anime.format && anime.format !== 'N/A' && <span className="font-semibold">{anime.format}</span>}
           {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
-          {episodeText() && <span className="font-semibold">{episodeText()}</span>}
-          {anime.rating > 0 && (
-            <span className="flex items-center gap-1 font-semibold ml-auto">
-              <StarIcon className="w-3 h-3 text-yellow-400" />
-              {anime.rating}
-            </span>
-          )}
         </div>
       </div>
     </div>
   );
 };
-
-export default AnimeCard;

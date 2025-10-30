@@ -56,8 +56,12 @@ class ProgressTracker {
   }
 
   private saveProgress(progress: MediaProgress) {
+    try {
       localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
       window.dispatchEvent(new CustomEvent('progressUpdated'));
+    } catch (error) {
+      console.error("Failed to save progress to localStorage", error);
+    }
   }
   
   public replaceAllProgress(progress: MediaProgress) {

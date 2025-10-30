@@ -7,7 +7,19 @@ import {
     arrayUnion, 
     arrayRemove,
     writeBatch,
-    DocumentData
+    DocumentData,
+    collection,
+    query,
+    where,
+    orderBy,
+    limit,
+    getDocs,
+    startAfter,
+    Timestamp,
+    addDoc,
+    deleteDoc,
+    increment,
+    QueryOrderByConstraint
 } from "firebase/firestore";
 import { 
     GoogleAuthProvider, 
@@ -27,7 +39,7 @@ import {
     browserSessionPersistence // Added
 } from "firebase/auth";
 import { db, auth, isFirebaseConfigured, deleteField } from './firebase';
-import { UserProfile, MediaProgress } from '../types';
+import { UserProfile, MediaProgress, Comment } from '../types';
 import { progressTracker } from '../utils/progressTracking';
 
 if (!isFirebaseConfigured) {
@@ -184,5 +196,129 @@ export const updateUserProfileAndAuth = async (user: FirebaseUser, displayName: 
         throw error;
     }
 };
+
+// --- COMMENT FUNCTIONS ---
+
+export const postComment = async (
+    threadId: string,
+    user: UserProfile,
+    text: string
+): Promise<string | null> => {
+    if (!db || !user) return null;
+    try {
+        const commentData = {
+            threadId,
+            userId: user.uid,
+            displayName: user.displayName || 'Anonymous',
+            photoURL: user.photoURL || '',
+            text,
+            createdAt: Timestamp.now(),
+            likes: [],
+            likeCount: 0,
+        };
+        const docRef = await addDoc(collection(db, 'comments'), commentData);
+        return docRef.id;
+    } catch (error) {
+        console.error("Error posting comment:", error);
+        return null;
+    }
+};
+
+export const getComments = async (
+    threadId: string,
+    sortBy: 'newest' | 'oldest' | 'top',
+    lastVisibleDoc?: DocumentData
+): Promise<{ comments: Comment[]; lastVisible: DocumentData | null }> => {
+    if (!db) return { comments: [], lastVisible: null };
+
+    const commentsPerPage = 15;
+    const commentsRef = collection(db, 'comments');
+    
+    const orderByConstraints: QueryOrderByConstraint[] = [];
+    if (sortBy === 'top') {
+        orderByConstraints.push(orderBy('likeCount', 'desc'));
+        orderByConstraints.push(orderBy('createdAt', 'desc')); // Secondary sort for tie-breaking
+    } else if (sortBy === 'oldest') {
+        orderByConstraints.push(orderBy('createdAt', 'asc'));
+    } else { // 'newest' is the default
+        orderByConstraints.push(orderBy('createdAt', 'desc'));
+    }
+
+    let q;
+    if (lastVisibleDoc) {
+        q = query(
+            commentsRef,
+            where('threadId', '==', threadId),
+            ...orderByConstraints,
+            startAfter(lastVisibleDoc),
+            limit(commentsPerPage)
+        );
+    } else {
+        q = query(
+            commentsRef,
+            where('threadId', '==', threadId),
+            ...orderByConstraints,
+            limit(commentsPerPage)
+        );
+    }
+
+    try {
+        const querySnapshot = await getDocs(q);
+        const comments = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as Comment));
+        
+        const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] || null;
+
+        return { comments, lastVisible };
+    } catch (error) {
+        console.error("Error getting comments:", error);
+        return { comments: [], lastVisible: null };
+    }
+};
+
+export const deleteComment = async (commentId: string): Promise<boolean> => {
+    if (!db) return false;
+    try {
+        const commentRef = doc(db, 'comments', commentId);
+        await deleteDoc(commentRef);
+        return true;
+    } catch (error) {
+        console.error("Error deleting comment:", error);
+        return false;
+    }
+};
+
+export const toggleLikeComment = async (commentId: string, userId: string): Promise<boolean> => {
+    if (!db) return false;
+    try {
+        const commentRef = doc(db, 'comments', commentId);
+        const commentSnap = await getDoc(commentRef);
+        if (commentSnap.exists()) {
+            const commentData = commentSnap.data();
+            const likes: string[] = commentData.likes || [];
+            if (likes.includes(userId)) {
+                // User has liked, so unlike
+                await updateDoc(commentRef, { 
+                    likes: arrayRemove(userId),
+                    likeCount: increment(-1) 
+                });
+            } else {
+                // User has not liked, so like
+                await updateDoc(commentRef, { 
+                    likes: arrayUnion(userId),
+                    likeCount: increment(1)
+                });
+            }
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error("Error toggling like on comment:", error);
+        return false;
+    }
+};
+
 
 export { sendPasswordResetEmail, sendEmailVerification, updatePassword, EmailAuthProvider, reauthenticateWithCredential, setPersistence, browserLocalPersistence, browserSessionPersistence };

@@ -19,6 +19,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const [vidlinkUrl, setVidlinkUrl] = useState(overrides.globalStreamUrlTemplates.vidlink || '');
   const [vidsrcUrl, setVidsrcUrl] = useState(overrides.globalStreamUrlTemplates.vidsrc || '');
   const [vidsrcIcuUrl, setVidsrcIcuUrl] = useState(overrides.globalStreamUrlTemplates.vidsrcicu || '');
+  const [slayKnightUrl, setSlayKnightUrl] = useState(overrides.globalStreamUrlTemplates.slayknight || '');
   const [copyButtonText, setCopyButtonText] = useState('Generate & Copy Code');
   
   const modalRef = useRef<HTMLDivElement>(null);
@@ -31,6 +32,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         setVidlinkUrl(overrides.globalStreamUrlTemplates.vidlink || '');
         setVidsrcUrl(overrides.globalStreamUrlTemplates.vidsrc || '');
         setVidsrcIcuUrl(overrides.globalStreamUrlTemplates.vidsrcicu || '');
+        setSlayKnightUrl(overrides.globalStreamUrlTemplates.slayknight || '');
     }
   }, [overrides, isOpen]);
   
@@ -73,6 +75,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         setVidsrcUrl(value);
     } else if (source === StreamSource.VidsrcIcu) {
         setVidsrcIcuUrl(value);
+    } else if (source === StreamSource.SlayKnight) {
+        setSlayKnightUrl(value);
     }
     updateGlobalStreamUrlTemplate(source, value);
   };
@@ -195,6 +199,17 @@ const handleCopy = () => {
                     value={vidsrcIcuUrl}
                     onChange={(e) => handleUrlChange(StreamSource.VidsrcIcu, e.target.value)}
                     placeholder="e.g., https://vidsrc.icu/embed/anime/{id}/{episode}/{dub}"
+                    className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                </div>
+                <div className="mb-4">
+                <label className="block mb-2 text-sm font-bold text-gray-400" htmlFor="slayknight">Global Source 7 Template (SlayKnight)</label>
+                <input
+                    id="slayknight"
+                    type="text"
+                    value={slayKnightUrl}
+                    onChange={(e) => handleUrlChange(StreamSource.SlayKnight, e.target.value)}
+                    placeholder="e.g., https://slay-knight.xyz/player/{anilistId}/{episode}/{language}#22d3ee"
                     className="w-full px-3 py-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
                 </div>

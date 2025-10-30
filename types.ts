@@ -10,6 +10,7 @@ export enum StreamSource {
   VidsrcIcu = 'vidsrcicu',
   HiAnime = 'hianime',
   HiAnimeV2 = 'hianimev2',
+  SlayKnight = 'slayknight',
 }
 
 export enum StreamLanguage {
@@ -292,4 +293,17 @@ export interface ConsumetWatchData {
   };
   sources: ConsumetStreamSource[];
   download?: string;
+}
+
+// Commenting System
+export interface Comment {
+  id: string; // Firestore document ID
+  threadId: string; // e.g., "12345-1" for animeId-episodeNumber
+  userId: string;
+  displayName: string;
+  photoURL: string;
+  text: string;
+  createdAt: { seconds: number; nanoseconds: number }; // Firestore Timestamp structure
+  likes: string[];
+  likeCount: number;
 }

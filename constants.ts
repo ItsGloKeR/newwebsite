@@ -9,6 +9,7 @@ export const STREAM_URLS: Record<StreamSource, string> = {
   [StreamSource.VidsrcIcu]: 'https://vidsrc.icu/embed/anime/{id}/{episode}/{dub}',
   [StreamSource.HiAnime]: 'https://megaplay.buzz/stream/s-2/{hianime-ep-id}/{language}',
   [StreamSource.HiAnimeV2]: '', // Handled dynamically by the player
+  [StreamSource.SlayKnight]: 'https://slay-knight.xyz/player/{anilistId}/{episode}/{language}#22d3ee',
 };
 
 // SVG data URI for a simple grey placeholder image with a 2:3 aspect ratio

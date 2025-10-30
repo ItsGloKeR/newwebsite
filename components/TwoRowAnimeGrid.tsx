@@ -2,7 +2,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Anime } from '../types';
-import AnimeCard from './AnimeCard';
+// FIX: Changed to named import for AnimeCard
+import { AnimeCard } from './AnimeCard';
 import SkeletonCard from './SkeletonCard';
 
 interface TwoRowAnimeGridProps {

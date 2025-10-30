@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Anime, StreamSource, StreamLanguage, RelatedAnime, RecommendedAnime, ZenshinMapping, HiAnimeInfo } from '../types';
+import { Anime, StreamSource, StreamLanguage, RelatedAnime, RecommendedAnime, ZenshinMapping, HiAnimeInfo, MediaStatus, MediaSort } from '../types';
 import { useAdmin } from '../contexts/AdminContext';
 import { PLACEHOLDER_IMAGE_URL } from '../constants';
 import { getZenshinMappings, getHiAnimeInfo, getFillerEpisodes } from '../services/anilistService';
@@ -9,7 +9,17 @@ import { progressTracker } from '../utils/progressTracking';
 import Logo from './Logo';
 import CustomVideoPlayer from './CustomVideoPlayer';
 import EngagingLoader from './EngagingLoader';
+import VerticalAnimeList from './VerticalAnimeList';
+import FirebaseComments from './FirebaseComments';
 
+declare global {
+  interface Window {
+    theAnimeCommunityConfig: any;
+    theAnimeCommunity?: {
+      reload: () => void;
+    };
+  }
+}
 
 const useIsMobile = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -67,84 +77,71 @@ const RadarPulse: React.FC<{ onClick: (e: React.MouseEvent<SVGSVGElement>) => vo
   </div>
 );
 
-const DiscoverCard: React.FC<{ anime: RecommendedAnime | RelatedAnime, onSelect: () => void }> = ({ anime, onSelect }) => {
-    const { titleLanguage } = useTitleLanguage();
-    const { showTooltip, hideTooltip } = useTooltip();
-    const cardRef = useRef<HTMLDivElement>(null);
-    const title = titleLanguage === 'romaji' ? anime.romajiTitle : anime.englishTitle;
-    const episodeText = anime.episodes ? `${anime.episodes} Eps` : null;
-    const relationType = (anime as RelatedAnime).relationType;
+const SourceIndicator: React.FC<{ status: number | 'loading' | 'timeout' | undefined }> = ({ status }) => {
+    if (status === 'loading') {
+        return <div className="absolute top-1.5 right-1.5 h-3 w-3 animate-spin rounded-full border-2 border-b-cyan-400 border-gray-600"></div>;
+    }
+    
+    let colorClass: string;
+    let title: string;
 
-    const handleMouseEnter = () => {
-        if (cardRef.current) {
-            const partialAnime = {
-                anilistId: anime.id,
-                englishTitle: anime.englishTitle,
-                romajiTitle: anime.romajiTitle,
-                coverImage: anime.coverImage,
-                episodes: anime.episodes,
-                totalEpisodes: anime.episodes,
-                format: anime.format,
-                year: anime.year,
-                isAdult: anime.isAdult,
-            };
-            showTooltip(partialAnime, cardRef.current.getBoundingClientRect(), { showWatchButton: true });
+    if (status === 'timeout') {
+        colorClass = 'border-t-red-500';
+        title = 'Source failed to load or timed out';
+    } else if (typeof status === 'number') {
+        if (status < 4000) {
+            colorClass = 'border-t-green-500';
+            title = `Fast response (~${Math.round(status/1000)}s)`;
+        } else if (status < 10000) {
+            colorClass = 'border-t-yellow-500';
+            title = `Average response (~${Math.round(status/1000)}s)`;
+        } else {
+            colorClass = 'border-t-orange-500';
+            title = `Slow response (~${Math.round(status/1000)}s)`;
         }
-    };
+    } else {
+        return null;
+    }
 
     return (
         <div 
-            ref={cardRef}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={hideTooltip}
-            className="flex-shrink-0 w-40 cursor-pointer group" 
-            onClick={onSelect}
+            className={`absolute top-0 right-0 h-0 w-0 border-t-8 border-l-8 border-l-transparent ${colorClass}`}
+            title={title}
         >
-            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg shadow-lg transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-cyan-500/30">
-                <img
-                    src={anime.coverImage}
-                    alt={title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }}
-                />
-            </div>
-             <div className="pt-3">
-                <h3 className="text-white text-sm font-bold truncate group-hover:text-cyan-400 transition-colors" title={title}>{title}</h3>
-                <div className="flex items-center gap-3 text-gray-400 text-xs mt-1">
-                    {anime.format && <span className="font-semibold">{anime.format.replace(/_/g, ' ')}</span>}
-                    {anime.year > 0 && <span className="font-semibold">{anime.year}</span>}
-                    {episodeText && <span className="font-semibold">{episodeText}</span>}
-                </div>
-                 {relationType && (
-                    <p className="text-cyan-400 text-xs mt-1 capitalize font-semibold">
-                        {relationType.toLowerCase().replace(/_/g, ' ')}
-                    </p>
-                )}
-            </div>
         </div>
     );
 };
 
-const SourceIndicator = ({ status }: { status: number | 'loading' | 'timeout' | undefined }) => {
-    const baseClasses = "absolute top-0 right-0 w-3 h-3";
 
-    if (status === 'loading') {
-        return <div className={`${baseClasses} bg-gray-500 animate-pulse`} style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />;
-    }
-    if (status === 'timeout') {
-        return <div className={baseClasses} style={{ backgroundColor: '#ef4444', clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />; // red-500
-    }
-    if (typeof status === 'number') {
-        let color = '#4ade80'; // green-400 for fast
-        if (status > 12000) {
-            color = '#facc15'; // yellow-400 for slow
-        } else if (status > 5000) {
-            color = '#3b82f6'; // blue-500 for average
-        }
-        return <div className={baseClasses} style={{ backgroundColor: color, clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />;
-    }
-    return null;
-};
+const mapDiscoverToAnime = (item: RelatedAnime | RecommendedAnime): Anime => ({
+    anilistId: item.id,
+    englishTitle: item.englishTitle,
+    romajiTitle: item.romajiTitle,
+    coverImage: item.coverImage,
+    isAdult: item.isAdult,
+    episodes: item.episodes,
+    totalEpisodes: item.episodes,
+    format: item.format,
+    year: item.year,
+    malId: undefined,
+    description: '',
+    coverImageColor: undefined,
+    bannerImage: '',
+    genres: [],
+    duration: null,
+    rating: 0,
+    status: 'FINISHED',
+    studios: [],
+    staff: [],
+    characters: [],
+    relations: [],
+    recommendations: [],
+});
+
+const smallIconProps = { className: "h-5 w-5 text-cyan-400" };
+const RelatedIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>;
+const RecommendedIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008 18.5a4 4 0 002.844-1.252l.05-.025a2 2 0 001.106-1.79v-5.43c0-1.042-.79-1.92-1.833-2.167C9.332 7.98 8.667 7.98 8.167 8.167 7.124 8.413 6 9.29 6 10.333zM10 1.5a1.5 1.5 0 011.5 1.5v6a1.5 1.5 0 01-3 0v-6A1.5 1.5 0 0110 1.5zM14 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 0016 18.5a4 4 0 002.844-1.252l.05-.025a2 2 0 001.106-1.79v-5.43c0-1.042-.79-1.92-1.833-2.167-.5-.187-1.167-.187-1.667 0C14.79 8.413 14 9.29 14 10.333z" /></svg>;
+const AiringIcon = <svg {...smallIconProps} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M9.99 2.05c.53 0 1.04 .08 1.54 .23l-1.28 1.28A5.95 5.95 0 004.28 7.5l-1.28 1.28A7.94 7.94 0 019.99 2.05zM2.06 9.99a7.94 7.94 0 016.71-7.71l-1.28 1.28A5.95 5.95 0 003.5 12.5l-1.28 1.28A7.94 7.94 0 012.06 10zM10 4a6 6 0 100 12 6 6 0 000-12zM10 14a4 4 0 110-8 4 4 0 010 8z" /></svg>;
 
 type PlayerStatus = 'loading' | 'loaded' | 'error' | 'idle';
 
@@ -235,11 +232,11 @@ const EpisodeSelector: React.FC<{
     };
 
     return (
-        <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg flex flex-col h-full">
+        <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-2 mb-4 flex-shrink-0">
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                    <span>List of episodes:</span>
+                    <span>Episodes</span>
                 </h3>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center bg-gray-700/80 rounded-md border border-gray-600/50 h-8">
@@ -352,8 +349,10 @@ const AnimePlayer: React.FC<{
   onBack: () => void;
   onSelectRelated: (anime: { anilistId: number }) => void;
   onSelectRecommended: (anime: { anilistId: number }) => void;
-  onViewMore: (filters: { animeList: (RelatedAnime | RecommendedAnime)[] }, title: string) => void;
+  onViewMore: (filters: Partial<{ animeList: (RelatedAnime | RecommendedAnime)[]; statuses: MediaStatus[]; sort: MediaSort; }>, title: string) => void;
   onReportIssue: () => void;
+  topAiring: Anime[];
+  onLoginClick: () => void;
 }> = ({
   anime,
   currentEpisode,
@@ -367,6 +366,8 @@ const AnimePlayer: React.FC<{
   onSelectRecommended,
   onViewMore,
   onReportIssue,
+  topAiring,
+  onLoginClick,
 }) => {
   const { getStreamUrl } = useAdmin();
   const { titleLanguage } = useTitleLanguage();
@@ -386,11 +387,6 @@ const AnimePlayer: React.FC<{
   const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(false);
   const unmuteTimersRef = useRef<{ show: number | null; hide: number | null }>({ show: null, hide: null });
 
-  const relatedScrollContainerRef = useRef<HTMLDivElement>(null);
-  const recsScrollContainerRef = useRef<HTMLDivElement>(null);
-  const [showRelatedScrollButtons, setShowRelatedScrollButtons] = useState(false);
-  const [showRecsScrollButtons, setShowRecsScrollButtons] = useState(false);
-
   const [sourceLoadTimes, setSourceLoadTimes] = useState<Partial<Record<StreamSource, number | 'loading' | 'timeout'>>>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const testRunRef = useRef<string | null>(null);
@@ -401,7 +397,7 @@ const AnimePlayer: React.FC<{
   const loadTimeoutRef = useRef<number | null>(null);
   const isMobile = useIsMobile();
 
-  const sources = [ { id: StreamSource.Vidsrc, label: 'Src 1' }, { id: StreamSource.HiAnime, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' } ];
+  const sources = [ { id: StreamSource.Vidsrc, label: 'Src 1' }, { id: StreamSource.HiAnime, label: 'Src 2' }, { id: StreamSource.Vidnest, label: 'Src 3' }, { id: StreamSource.HiAnimeV2, label: 'Src 4' }, { id: StreamSource.AnimePahe, label: 'Src 5' }, { id: StreamSource.VidsrcIcu, label: 'Src 6' }, { id: StreamSource.SlayKnight, label: 'Src 7' } ];
   
   const handleLoadSuccess = useCallback(() => {
     if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
@@ -441,6 +437,10 @@ const AnimePlayer: React.FC<{
     }
     return anime.totalEpisodes || anime.episodes || 1;
   }, [anime]);
+
+  const hasRelations = anime.relations && anime.relations.length > 0;
+  const hasRecommendations = anime.recommendations && anime.recommendations.length > 0;
+  const hasTopAiring = topAiring && topAiring.length > 0;
 
   useEffect(() => {
     // Clear any existing timers when source/episode changes
@@ -495,6 +495,7 @@ const AnimePlayer: React.FC<{
         StreamSource.HiAnimeV2,
         StreamSource.AnimePahe,
         StreamSource.VidsrcIcu,
+        StreamSource.SlayKnight,
     ];
 
     setSourceLoadTimes({});
@@ -612,39 +613,6 @@ const AnimePlayer: React.FC<{
     };
   }, [anime.anilistId, currentEpisode, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, anime.malId, anime.format]);
 
-
-  useEffect(() => {
-    const createOverflowChecker = (ref: React.RefObject<HTMLDivElement>, setter: React.Dispatch<React.SetStateAction<boolean>>) => () => {
-        if (ref.current) {
-            setter(ref.current.scrollWidth > ref.current.clientWidth);
-        }
-    };
-    const checkRelatedOverflow = createOverflowChecker(relatedScrollContainerRef, setShowRelatedScrollButtons);
-    const checkRecsOverflow = createOverflowChecker(recsScrollContainerRef, setShowRecsScrollButtons);
-    
-    const timerRelated = setTimeout(checkRelatedOverflow, 100);
-    const timerRecs = setTimeout(checkRecsOverflow, 100);
-    window.addEventListener('resize', checkRelatedOverflow);
-    window.addEventListener('resize', checkRecsOverflow);
-    return () => {
-        clearTimeout(timerRelated);
-        clearTimeout(timerRecs);
-        window.removeEventListener('resize', checkRelatedOverflow);
-        window.removeEventListener('resize', checkRecsOverflow);
-    };
-}, [anime.relations, anime.recommendations]);
-
-const createScroller = (ref: React.RefObject<HTMLDivElement>) => (direction: 'left' | 'right') => {
-    if (ref.current) {
-        const scrollAmount = ref.current.clientWidth * 0.8;
-        ref.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-    }
-};
-
-const scrollRelated = createScroller(relatedScrollContainerRef);
-const scrollRecs = createScroller(recsScrollContainerRef);
-
-
   // --- Overlay and Fullscreen Logic ---
   
   const hideOverlay = useCallback(() => {
@@ -705,16 +673,26 @@ const scrollRecs = createScroller(recsScrollContainerRef);
 
   useEffect(() => {
     const fetchMappings = async () => {
-        const [zenshin, hianime] = await Promise.all([ getZenshinMappings(anime.anilistId), getHiAnimeInfo(anime.anilistId) ]);
+      try {
+        const [zenshin, hianime] = await Promise.all([getZenshinMappings(anime.anilistId), getHiAnimeInfo(anime.anilistId)]);
         setZenshinData(zenshin);
         setHiAnimeInfo(hianime);
+      } catch (error) {
+        console.error("Failed to fetch mappings:", error);
+        setZenshinData(null);
+        setHiAnimeInfo(null);
+      }
     };
     const fetchFillerData = async () => {
-        if (anime?.romajiTitle) {
-            setFillerEpisodes([]); // Reset for new anime
-            const fillers = await getFillerEpisodes(anime.romajiTitle);
-            setFillerEpisodes(fillers);
+      if (anime?.romajiTitle) {
+        try {
+          setFillerEpisodes([]); // Reset for new anime
+          const fillers = await getFillerEpisodes(anime.romajiTitle);
+          setFillerEpisodes(fillers);
+        } catch (error) {
+          console.error("Failed to fetch filler data:", error);
         }
+      }
     };
     fetchMappings();
     fetchFillerData();
@@ -798,7 +776,6 @@ const scrollRecs = createScroller(recsScrollContainerRef);
     };
 }, [anime.anilistId, anime.malId, anime.format, currentEpisode, currentSource, currentLanguage, getStreamUrl, zenshinData, hiAnimeInfo, refreshKey, handleLoadError]);
 
-
   useEffect(() => {
     if (anime && currentEpisode > 0) progressTracker.setLastWatchedEpisode(anime, currentEpisode);
     hideOverlay();
@@ -837,9 +814,10 @@ const scrollRecs = createScroller(recsScrollContainerRef);
   
   const languages = [ { id: StreamLanguage.Sub, label: 'SUB' }, { id: StreamLanguage.Dub, label: 'DUB' }, { id: StreamLanguage.Hindi, label: 'HINDI' } ];
   const sourcesWithoutLanguageControl: StreamSource[] = [];
+  const sourcesDisablingHindi: StreamSource[] = [StreamSource.Vidsrc, StreamSource.VidsrcIcu, StreamSource.HiAnime, StreamSource.HiAnimeV2];
 
   const DetailsComponent = () => (
-    <div className="mt-8 lg:mt-4">
+    <div className="mt-8">
         <div className="bg-gray-900/80 p-4 rounded-lg shadow-lg flex flex-col md:flex-row gap-6">
             <img src={anime.coverImage} alt={title} onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMAGE_URL; }} className="w-full md:w-48 h-auto object-cover rounded-lg aspect-[2/3] self-center" />
             <div className="flex-grow flex flex-col">
@@ -950,7 +928,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                             </p>
                         </div>
                       )}
-                        <div className="absolute top-4 right-4 z-20 opacity-70 pointer-events-none">
+                        <div className={`absolute top-4 ${currentSource === StreamSource.SlayKnight ? 'left-4' : 'right-4'} z-20 opacity-70 pointer-events-none`}>
                             <Logo />
                         </div>
                        
@@ -1035,7 +1013,7 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                                   <div className="px-4 py-1.5 text-sm text-gray-400"> No subtitle options for this source. </div>
                               ) : (
                                   languages.map(lang => {
-                                      const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || ((currentSource === StreamSource.Vidsrc || currentSource === StreamSource.VidsrcIcu) && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnime && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.HiAnimeV2 && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.VidsrcIcu && lang.id === StreamLanguage.Sub);
+                                      const isLangDisabled = (currentSource === StreamSource.AnimePahe && (lang.id === StreamLanguage.Dub || lang.id === StreamLanguage.Hindi)) || (sourcesDisablingHindi.includes(currentSource) && lang.id === StreamLanguage.Hindi) || (currentSource === StreamSource.VidsrcIcu && lang.id === StreamLanguage.Sub);
                                       return ( <button key={lang.id} onClick={() => !isLangDisabled && onLanguageChange(lang.id)} disabled={isLangDisabled} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${currentLanguage === lang.id ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-300'} ${isLangDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>{lang.label}</button> )
                                   })
                               )}
@@ -1063,11 +1041,8 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                       )}
                     </div>
                 </div>
-            </div>
-
-            <div className="lg:col-span-1">
-                <div className="lg:sticky lg:top-20 z-10 mt-8 lg:mt-0">
-                    <EpisodeSelector 
+                <div className="lg:hidden mt-8">
+                     <EpisodeSelector 
                         episodeCount={episodeCount}
                         currentEpisode={currentEpisode}
                         onEpisodeChange={onEpisodeChange}
@@ -1077,61 +1052,60 @@ const scrollRecs = createScroller(recsScrollContainerRef);
                         animeTotalEpisodes={anime.totalEpisodes}
                     />
                 </div>
+                <DetailsComponent />
+                 <div className="mt-8">
+                    <FirebaseComments animeId={anime.anilistId} episodeNumber={currentEpisode} onLoginClick={onLoginClick} />
+                </div>
+            </div>
+
+            <div className="lg:col-span-1">
+                <div>
+                    <div className="hidden lg:block">
+                        <EpisodeSelector 
+                            episodeCount={episodeCount}
+                            currentEpisode={currentEpisode}
+                            onEpisodeChange={onEpisodeChange}
+                            zenshinData={zenshinData}
+                            fillerEpisodes={fillerEpisodes}
+                            animeStatus={anime.status}
+                            animeTotalEpisodes={anime.totalEpisodes}
+                        />
+                    </div>
+                     <div className="flex flex-col gap-8 mt-8">
+                        {hasRelations && (
+                            <VerticalAnimeList 
+                                title="Related Anime"
+                                animeList={anime.relations.map(mapDiscoverToAnime)}
+                                onSelectAnime={(selectedAnime) => onSelectRelated({ anilistId: selectedAnime.anilistId })}
+                                onViewMore={() => onViewMore({ animeList: anime.relations }, 'Related Anime')}
+                                icon={RelatedIcon}
+                                showRank={false}
+                            />
+                        )}
+                        {hasRecommendations && (
+                            <VerticalAnimeList 
+                                title="You Might Also Like"
+                                animeList={anime.recommendations.map(mapDiscoverToAnime)}
+                                onSelectAnime={(selectedAnime) => onSelectRecommended({ anilistId: selectedAnime.anilistId })}
+                                onViewMore={() => onViewMore({ animeList: anime.recommendations }, 'Recommended For You')}
+                                icon={RecommendedIcon}
+                                showRank={false}
+                            />
+                        )}
+                        {!hasRelations && !hasRecommendations && hasTopAiring && (
+                             <VerticalAnimeList 
+                                title="Top Airing" 
+                                animeList={topAiring} 
+                                onSelectAnime={(selectedAnime) => onSelectRelated({ anilistId: selectedAnime.anilistId })}
+                                onViewMore={() => onViewMore({ statuses: [MediaStatus.RELEASING], sort: MediaSort.POPULARITY_DESC }, "Top Airing Anime")}
+                                icon={<AiringIcon />}
+                                showRank={true}
+                            />
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
-        <DetailsComponent />
-        {anime.relations && anime.relations.length > 0 && (
-            <div className="mt-8">
-                <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xl font-semibold text-white border-l-4 border-cyan-400 pl-3">Related Anime</h3>
-                    <button
-                        onClick={() => onViewMore({ animeList: anime.relations }, 'Related Anime')}
-                        className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm"
-                    >
-                        <span>View All</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                    </button>
-                </div>
-                <div className="relative">
-                    {showRelatedScrollButtons && (
-                        <>
-                            <button onClick={() => scrollRelated('left')} className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block" aria-label="Scroll Left"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
-                            <button onClick={() => scrollRelated('right')} className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block" aria-label="Scroll Right"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
-                        </>
-                    )}
-                    <div ref={relatedScrollContainerRef} className="flex gap-4 overflow-x-auto carousel-scrollbar pb-2">
-                        {anime.relations.map(rel => (<DiscoverCard key={`${rel.id}-${rel.relationType}`} anime={rel} onSelect={() => onSelectRelated({ anilistId: rel.id })} />))}
-                    </div>
-                </div>
-            </div>
-        )}
-        {anime.recommendations && anime.recommendations.length > 0 && (
-            <div className="mt-8">
-                <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xl font-semibold text-white border-l-4 border-cyan-400 pl-3">You Might Also Like</h3>
-                    <button
-                        onClick={() => onViewMore({ animeList: anime.recommendations }, 'You Might Also Like')}
-                        className="group flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors text-sm"
-                    >
-                        <span>View All</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="relative">
-                    {showRecsScrollButtons && (
-                        <>
-                            <button onClick={() => scrollRecs('left')} className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block" aria-label="Scroll Left"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
-                            <button onClick={() => scrollRecs('right')} className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-20 bg-black/40 p-2 rounded-full hover:bg-black/70 transition-colors hidden md:block" aria-label="Scroll Right"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
-                        </>
-                    )}
-                    <div ref={recsScrollContainerRef} className="flex gap-4 overflow-x-auto carousel-scrollbar pb-2">
-                        {anime.recommendations.map(rec => (<DiscoverCard key={rec.id} anime={rec} onSelect={() => onSelectRecommended({ anilistId: rec.id })} />))}
-                    </div>
-                </div>
-            </div>
-        )}
       </div>
     </main>
   );

@@ -1012,7 +1012,7 @@ const AppContent: React.FC = () => {
 
                 {view === 'details' && (isLoading || !selectedAnime ? <AnimeDetailPageSkeleton /> : <AnimeDetailPage anime={selectedAnime} onWatchNow={handleWatchNow} onBack={handleBackFromDetails} onSelectRelated={(id) => handleSelectAnime({ anilistId: id })} onViewMore={handleViewMore} setInView={setIsBannerInView} />)}
 
-                {view === 'player' && (!playerState.anime ? <FullPageSpinner /> : <AnimePlayer anime={playerState.anime} currentEpisode={playerState.episode} currentSource={playerState.source} currentLanguage={playerState.language} onEpisodeChange={handlePlayerEpisodeChange} onSourceChange={handleSourceChange} onLanguageChange={handleLanguageChange} onBack={handleBackToDetails} onSelectRelated={handleSelectAnime} onSelectRecommended={handleSelectAnime} onViewMore={handleViewMore} onReportIssue={handleGoToReport} />)}
+                {view === 'player' && (!playerState.anime ? <FullPageSpinner /> : <AnimePlayer anime={playerState.anime} currentEpisode={playerState.episode} currentSource={playerState.source} currentLanguage={playerState.language} onEpisodeChange={handlePlayerEpisodeChange} onSourceChange={handleSourceChange} onLanguageChange={handleLanguageChange} onBack={handleBackToDetails} onSelectRelated={handleSelectAnime} onSelectRecommended={handleSelectAnime} onViewMore={handleViewMore} onReportIssue={handleGoToReport} topAiring={topAiring} onLoginClick={handleLoginClick} />)}
 
                 {view === 'report' && <ReportPage onBack={handleBackFromReport} />}
 

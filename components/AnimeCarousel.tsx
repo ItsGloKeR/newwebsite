@@ -14,7 +14,7 @@ interface AnimeCarouselProps {
   isCollapsible?: boolean;
 }
 
-const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, icon, onSelectAnime, onViewMore, showRank = true, onRemoveItem, cardSize = 'normal', isCollapsible }) => {
+export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ title, animeList, icon, onSelectAnime, onViewMore, showRank = true, onRemoveItem, cardSize = 'normal', isCollapsible }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const collapseKey = `carousel-collapsed-${title.replace(/\s+/g, '-')}`;
