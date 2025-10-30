@@ -456,7 +456,7 @@ const AnimePlayer: React.FC<{
 
       unmuteTimersRef.current.hide = window.setTimeout(() => {
         setShowUnmuteOverlay(false);
-      }, 18000); // Hide after another 10 seconds (18s total)
+      }, 11000); // Hide after 3 more seconds (11s total)
     }
 
     return () => {
@@ -950,6 +950,7 @@ const AnimePlayer: React.FC<{
                                     aria-label="Next Episode"
                                 ><NextIcon /></button>
                             </div>
+                            {currentSource !== StreamSource.Vidsrc && (
                             <button
                                 onClick={handleFullscreen}
                                 className="absolute bottom-1.5 right-1.5 p-2 md:p-3 bg-gray-900/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-white hover:bg-gray-800/70 transition-colors pointer-events-auto"
@@ -957,6 +958,7 @@ const AnimePlayer: React.FC<{
                             >
                                 {isFullscreen ? <FullscreenOverlayExitIcon /> : <FullscreenOverlayEnterIcon />}
                             </button>
+                            )}
                         </div>
                     </div>
                     <div className="bg-gray-900/80 p-2 rounded-b-lg flex items-center justify-between gap-x-1 sm:gap-x-1.5 gap-y-2 flex-wrap shadow-lg">

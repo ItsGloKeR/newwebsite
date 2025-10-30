@@ -273,11 +273,13 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  emailVerified?: boolean; // Added emailVerified property
+  emailVerified?: boolean;
   watchlist?: number[];
   favorites?: number[];
   progress?: MediaProgress;
   isAdmin?: boolean;
+  isMuted?: boolean;
+  isBanned?: boolean;
 }
 
 // Consumet API Types
@@ -306,4 +308,8 @@ export interface Comment {
   createdAt: { seconds: number; nanoseconds: number }; // Firestore Timestamp structure
   likes: string[];
   likeCount: number;
+  parentId?: string; // ID of the parent comment for threading
+  isEdited?: boolean; // Flag to show "edited" status
+  isPinned?: boolean; // Flag for pinned comments
+  replies?: Comment[]; // Client-side only for nesting
 }

@@ -149,6 +149,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onOpenAdmi
                 </div>
                 
                 <div className="flex-grow overflow-y-auto pr-2">
+                    {isAdmin && (
+                        <div className="mb-6 p-3 bg-cyan-900/50 border border-cyan-700/50 rounded-lg text-center">
+                            <p className="font-bold text-cyan-300 flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944a11.954 11.954 0 007.834 3.055a1.946 1.946 0 01.956 3.434c.328.328.393.83.17 1.229A11.95 11.95 0 0110 18.056a11.95 11.95 0 01-8.96-6.402c-.223-.399-.158-.901.17-1.229a1.946 1.946 0 01.956-3.434z" clipRule="evenodd" /></svg>
+                                Admin Status: Verified
+                            </p>
+                        </div>
+                    )}
                     <form onSubmit={handleSubmitProfile}>
                         <div className="flex flex-col items-center mb-6">
                             <img 
